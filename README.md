@@ -15,25 +15,30 @@ Realtime multiplayer collaborative Lean Canvas by **Incrementic** (`lean.increme
 
 ---
 
-## Setting Up MCP (Model Context Protocol) for Claude
+## Connecting to Claude (No-Code Connector URL)
 
-You can connect Claude (Desktop, Claude Code, or Cursor) to LeanCanvas Live via MCP to inspect, edit, or stress-test your canvases directly from your Claude conversation.
+For non-technical users, connecting LeanCanvas to Claude takes just one click:
 
-### 1. Claude Desktop Configuration
-Add the LeanCanvas MCP server entry to your Claude Desktop configuration file:
+1. In Claude, go to **Settings › Connectors** (or **Add MCP Server**).
+2. Click **Add Connector**.
+3. Enter the hosted MCP URL:
+   ```text
+   https://lean.incrementic.com/api/mcp
+   ```
+4. Click **Save / Connect**. That’s it! Claude will automatically discover the tools.
 
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+---
 
+## Alternative: Local Claude Desktop Config (JSON)
+If you prefer adding it to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
     "leancanvas": {
       "command": "npx",
-      "args": ["-y", "tsx", "/path/to/leanon/mcp/server.ts"],
+      "args": ["-y", "tsx", "mcp/server.ts"],
       "env": {
-        "CONVEX_URL": "https://<your-deployment>.convex.cloud",
-        "LEANCANVAS_API_TOKEN": "<your-auth-token-or-session-secret>"
+        "CONVEX_URL": "https://lean.incrementic.com"
       }
     }
   }
