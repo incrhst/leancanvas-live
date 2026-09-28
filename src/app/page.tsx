@@ -98,8 +98,19 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-line bg-surface px-6 py-4 text-center text-xs text-muted">
-        LeanCanvas Live • Built with Next.js 15, Convex & Ash Maurya's Lean Methodology
+      <footer className="border-t border-line bg-surface px-6 py-4 text-center text-xs text-muted space-y-1">
+        <div>LeanCanvas Live • Built with Next.js 15, Convex & Ash Maurya&apos;s Lean Methodology</div>
+        <div>
+          A project of{" "}
+          <a
+            href="https://incrementic.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-ink underline hover:text-accent transition-colors"
+          >
+            Incrementic
+          </a>
+        </div>
       </footer>
     </div>
   );
