@@ -47,11 +47,11 @@ If you prefer adding it to your `claude_desktop_config.json`:
 
 ### 2. Available MCP Tools for Claude
 When configured, Claude has access to:
+- `create_canvas({ title, description, seedNotes })`: Initializes a new Lean Canvas and returns the direct collaboration URL.
 - `get_canvas({ canvasId })`: Fetches full structured canvas, blocks, and current notes with evidence states.
 - `add_note({ canvasId, block, content, evidenceState })`: Inserts a note into any of the 9 blocks.
-- `update_evidence({ noteId, evidenceState })`: Updates state (`unknown`, `assumption`, `observed`, `supported`, `contradicted`, `decision`).
+- `update_evidence_state({ noteId, evidenceState })`: Updates state (`unknown`, `assumption`, `observed`, `supported`, `contradicted`, `decision`).
 - `run_stress_test({ canvasId })`: Triggers the Ash Maurya 7-dimension diagnostic and extracts top riskiest assumptions.
-- `export_canvas({ canvasId, format })`: Returns Markdown or JSON for documentation and agent workflows.
 
 ---
 

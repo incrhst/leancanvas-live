@@ -15,6 +15,29 @@ export async function OPTIONS() {
 
 const TOOLS_MANIFEST = [
   {
+    name: "create_canvas",
+    description: "Create a new Lean Canvas for a startup, project, or business idea",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Title of the Lean Canvas (e.g. 'AI Bookkeeping for Freelancers')",
+        },
+        description: {
+          type: "string",
+          description: "Optional one-sentence summary of the business model or problem being solved",
+        },
+        seedNotes: {
+          type: "boolean",
+          description: "Whether to initialize with standard starter notes (default: true)",
+          default: true,
+        },
+      },
+      required: ["title"],
+    },
+  },
+  {
     name: "get_canvas",
     description: "Fetch a Lean Canvas with all 9 blocks and sticky notes",
     inputSchema: {
@@ -248,6 +271,31 @@ export async function POST(req: NextRequest) {
       let resultText = "";
 
       switch (toolName) {
+        case "create_canvas": {
+          const title = (args?.title as string) || "Untitled Lean Canvas";
+          const description = (args?.description as string) || "";
+          const slug = title
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/(^-|-$)/g, "")
+            .substring(0, 30);
+          const canvasId = `canvas_${Date.now().toString(36)}_${slug || "new"}`;
+          const canvasUrl = `https://lean.incrementic.com/canvas/${canvasId}`;
+
+          resultText = JSON.stringify(
+            {
+              success: true,
+              canvasId,
+              title,
+              description,
+              url: canvasUrl,
+              message: `Created new Lean Canvas "${title}". View and collaborate in realtime at ${canvasUrl}`,
+            },
+            null,
+            2
+          );
+          break;
+        }
         case "get_canvas":
           resultText = JSON.stringify(DEMO_CANVAS_PAYLOAD, null, 2);
           break;
