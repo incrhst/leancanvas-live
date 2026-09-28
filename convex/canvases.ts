@@ -222,7 +222,39 @@ export const getCanvas = query({
 
 const GRANT_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 const UNLOCK_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-const UNLOCK_MAX_FAILURES = 20; // failed password attempts per canvas per window
+const UNLOCK_MAX_FAILURES_PER_VIEWER = 10; // wrong passwords per viewer (IP) per window
+const UNLOCK_MAX_FAILURES_PER_CANVAS = 200; // wrong passwords across all viewers per window
+
+type AttemptCounter = { doc: Doc<"shareUnlockAttempts"> | null; inWindow: boolean };
+
+async function getAttemptCounter(
+  ctx: MutationCtx,
+  canvasId: Id<"canvases">,
+  viewerKey: string | undefined,
+  now: number
+): Promise<AttemptCounter> {
+  const doc = await ctx.db
+    .query("shareUnlockAttempts")
+    .withIndex("by_canvas_viewer", (q) => q.eq("canvasId", canvasId).eq("viewerKey", viewerKey))
+    .first();
+  return { doc, inWindow: !!doc && now - doc.windowStart < UNLOCK_WINDOW_MS };
+}
+
+async function recordFailure(
+  ctx: MutationCtx,
+  canvasId: Id<"canvases">,
+  viewerKey: string | undefined,
+  counter: AttemptCounter,
+  now: number
+) {
+  if (!counter.doc) {
+    await ctx.db.insert("shareUnlockAttempts", { canvasId, viewerKey, windowStart: now, count: 1 });
+  } else if (counter.inWindow) {
+    await ctx.db.patch(counter.doc._id, { count: counter.doc.count + 1 });
+  } else {
+    await ctx.db.patch(counter.doc._id, { windowStart: now, count: 1 });
+  }
+}
 
 /**
  * Checks a viewing pass issued by unlockPublicView. Passes are invalidated whenever the
@@ -245,14 +277,22 @@ async function isValidGrant(ctx: QueryCtx, canvas: Doc<"canvases">, grant?: stri
 
 /**
  * Exchanges a public link password for a short-lived viewing pass.
- * Failed attempts are throttled per canvas.
+ * Only callable by the Next.js /api/share/unlock route (shared secret), which supplies the
+ * viewer's IP so failed attempts can be throttled per viewer as well as per canvas.
  */
 export const unlockPublicView = mutation({
   args: {
     token: v.string(),
     password: v.string(),
+    clientIp: v.string(),
+    serverSecret: v.string(),
   },
   handler: async (ctx, args) => {
+    const expected = process.env.SHARE_UNLOCK_SECRET;
+    if (!expected || args.serverSecret !== expected) {
+      throw new ConvexError("Forbidden");
+    }
+
     const canvas = await ctx.db
       .query("canvases")
       .withIndex("by_public_token", (q) => q.eq("publicViewToken", args.token))
@@ -262,23 +302,19 @@ export const unlockPublicView = mutation({
     }
 
     const now = Date.now();
-    const attempts = await ctx.db
-      .query("shareUnlockAttempts")
-      .withIndex("by_canvas", (q) => q.eq("canvasId", canvas._id))
-      .unique();
-    const inWindow = attempts && now - attempts.windowStart < UNLOCK_WINDOW_MS;
-    if (inWindow && attempts.count >= UNLOCK_MAX_FAILURES) {
+    const viewerKey = await sha256Hex(`${canvas._id}:${args.clientIp}`);
+    const viewer = await getAttemptCounter(ctx, canvas._id, viewerKey, now);
+    const overall = await getAttemptCounter(ctx, canvas._id, undefined, now);
+    if (
+      (viewer.inWindow && viewer.doc!.count >= UNLOCK_MAX_FAILURES_PER_VIEWER) ||
+      (overall.inWindow && overall.doc!.count >= UNLOCK_MAX_FAILURES_PER_CANVAS)
+    ) {
       return { ok: false as const, reason: "rate_limited" as const };
     }
 
     if (!(await verifyPassword(args.password, canvas.publicViewPasswordHash))) {
-      if (!attempts) {
-        await ctx.db.insert("shareUnlockAttempts", { canvasId: canvas._id, windowStart: now, count: 1 });
-      } else if (inWindow) {
-        await ctx.db.patch(attempts._id, { count: attempts.count + 1 });
-      } else {
-        await ctx.db.patch(attempts._id, { windowStart: now, count: 1 });
-      }
+      await recordFailure(ctx, canvas._id, viewerKey, viewer, now);
+      await recordFailure(ctx, canvas._id, undefined, overall, now);
       return { ok: false as const, reason: "invalid" as const };
     }
 

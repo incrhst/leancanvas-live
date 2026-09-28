@@ -26,12 +26,14 @@ export default defineSchema({
     expiresAt: v.number(),
   }).index("by_grant_hash", ["grantHash"]),
 
-  // Per-canvas throttle for public link password attempts
+  // Failed public link password attempts, per viewer (hashed IP) and per canvas overall
+  // (viewerKey unset = the canvas-wide counter)
   shareUnlockAttempts: defineTable({
     canvasId: v.id("canvases"),
+    viewerKey: v.optional(v.string()),
     windowStart: v.number(),
     count: v.number(),
-  }).index("by_canvas", ["canvasId"]),
+  }).index("by_canvas_viewer", ["canvasId", "viewerKey"]),
 
   // OAuth 2.1 clients registered via RFC 7591 Dynamic Client Registration (e.g. Claude)
   oauthClients: defineTable({

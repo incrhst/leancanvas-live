@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -23,7 +23,6 @@ export default function PublicSharePage() {
     api.canvases.getCanvasByPublicToken,
     grantLoaded ? { token, grant } : "skip"
   );
-  const unlockPublicView = useMutation(api.canvases.unlockPublicView);
   const [password, setPassword] = useState("");
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [unlocking, setUnlocking] = useState(false);
@@ -46,8 +45,15 @@ export default function PublicSharePage() {
     setUnlocking(true);
     setUnlockError(null);
     try {
-      const result = await unlockPublicView({ token, password });
-      if (result.ok) {
+      const res = await fetch("/api/share/unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password }),
+      });
+      const result = (await res.json()) as
+        | { ok: true; grant: string }
+        | { ok: false; reason: "invalid" | "rate_limited" | "unavailable" };
+      if ("grant" in result) {
         try {
           sessionStorage.setItem(grantKey, result.grant);
         } catch {
