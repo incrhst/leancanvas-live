@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#EA5148"/>
+      <stop offset="60%" stop-color="#E84A41"/>
+      <stop offset="100%" stop-color="#D93D34"/>
+    </linearGradient>
+    <radialGradient id="centerGlow" cx="50%" cy="100%" r="60%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#EA5148" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="halftone" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.5" fill="#FFFFFF" fill-opacity="0.25"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGrad)"/>
+  <!-- Halftone overlay -->
+  <rect width="1200" height="630" fill="url(#halftone)"/>
+  <!-- Radial bottom glow -->
+  <rect width="1200" height="630" fill="url(#centerGlow)"/>
+
+  <!-- Content Container -->
+  <g transform="translate(100, 100)">
+    <!-- Pill Capsule Tag -->
+    <rect x="0" y="0" width="360" height="42" rx="21" fill="#FFFFFF" fill-opacity="0.18" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="1.5"/>
+    <text x="30" y="26" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" fill="#FFFFFF" letter-spacing="1">
+      SHAPE &amp; SHIP • BY INCREMENTIC
+    </text>
+
+    <!-- Main Title -->
+    <text x="0" y="140" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="64" font-weight="800" fill="#FFFFFF" letter-spacing="-1.5">
+      LeanCanvas Live
+    </text>
+
+    <!-- Subtitle -->
+    <text x="0" y="210" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="500" fill="#FFFFFF" fill-opacity="0.95">
+      The shortest distance to your next validated business.
+    </text>
+
+    <text x="0" y="260" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="400" fill="#FFFFFF" fill-opacity="0.85">
+      Realtime Multiplayer • Ash Maurya 7-Dimension Stress Testing • Claude MCP
+    </text>
+
+    <!-- Visual Feature Badges at bottom -->
+    <g transform="translate(0, 340)">
+      <rect x="0" y="0" width="280" height="50" rx="12" fill="#FFFFFF" fill-opacity="0.15" stroke="#FFFFFF" stroke-opacity="0.25"/>
+      <text x="24" y="31" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="600" fill="#FFFFFF">
+        ✓ Realtime Collaboration
+      </text>
+
+      <rect x="305" y="0" width="280" height="50" rx="12" fill="#FFFFFF" fill-opacity="0.15" stroke="#FFFFFF" stroke-opacity="0.25"/>
+      <text x="329" y="31" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="600" fill="#FFFFFF">
+        ✓ 7-Dimension AI Test
+      </text>
+
+      <rect x="610" y="0" width="280" height="50" rx="12" fill="#FFFFFF" fill-opacity="0.15" stroke="#FFFFFF" stroke-opacity="0.25"/>
+      <text x="634" y="31" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="600" fill="#FFFFFF">
+        ✓ Anonymous Read Links
+      </text>
+    </g>
+  </g>
+</svg>

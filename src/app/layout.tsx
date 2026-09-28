@@ -25,21 +25,41 @@ export const metadata: Metadata = {
   title: "LeanCanvas Live — Realtime Collaborative Lean Canvas by Incrementic",
   description:
     "Realtime multiplayer Lean Canvas tool with AI stress-testing and evidence-based assumption tracking. The shortest distance to your next validated business.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico" },
+    ],
+    apple: [
+      { url: "/icon.svg" },
+    ],
+  },
   alternates: {
     canonical: "https://lean.incrementic.com",
   },
   openGraph: {
     title: "LeanCanvas Live — by Incrementic",
-    description: "The shortest distance to your next validated business.",
+    description: "The shortest distance to your next validated business. Realtime multiplayer Lean Canvas with automated AI stress testing.",
     url: "https://lean.incrementic.com",
     siteName: "LeanCanvas Live",
     locale: "en_US",
     type: "website",
+    images: [
+      {
+        url: "/og.svg",
+        width: 1200,
+        height: 630,
+        alt: "LeanCanvas Live by Incrementic",
+        type: "image/svg+xml",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "LeanCanvas Live — by Incrementic",
-    description: "The shortest distance to your next validated business.",
+    description: "The shortest distance to your next validated business. Realtime multiplayer Lean Canvas with automated AI stress testing.",
+    images: ["/og.svg"],
   },
 };
 

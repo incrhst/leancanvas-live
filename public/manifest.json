@@ -1,0 +1,17 @@
+{
+  "name": "LeanCanvas Live",
+  "short_name": "LeanCanvas",
+  "description": "Realtime multiplayer Lean Canvas tool by Incrementic with AI stress testing.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAFAFA",
+  "theme_color": "#EA5148",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
