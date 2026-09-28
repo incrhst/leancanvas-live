@@ -8,6 +8,7 @@ interface StressTestPanelProps {
   canRun: boolean;
   onRunTest: () => void;
   onClose?: () => void;
+  onViewRisks?: () => void;
 }
 
 const SCORE_LABELS: Record<string, { label: string; desc: string }> = {
@@ -26,6 +27,7 @@ export function StressTestPanel({
   canRun,
   onRunTest,
   onClose,
+  onViewRisks,
 }: StressTestPanelProps) {
   return (
     <div className="flex h-full flex-col bg-surface overflow-y-auto p-4 space-y-5 text-ink">
@@ -123,9 +125,20 @@ export function StressTestPanel({
 
           {/* Riskiest Assumptions */}
           <div className="space-y-3">
-            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-900">
-              <ShieldAlertIcon className="w-4 h-4 text-amber-600" />
-              Riskiest Assumptions ({result.riskiestAssumptions.length})
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-rose-900">
+                <ShieldAlertIcon className="w-4 h-4 text-rose-600" />
+                Riskiest Assumptions ({result.riskiestAssumptions.length})
+              </div>
+              {onViewRisks && result.riskiestAssumptions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={onViewRisks}
+                  className="text-[11px] font-medium text-accent hover:underline shrink-0"
+                >
+                  Open focused view
+                </button>
+              )}
             </div>
 
             <div className="space-y-2.5">
