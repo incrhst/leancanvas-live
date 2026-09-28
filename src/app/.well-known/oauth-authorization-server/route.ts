@@ -1,0 +1,30 @@
+import { NextRequest, NextResponse } from "next/server";
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
+
+export async function GET(req: NextRequest) {
+  const origin = "https://lean.incrementic.com";
+
+  return NextResponse.json(
+    {
+      issuer: origin,
+      authorization_endpoint: `${origin}/api/oauth/authorize`,
+      token_endpoint: `${origin}/api/oauth/token`,
+      jwks_uri: `${origin}/api/oauth/jwks`,
+      response_types_supported: ["code"],
+      grant_types_supported: ["authorization_code", "refresh_token"],
+      token_endpoint_auth_methods_supported: ["none", "client_secret_post", "client_secret_basic"],
+      code_challenge_methods_supported: ["S256"], // OAuth 2.1 PKCE requirement
+      scopes_supported: ["openid", "profile", "email", "canvases:read", "canvases:write"],
+    },
+    { headers: CORS_HEADERS }
+  );
+}

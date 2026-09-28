@@ -129,7 +129,7 @@ const DEMO_CANVAS_PAYLOAD = {
 };
 
 export async function GET(req: NextRequest) {
-  // Discovery manifest or SSE endpoint info
+  // Discovery manifest including OAuth 2.1 authentication info
   return NextResponse.json(
     {
       name: "leancanvas-live",
@@ -139,6 +139,13 @@ export async function GET(req: NextRequest) {
       endpoints: {
         http: "https://lean.incrementic.com/api/mcp",
         sse: "https://lean.incrementic.com/api/mcp/sse",
+      },
+      authentication: {
+        type: "oauth2",
+        issuer: "https://lean.incrementic.com",
+        authorization_endpoint: "https://lean.incrementic.com/api/oauth/authorize",
+        token_endpoint: "https://lean.incrementic.com/api/oauth/token",
+        scopes: ["canvases:read", "canvases:write"],
       },
       tools: TOOLS_MANIFEST,
     },
