@@ -129,6 +129,27 @@ const DEMO_CANVAS_PAYLOAD = {
 };
 
 export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+
+  // When Claude tests if authentication is required, returning 401 with WWW-Authenticate triggers "Sign in now" detection!
+  if (!authHeader) {
+    return new NextResponse(
+      JSON.stringify({
+        error: "unauthorized",
+        message: "Authentication required to access LeanCanvas MCP tools",
+      }),
+      {
+        status: 401,
+        headers: {
+          ...CORS_HEADERS,
+          "Content-Type": "application/json",
+          "WWW-Authenticate":
+            'Bearer error="unauthorized", resource_metadata="https://lean.incrementic.com/.well-known/oauth-protected-resource"',
+        },
+      }
+    );
+  }
+
   // Discovery manifest including OAuth 2.1 authentication info
   return NextResponse.json(
     {
