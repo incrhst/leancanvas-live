@@ -9,9 +9,19 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"],
+        display: ["var(--font-sora)", "Sora", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "IBM Plex Mono", "monospace"],
       },
       colors: {
+        incrementic: {
+          red: "#EA5148",
+          charcoal: "#4C4E56",
+          ink: "#2B2C31",
+          white: "#FFFFFF",
+          hair: "#E6E6E8",
+          soft: "#FAFAFA",
+        },
         canvas: token("canvas"),
         surface: token("surface"),
         "surface-2": token("surface-2"),

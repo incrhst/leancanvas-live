@@ -1,5 +1,5 @@
 /* @import url() FONT IMPORTS MUST ALWAYS BE AT THE VERY TOP OF THIS FILE, ABOVE THE TAILWIND IMPORTS — DO NOT DELETE THIS COMMENT */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 /* CRITICAL: THE FOLLOWING TAILWIND IMPORTS MUST NEVER BE DELETED OR REORDERED — DO NOT DELETE THIS COMMENT */
 @import 'tailwindcss/base';
@@ -9,16 +9,27 @@
 /* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
 
 :root {
-  --canvas: 244 243 239;
+  /* Incrementic Brand Identity */
+  --incrementic-red: 234 81 72; /* #EA5148 */
+  --incrementic-charcoal: 76 78 86; /* #4C4E56 */
+  --incrementic-ink: 43 44 49; /* #2B2C31 */
+  --incrementic-hair: 230 230 232; /* #E6E6E8 */
+  --incrementic-soft: 250 250 250; /* #FAFAFA */
+  --incrementic-white: 255 255 255;
+
+  /* App Semantic Tokens */
+  --canvas: 250 250 250;
   --surface: 255 255 255;
-  --surface-2: 250 249 246;
-  --ink: 28 27 25;
-  --muted: 107 105 98;
-  --subtle: 138 135 127;
-  --line: 228 226 220;
-  --accent: 43 89 195;
+  --surface-2: 245 245 247;
+  --ink: 43 44 49;
+  --muted: 107 109 119;
+  --subtle: 154 154 160;
+  --line: 230 230 232;
+  --accent: 234 81 72; /* Incrementic Red as primary accent */
   --accent-ink: 255 255 255;
-  --accent-soft: 232 238 251;
+  --accent-soft: 253 238 237;
+
+  /* Note palette */
   --note-yellow: 255 244 194;
   --note-yellow-edge: 234 217 138;
   --note-pink: 253 226 228;
@@ -28,12 +39,25 @@
   --note-green: 221 243 228;
   --note-green-edge: 167 217 183;
 }
+
 html,
 body,
 #root {
   height: 100%;
 }
+
 body {
   font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Halftone dot pattern inspiration from hero */
+.bg-halftone {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.22) 1.5px, transparent 1.5px);
+  background-size: 16px 16px;
+}
+
+.bg-halftone-dark {
+  background-image: radial-gradient(rgba(76, 78, 86, 0.15) 1.5px, transparent 1.5px);
+  background-size: 16px 16px;
 }

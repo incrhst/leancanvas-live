@@ -20,3 +20,4 @@ out/
 # Convex generated files (regenerated automatically)
 # Keep _generated tracked or untracked based on preference; standard is ignoring local artifacts
 .convex/
+.vercel
