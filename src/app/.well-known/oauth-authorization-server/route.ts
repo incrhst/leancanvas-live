@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
       issuer: origin,
       authorization_endpoint: `${origin}/api/oauth/authorize`,
       token_endpoint: `${origin}/api/oauth/token`,
+      registration_endpoint: `${origin}/api/oauth/register`,
       jwks_uri: `${origin}/api/oauth/jwks`,
       response_types_supported: ["code"],
       grant_types_supported: ["authorization_code", "refresh_token"],
