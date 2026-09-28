@@ -175,6 +175,30 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+
+  // When Claude probes the connector with POST initialize, it checks for 401 Unauthorized + WWW-Authenticate to detect OAuth!
+  if (!authHeader) {
+    return new NextResponse(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        error: {
+          code: -32000,
+          message: "Unauthorized: OAuth authentication required",
+        },
+      }),
+      {
+        status: 401,
+        headers: {
+          ...CORS_HEADERS,
+          "Content-Type": "application/json",
+          "WWW-Authenticate":
+            'Bearer error="unauthorized", resource_metadata="https://lean.incrementic.com/.well-known/oauth-protected-resource"',
+        },
+      }
+    );
+  }
+
   try {
     const body = await req.json();
     const { method, params, id } = body;
