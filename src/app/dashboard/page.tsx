@@ -55,10 +55,20 @@ export default function DashboardPage() {
       {/* Top navigation */}
       <header className="border-b border-line bg-surface px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-accent text-white font-bold flex items-center justify-center text-sm">
+          <div className="w-8 h-8 rounded-lg bg-incrementic-red text-white font-bold flex items-center justify-center text-sm shadow-sm font-display">
             LC
           </div>
-          <span className="font-bold text-base text-ink">My Canvases</span>
+          <div className="flex items-baseline gap-2">
+            <span className="font-bold text-base text-ink font-display">My Canvases</span>
+            <a
+              href="https://incrementic.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:inline font-mono text-[11px] text-muted hover:text-incrementic-red transition-colors"
+            >
+              by Incrementic ↗
+            </a>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
@@ -181,6 +191,20 @@ export default function DashboardPage() {
           ))}
         </div>
       </main>
+
+      {/* Discreet footer */}
+      <footer className="border-t border-line bg-surface/60 py-4 px-6 text-center text-[11px] text-muted flex items-center justify-center gap-1">
+        <span>A project of</span>
+        <a
+          href="https://incrementic.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-ink hover:text-incrementic-red underline transition-colors"
+        >
+          Incrementic
+        </a>
+        <span>— The shortest distance to your next big thing.</span>
+      </footer>
     </div>
   );
 }

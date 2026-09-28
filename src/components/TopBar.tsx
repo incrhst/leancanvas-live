@@ -42,6 +42,15 @@ export function TopBar({
           <LayoutGridIcon size={15} aria-hidden="true" />
         </Link>
         <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
+          <a
+            href="https://incrementic.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden whitespace-nowrap text-muted text-xs hover:text-incrementic-red sm:inline transition-colors"
+          >
+            Incrementic
+          </a>
+          <ChevronRightIcon size={13} className="hidden text-subtle sm:inline" aria-hidden="true" />
           <Link href="/dashboard" className="hidden whitespace-nowrap text-muted sm:inline hover:underline">
             Dashboard
           </Link>
