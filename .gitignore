@@ -1,0 +1,22 @@
+# Node dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js build output
+.next/
+out/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS files
+.DS_Store
+*.pem
+
+# Convex generated files (regenerated automatically)
+# Keep _generated tracked or untracked based on preference; standard is ignoring local artifacts
+.convex/

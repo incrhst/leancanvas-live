@@ -1,0 +1,36 @@
+{
+  "name": "leancanvas-live",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "dev:backend": "convex dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.13.3",
+    "@types/canvas-confetti": "^1.9.0",
+    "canvas-confetti": "^1.9.4",
+    "clsx": "^2.1.1",
+    "convex": "^1.46.0",
+    "date-fns": "^4.4.0",
+    "framer-motion": "^11.18.2",
+    "lucide-react": "^0.522.0",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.18",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "latest",
+    "postcss": "latest",
+    "tailwindcss": "3.4.17",
+    "typescript": "^5.5.4"
+  }
+}

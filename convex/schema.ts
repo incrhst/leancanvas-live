@@ -1,0 +1,141 @@
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  users: defineTable({
+    name: v.string(),
+    email: v.string(),
+    imageUrl: v.optional(v.string()),
+    tokenIdentifier: v.optional(v.string()),
+  })
+    .index("by_email", ["email"])
+    .index("by_token", ["tokenIdentifier"]),
+
+  workspaces: defineTable({
+    name: v.string(),
+    ownerId: v.id("users"),
+  }).index("by_owner", ["ownerId"]),
+
+  canvases: defineTable({
+    workspaceId: v.id("workspaces"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    status: v.union(v.literal("draft"), v.literal("active"), v.literal("archived")),
+    // Public read-only link token (null = private)
+    publicViewToken: v.optional(v.string()),
+    // Whether the public link is currently enabled
+    isPublicViewEnabled: v.boolean(),
+    createdBy: v.id("users"),
+    updatedAt: v.number(),
+  })
+    .index("by_workspace", ["workspaceId"])
+    .index("by_public_token", ["publicViewToken"])
+    .index("by_creator", ["createdBy"]),
+
+  // Membership at canvas level
+  canvasMembers: defineTable({
+    canvasId: v.id("canvases"),
+    userId: v.id("users"),
+    role: v.union(v.literal("owner"), v.literal("editor"), v.literal("viewer")),
+  })
+    .index("by_canvas", ["canvasId"])
+    .index("by_user", ["userId"])
+    .index("by_canvas_user", ["canvasId", "userId"]),
+
+  // Sticky notes inside blocks
+  notes: defineTable({
+    canvasId: v.id("canvases"),
+    block: v.union(
+      v.literal("problem"),
+      v.literal("customerSegments"),
+      v.literal("uniqueValueProposition"),
+      v.literal("solution"),
+      v.literal("channels"),
+      v.literal("revenueStreams"),
+      v.literal("costStructure"),
+      v.literal("keyMetrics"),
+      v.literal("unfairAdvantage")
+    ),
+    content: v.string(),
+    order: v.number(),
+    evidenceState: v.union(
+      v.literal("unknown"),
+      v.literal("assumption"),
+      v.literal("observed"),
+      v.literal("supported"),
+      v.literal("contradicted"),
+      v.literal("decision")
+    ),
+    createdBy: v.id("users"),
+    updatedAt: v.number(),
+  }).index("by_canvas_block", ["canvasId", "block"]),
+
+  evidence: defineTable({
+    noteId: v.id("notes"),
+    type: v.union(v.literal("text"), v.literal("url"), v.literal("file")),
+    content: v.string(), // text or url
+    fileId: v.optional(v.id("_storage")),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_note", ["noteId"]),
+
+  stressTests: defineTable({
+    canvasId: v.id("canvases"),
+    scores: v.object({
+      clarity: v.number(),
+      desirability: v.number(),
+      viability: v.number(),
+      feasibility: v.number(),
+      defensibility: v.number(),
+      timing: v.number(),
+      mission: v.number(),
+    }),
+    overallScore: v.number(),
+    riskiestAssumptions: v.array(
+      v.object({
+        noteId: v.optional(v.id("notes")),
+        block: v.string(),
+        assumption: v.string(),
+        reason: v.string(),
+        suggestedExperiment: v.string(),
+      })
+    ),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_canvas", ["canvasId"]),
+
+  invites: defineTable({
+    canvasId: v.id("canvases"),
+    email: v.optional(v.string()), // null for link-only
+    role: v.union(v.literal("editor"), v.literal("viewer")),
+    token: v.string(),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+    createdBy: v.id("users"),
+  })
+    .index("by_token", ["token"])
+    .index("by_canvas", ["canvasId"]),
+
+  activity: defineTable({
+    canvasId: v.id("canvases"),
+    userId: v.optional(v.id("users")), // null for system
+    type: v.string(),
+    message: v.string(),
+    createdAt: v.number(),
+  }).index("by_canvas", ["canvasId"]),
+
+  presence: defineTable({
+    canvasId: v.id("canvases"),
+    userId: v.id("users"),
+    userName: v.string(),
+    userEmail: v.string(),
+    userAvatar: v.optional(v.string()),
+    currentBlock: v.optional(v.string()),
+    cursorX: v.optional(v.number()),
+    cursorY: v.optional(v.number()),
+    updatedAt: v.number(),
+  })
+    .index("by_canvas", ["canvasId"])
+    .index("by_canvas_user", ["canvasId", "userId"])
+    .index("by_updated", ["updatedAt"]),
+});

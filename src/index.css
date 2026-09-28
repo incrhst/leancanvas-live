@@ -1,0 +1,39 @@
+/* @import url() FONT IMPORTS MUST ALWAYS BE AT THE VERY TOP OF THIS FILE, ABOVE THE TAILWIND IMPORTS — DO NOT DELETE THIS COMMENT */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* CRITICAL: THE FOLLOWING TAILWIND IMPORTS MUST NEVER BE DELETED OR REORDERED — DO NOT DELETE THIS COMMENT */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
+
+:root {
+  --canvas: 244 243 239;
+  --surface: 255 255 255;
+  --surface-2: 250 249 246;
+  --ink: 28 27 25;
+  --muted: 107 105 98;
+  --subtle: 138 135 127;
+  --line: 228 226 220;
+  --accent: 43 89 195;
+  --accent-ink: 255 255 255;
+  --accent-soft: 232 238 251;
+  --note-yellow: 255 244 194;
+  --note-yellow-edge: 234 217 138;
+  --note-pink: 253 226 228;
+  --note-pink-edge: 240 184 190;
+  --note-blue: 221 235 255;
+  --note-blue-edge: 169 200 242;
+  --note-green: 221 243 228;
+  --note-green-edge: 167 217 183;
+}
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
