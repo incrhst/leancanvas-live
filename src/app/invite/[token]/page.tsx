@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../../components/ConvexClientProvider";
@@ -11,23 +13,48 @@ export default function InviteAcceptPage() {
   const token = (params?.token as string) || "";
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const invite = useQuery(api.invites.getInviteInfo, { token });
+  const acceptInvite = useMutation(api.invites.acceptInvite);
   const [status, setStatus] = useState<"checking" | "ready" | "accepted" | "error">("checking");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const attempted = useRef(false);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || invite === undefined) return;
+
+    if (invite === null || "expired" in invite || "used" in invite) {
+      setErrorMessage(
+        invite && "expired" in invite
+          ? "This invite has expired."
+          : invite && "used" in invite
+            ? "This invite has already been used."
+            : "This invite link is invalid."
+      );
+      setStatus("error");
+      return;
+    }
 
     if (!user) {
       // Must authenticate to accept invite
       setStatus("ready");
-    } else {
-      // Auto-accept and route to canvas
-      setStatus("accepted");
-      const t = setTimeout(() => {
-        router.push("/canvas/demo-live-1");
-      }, 1500);
-      return () => clearTimeout(t);
+      return;
     }
-  }, [user, isLoading, router]);
+
+    if (attempted.current) return;
+    attempted.current = true;
+    acceptInvite({ token })
+      .then((canvasId) => {
+        setStatus("accepted");
+        router.push(`/canvas/${canvasId}`);
+      })
+      .catch((err) => {
+        console.error(err);
+        setErrorMessage("We couldn't accept this invite. It may have been sent to a different email address.");
+        setStatus("error");
+      });
+  }, [user, isLoading, invite, token, acceptInvite, router]);
+
+  const canvasTitle = invite && "canvasTitle" in invite ? invite.canvasTitle : "a Lean Canvas";
 
   return (
     <div className="min-h-screen bg-canvas flex flex-col items-center justify-center p-4">
@@ -39,7 +66,7 @@ export default function InviteAcceptPage() {
         <div className="space-y-1">
           <h1 className="text-xl font-bold text-ink">You’ve Been Invited!</h1>
           <p className="text-xs text-muted">
-            You've been invited to collaborate on <strong>Splitwise for Meals</strong>.
+            You&apos;ve been invited to collaborate on <strong>{canvasTitle}</strong>.
           </p>
         </div>
 
@@ -63,6 +90,13 @@ export default function InviteAcceptPage() {
               Sign in with Magic Link to Accept
               <ArrowRightIcon className="w-4 h-4" />
             </Link>
+          </div>
+        )}
+
+        {status === "error" && (
+          <div className="flex items-start gap-2 rounded-xl bg-rose-50 border border-rose-200 p-4 text-xs text-rose-900 text-left">
+            <AlertCircleIcon className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{errorMessage}</span>
           </div>
         )}
 

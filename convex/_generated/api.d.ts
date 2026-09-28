@@ -8,11 +8,15 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
 import type * as canvases from "../canvases.js";
 import type * as constants_prompts from "../constants/prompts.js";
+import type * as http from "../http.js";
 import type * as invites from "../invites.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as mcp from "../mcp.js";
 import type * as notes from "../notes.js";
+import type * as oauth from "../oauth.js";
 import type * as presence from "../presence.js";
 import type * as stressTests from "../stressTests.js";
 import type * as users from "../users.js";
@@ -24,11 +28,15 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
   canvases: typeof canvases;
   "constants/prompts": typeof constants_prompts;
+  http: typeof http;
   invites: typeof invites;
   "lib/auth": typeof lib_auth;
+  mcp: typeof mcp;
   notes: typeof notes;
+  oauth: typeof oauth;
   presence: typeof presence;
   stressTests: typeof stressTests;
   users: typeof users;

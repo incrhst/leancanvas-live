@@ -1,27 +1,50 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "../../components/ConvexClientProvider";
+import React, { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useConvexAuth } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { MailIcon, ArrowRightIcon, CheckCircle2Icon } from "lucide-react";
+
+function safeRedirect(target: string | null): string {
+  // Only allow same-origin relative paths
+  if (!target || !target.startsWith("/") || target.startsWith("//")) return "/dashboard";
+  return target;
+}
 
 function LoginForm() {
   const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
   const [sent, setSent] = useState(false);
-  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get("redirect") || "/dashboard";
-  const { login } = useAuth();
+  const redirectUrl = safeRedirect(searchParams.get("redirect"));
+  const { signIn } = useAuthActions();
+  const { isAuthenticated } = useConvexAuth();
 
-  const handleSignIn = (e: React.FormEvent) => {
+  // Once signed in (e.g. after the magic link lands back here), continue to the target.
+  // Full navigation so API routes like the OAuth authorize screen also work.
+  useEffect(() => {
+    if (isAuthenticated) window.location.assign(redirectUrl);
+  }, [isAuthenticated, redirectUrl]);
+
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
-    login(email, name);
-    setSent(true);
-    setTimeout(() => {
-      router.push(redirectUrl);
-    }, 1200);
+    setSubmitting(true);
+    setError(null);
+    try {
+      await signIn("resend", {
+        email: email.trim().toLowerCase(),
+        redirectTo: `/login?redirect=${encodeURIComponent(redirectUrl)}`,
+      });
+      setSent(true);
+    } catch (err) {
+      console.error(err);
+      setError("Could not send the sign-in link. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -32,29 +55,20 @@ function LoginForm() {
         </div>
         <h1 className="text-xl font-bold text-ink">Sign in to LeanCanvas</h1>
         <p className="text-xs text-muted">
-          Enter your email to receive a magic link or start session
+          Enter your email and we&apos;ll send you a magic sign-in link
         </p>
       </div>
 
       {sent ? (
         <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-center space-y-2">
           <CheckCircle2Icon className="w-8 h-8 text-emerald-600 mx-auto" />
-          <div className="text-sm font-semibold text-emerald-900">Signed in!</div>
-          <p className="text-xs text-emerald-700">Redirecting to your canvas...</p>
+          <div className="text-sm font-semibold text-emerald-900">Check your email</div>
+          <p className="text-xs text-emerald-700">
+            We sent a sign-in link to <strong>{email}</strong>. Open it on this device to continue.
+          </p>
         </div>
       ) : (
         <form onSubmit={handleSignIn} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-ink">Name (optional)</label>
-            <input
-              type="text"
-              placeholder="Alex Kim"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full text-sm border border-line rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-accent/50"
-            />
-          </div>
-
           <div className="space-y-1">
             <label className="text-xs font-semibold text-ink">Email Address</label>
             <input
@@ -67,12 +81,15 @@ function LoginForm() {
             />
           </div>
 
+          {error && <p className="text-xs text-rose-600">{error}</p>}
+
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-2 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:bg-accent/90 transition-colors shadow-sm"
+            disabled={submitting}
+            className="w-full disabled:opacity-60 flex items-center justify-center gap-2 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:bg-accent/90 transition-colors shadow-sm"
           >
             <MailIcon className="w-4 h-4" />
-            Continue with Magic Link
+            {submitting ? "Sending link..." : "Continue with Magic Link"}
           </button>
         </form>
       )}

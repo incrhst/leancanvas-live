@@ -1,6 +1,8 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth, requireOwner, requireEditor, getCurrentUser, getCanvasRole } from "./lib/auth";
+import { requireAuth, requireOwner, requireEditor, getCurrentUser, getCanvasRole, Role } from "./lib/auth";
+import { Doc, Id } from "./_generated/dataModel";
+import { MutationCtx, QueryCtx } from "./_generated/server";
 
 // Initial seed notes for new canvases (standard Lean Canvas starter items)
 const DEFAULT_SEED_NOTES = [
@@ -31,54 +33,52 @@ const DEFAULT_SEED_NOTES = [
 ];
 
 /**
- * Creates a new canvas and sets the creator as owner.
+ * Shared implementation for creating a canvas (used by the web app and the MCP server).
  */
-export const createCanvas = mutation({
-  args: {
-    title: v.string(),
-    description: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
+export async function createCanvasForUser(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  args: { title: string; description?: string; seedNotes?: boolean }
+): Promise<Id<"canvases">> {
+  // Get or create user workspace
+  let workspace = await ctx.db
+    .query("workspaces")
+    .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+    .first();
 
-    // Get or create user workspace
-    let workspace = await ctx.db
-      .query("workspaces")
-      .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
-      .first();
-
-    if (!workspace) {
-      const workspaceId = await ctx.db.insert("workspaces", {
-        name: `${user.name || "My"} Workspace`,
-        ownerId: user._id,
-      });
-      workspace = await ctx.db.get(workspaceId);
-    }
-
-    if (!workspace) throw new Error("Could not initialize workspace");
-
-    const now = Date.now();
-    const publicToken = crypto.randomUUID();
-
-    const canvasId = await ctx.db.insert("canvases", {
-      workspaceId: workspace._id,
-      title: args.title || "Untitled Lean Canvas",
-      description: args.description,
-      status: "active",
-      publicViewToken: publicToken,
-      isPublicViewEnabled: false,
-      createdBy: user._id,
-      updatedAt: now,
+  if (!workspace) {
+    const workspaceId = await ctx.db.insert("workspaces", {
+      name: `${user.name || "My"} Workspace`,
+      ownerId: user._id,
     });
+    workspace = await ctx.db.get(workspaceId);
+  }
 
-    // Add owner membership
-    await ctx.db.insert("canvasMembers", {
-      canvasId,
-      userId: user._id,
-      role: "owner",
-    });
+  if (!workspace) throw new Error("Could not initialize workspace");
 
-    // Seed initial notes
+  const now = Date.now();
+  const title = args.title.trim() || "Untitled Lean Canvas";
+
+  const canvasId = await ctx.db.insert("canvases", {
+    workspaceId: workspace._id,
+    title,
+    description: args.description?.trim() || undefined,
+    status: "active",
+    publicViewToken: crypto.randomUUID(),
+    isPublicViewEnabled: false,
+    createdBy: user._id,
+    updatedAt: now,
+  });
+
+  // Add owner membership
+  await ctx.db.insert("canvasMembers", {
+    canvasId,
+    userId: user._id,
+    role: "owner",
+  });
+
+  // Seed initial notes
+  if (args.seedNotes !== false) {
     for (const note of DEFAULT_SEED_NOTES) {
       await ctx.db.insert("notes", {
         canvasId,
@@ -90,19 +90,64 @@ export const createCanvas = mutation({
         updatedAt: now,
       });
     }
+  }
 
-    // Record activity
-    await ctx.db.insert("activity", {
-      canvasId,
-      userId: user._id,
-      type: "canvas_created",
-      message: `created canvas "${args.title}"`,
-      createdAt: now,
-    });
+  // Record activity
+  await ctx.db.insert("activity", {
+    canvasId,
+    userId: user._id,
+    type: "canvas_created",
+    message: `created canvas "${title}"`,
+    createdAt: now,
+  });
 
-    return canvasId;
+  return canvasId;
+}
+
+/**
+ * Creates a new canvas and sets the creator as owner.
+ */
+export const createCanvas = mutation({
+  args: {
+    title: v.string(),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireAuth(ctx);
+    return await createCanvasForUser(ctx, user, args);
   },
 });
+
+/**
+ * Shared implementation listing canvases a user owns or is a member of.
+ */
+export async function listCanvasesForUser(ctx: QueryCtx, userId: Id<"users">) {
+  const memberships = await ctx.db
+    .query("canvasMembers")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+
+  const canvasMap = new Map<Id<"canvases">, Doc<"canvases"> & { role: Role }>();
+
+  for (const m of memberships) {
+    const canvas = await ctx.db.get(m.canvasId);
+    if (canvas) canvasMap.set(canvas._id, { ...canvas, role: m.role });
+  }
+
+  // Also get canvases created by user
+  const created = await ctx.db
+    .query("canvases")
+    .withIndex("by_creator", (q) => q.eq("createdBy", userId))
+    .collect();
+
+  for (const canvas of created) {
+    if (!canvasMap.has(canvas._id)) canvasMap.set(canvas._id, { ...canvas, role: "owner" });
+  }
+
+  return Array.from(canvasMap.values())
+    .filter((c) => c.status !== "archived")
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
 
 /**
  * Lists all canvases the current user owns or is a member of.
@@ -112,41 +157,7 @@ export const listMyCanvases = query({
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
     if (!user) return [];
-
-    // Memberships
-    const memberships = await ctx.db
-      .query("canvasMembers")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect();
-
-    const canvasMap = new Map();
-
-    for (const m of memberships) {
-      const canvas = await ctx.db.get(m.canvasId);
-      if (canvas) {
-        canvasMap.set(canvas._id, {
-          ...canvas,
-          role: m.role,
-        });
-      }
-    }
-
-    // Also get canvases created by user
-    const created = await ctx.db
-      .query("canvases")
-      .withIndex("by_creator", (q) => q.eq("createdBy", user._id))
-      .collect();
-
-    for (const canvas of created) {
-      if (!canvasMap.has(canvas._id)) {
-        canvasMap.set(canvas._id, {
-          ...canvas,
-          role: "owner" as const,
-        });
-      }
-    }
-
-    return Array.from(canvasMap.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+    return await listCanvasesForUser(ctx, user._id);
   },
 });
 
@@ -195,7 +206,7 @@ export const getCanvas = query({
           id: m.userId,
           name: u?.name || "Anonymous",
           email: u?.email || "",
-          imageUrl: u?.imageUrl,
+          imageUrl: u?.image,
           role: m.role,
         };
       })

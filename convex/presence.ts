@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getCurrentUser } from "./lib/auth";
+import { getCurrentUser, getCanvasRole } from "./lib/auth";
 
 export const heartbeat = mutation({
   args: {
@@ -12,6 +12,7 @@ export const heartbeat = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) return; // Anonymous viewers do not broadcast presence cursors
+    if (!(await getCanvasRole(ctx, args.canvasId, user._id))) return;
 
     const now = Date.now();
     const existing = await ctx.db
@@ -32,9 +33,9 @@ export const heartbeat = mutation({
       await ctx.db.insert("presence", {
         canvasId: args.canvasId,
         userId: user._id,
-        userName: user.name || "Collaborator",
-        userEmail: user.email,
-        userAvatar: user.imageUrl,
+        userName: user.name || user.email?.split("@")[0] || "Collaborator",
+        userEmail: user.email ?? "",
+        userAvatar: user.image,
         currentBlock: args.currentBlock,
         cursorX: args.cursorX,
         cursorY: args.cursorY,
@@ -62,6 +63,9 @@ export const getPresence = query({
     canvasId: v.id("canvases"),
   },
   handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || !(await getCanvasRole(ctx, args.canvasId, user._id))) return [];
+
     const threshold = Date.now() - 25000;
     const active = await ctx.db
       .query("presence")

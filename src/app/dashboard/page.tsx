@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { formatDistanceToNow } from "date-fns";
+import { api } from "../../../convex/_generated/api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../components/ConvexClientProvider";
@@ -16,30 +19,21 @@ import {
   SparklesIcon,
 } from "lucide-react";
 
-interface LocalCanvasMeta {
-  id: string;
-  title: string;
-  description: string;
-  status: "active" | "draft";
-  updatedAt: number;
-}
-
 export default function DashboardPage() {
   const { user, logout, isLoading } = useAuth();
   const router = useRouter();
-  const [canvases, setCanvases] = useState<LocalCanvasMeta[]>([
-    {
-      id: "demo-live-1",
-      title: "Splitwise for Meals (Pantry & Couples)",
-      description: "Fast decision-making meal planner and shared shopping list for dual-income couples.",
-      status: "active",
-      updatedAt: Date.now() - 3600000,
-    },
-  ]);
+  const canvases = useQuery(api.canvases.listMyCanvases, user ? {} : "skip");
+  const createCanvas = useMutation(api.canvases.createCanvas);
   const [isCreating, setIsCreating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [mcpCopied, setMcpCopied] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && !user) router.replace("/login?redirect=/dashboard");
+  }, [isLoading, user, router]);
 
   const copyMcpUrl = () => {
     navigator.clipboard?.writeText("https://lean.incrementic.com/api/mcp");
@@ -47,24 +41,27 @@ export default function DashboardPage() {
     setTimeout(() => setMcpCopied(false), 2000);
   };
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim()) return;
+    if (!newTitle.trim() || isSubmitting) return;
 
-    const id = `canvas-${Date.now()}`;
-    const newCanvas: LocalCanvasMeta = {
-      id,
-      title: newTitle.trim(),
-      description: newDesc.trim() || "Lean canvas model",
-      status: "active",
-      updatedAt: Date.now(),
-    };
-
-    setCanvases([newCanvas, ...canvases]);
-    setIsCreating(false);
-    setNewTitle("");
-    setNewDesc("");
-    router.push(`/canvas/${id}`);
+    setIsSubmitting(true);
+    setCreateError(null);
+    try {
+      const canvasId = await createCanvas({
+        title: newTitle.trim(),
+        description: newDesc.trim() || undefined,
+      });
+      setIsCreating(false);
+      setNewTitle("");
+      setNewDesc("");
+      router.push(`/canvas/${canvasId}`);
+    } catch (err) {
+      console.error(err);
+      setCreateError("Could not create the canvas. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -228,6 +225,7 @@ export default function DashboardPage() {
                     className="w-full text-sm border border-line rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                 </div>
+                {createError && <p className="text-xs text-rose-600">{createError}</p>}
                 <div className="flex justify-end gap-2 pt-2">
                   <button
                     type="button"
@@ -238,9 +236,10 @@ export default function DashboardPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 disabled:opacity-60"
                   >
-                    Create Canvas
+                    {isSubmitting ? "Creating..." : "Create Canvas"}
                   </button>
                 </div>
               </form>
@@ -249,11 +248,20 @@ export default function DashboardPage() {
         )}
 
         {/* Canvas List */}
+        {canvases === undefined ? (
+          <p className="text-xs text-muted">Loading canvases...</p>
+        ) : canvases.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-line bg-surface p-10 text-center space-y-2">
+            <LayoutGridIcon className="w-6 h-6 text-muted mx-auto" />
+            <p className="text-sm font-semibold text-ink">No canvases yet</p>
+            <p className="text-xs text-muted">Click &quot;New Canvas&quot; to start your first Lean Canvas.</p>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
           {canvases.map((c) => (
             <Link
-              key={c.id}
-              href={`/canvas/${c.id}`}
+              key={c._id}
+              href={`/canvas/${c._id}`}
               className="group rounded-2xl bg-surface border border-line p-5 space-y-3 hover:border-accent hover:shadow-md transition-all flex flex-col justify-between"
             >
               <div className="space-y-2">
@@ -263,14 +271,14 @@ export default function DashboardPage() {
                   </span>
                   <span className="text-[11px] text-muted flex items-center gap-1">
                     <CalendarIcon className="w-3 h-3" />
-                    Updated today
+                    {formatDistanceToNow(c.updatedAt, { addSuffix: true })}
                   </span>
                 </div>
                 <h3 className="font-semibold text-ink group-hover:text-accent transition-colors line-clamp-1">
                   {c.title}
                 </h3>
                 <p className="text-xs text-muted line-clamp-2 leading-relaxed">
-                  {c.description}
+                  {c.description || "Lean canvas model"}
                 </p>
               </div>
 
@@ -281,6 +289,7 @@ export default function DashboardPage() {
             </Link>
           ))}
         </div>
+        )}
       </main>
 
       {/* Discreet footer */}

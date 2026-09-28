@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireEditor, requireAuth, getCurrentUser } from "./lib/auth";
+import { requireEditor, requireAuth, getCurrentUser, getCanvasRole } from "./lib/auth";
 
 /**
  * Creates an invite token (magic link or email) for a canvas.
@@ -93,7 +93,7 @@ export const acceptInvite = mutation({
     if (invite.expiresAt < Date.now()) throw new Error("This invite has expired");
     if (invite.usedAt) throw new Error("This invite has already been used");
 
-    if (invite.email && invite.email.toLowerCase() !== user.email.toLowerCase()) {
+    if (invite.email && invite.email.toLowerCase() !== (user.email ?? "").toLowerCase()) {
       throw new Error(`This invite was sent specifically to ${invite.email}`);
     }
 
@@ -143,6 +143,8 @@ export const listInvites = query({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) return [];
+    const role = await getCanvasRole(ctx, args.canvasId, user._id);
+    if (role !== "owner" && role !== "editor") return [];
 
     const invites = await ctx.db
       .query("invites")

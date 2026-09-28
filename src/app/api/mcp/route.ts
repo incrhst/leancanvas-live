@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchAction, fetchMutation, fetchQuery } from "convex/nextjs";
+import { ConvexError } from "convex/values";
+import { api } from "../../../../convex/_generated/api";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -14,6 +17,14 @@ export async function OPTIONS() {
 }
 
 const TOOLS_MANIFEST = [
+  {
+    name: "list_canvases",
+    description: "List the Lean Canvases the signed-in user owns or collaborates on (returns canvasId, title, role and URL)",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
   {
     name: "create_canvas",
     description: "Create a new Lean Canvas for a startup, project, or business idea",
@@ -45,11 +56,7 @@ const TOOLS_MANIFEST = [
       properties: {
         canvasId: {
           type: "string",
-          description: "The unique ID of the canvas (e.g. demo-live-1)",
-        },
-        publicToken: {
-          type: "string",
-          description: "Optional public share token for anonymous viewing",
+          description: "The canvasId returned by list_canvases or create_canvas",
         },
       },
       required: ["canvasId"],
@@ -114,42 +121,69 @@ const TOOLS_MANIFEST = [
   },
 ];
 
-// Fallback canned demo canvas for instant responses
-const DEMO_CANVAS_PAYLOAD = {
-  id: "demo-live-1",
-  title: "Splitwise for Meals (Pantry & Couples)",
-  status: "active",
-  blocks: {
-    problem: [
-      { id: "n1", text: "Couples spend 30+ minutes every week deciding what to cook.", evidenceState: "observed" },
-      { id: "n2", text: "Grocery lists are fragmented across multiple apps and WhatsApp.", evidenceState: "supported" },
-    ],
-    customerSegments: [
-      { id: "n3", text: "Dual-income couples without kids (25-38).", evidenceState: "supported" },
-    ],
-    uniqueValueProposition: [
-      { id: "n4", text: "Dinner decided in 2 minutes, together.", evidenceState: "assumption" },
-    ],
-    solution: [
-      { id: "n5", text: "Tinder-style swipe meal voting + shared live pantry checklist.", evidenceState: "assumption" },
-    ],
-    channels: [
-      { id: "n6", text: "TikTok recipe creators & partner referral onboarding loop.", evidenceState: "unknown" },
-    ],
-    revenueStreams: [
-      { id: "n7", text: "Household subscription: $6/month after 14-day free trial.", evidenceState: "assumption" },
-    ],
-    costStructure: [
-      { id: "n8", text: "Serverless hosting & real-time sync database, creator sponsorship.", evidenceState: "decision" },
-    ],
-    keyMetrics: [
-      { id: "n9", text: "Weekly Active Households (WAH) & plans completed.", evidenceState: "decision" },
-    ],
-    unfairAdvantage: [
-      { id: "n10", text: "Proprietary partner taste alignment engine.", evidenceState: "assumption" },
-    ],
-  },
+const UNAUTHORIZED_HEADERS = {
+  ...CORS_HEADERS,
+  "Content-Type": "application/json",
+  "WWW-Authenticate":
+    'Bearer error="invalid_token", resource_metadata="https://lean.incrementic.com/.well-known/oauth-protected-resource"',
 };
+
+function unauthorized(id: unknown, message: string) {
+  return new NextResponse(
+    JSON.stringify({ jsonrpc: "2.0", id: id ?? null, error: { code: -32001, message } }),
+    { status: 401, headers: UNAUTHORIZED_HEADERS }
+  );
+}
+
+function bearerToken(req: NextRequest): string | null {
+  const header = req.headers.get("authorization") || "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : null;
+}
+
+function str(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+async function callTool(accessToken: string, toolName: string, args: Record<string, unknown>) {
+  switch (toolName) {
+    case "list_canvases":
+      return await fetchQuery(api.mcp.listCanvases, { accessToken });
+    case "get_canvas":
+      return await fetchQuery(api.mcp.getCanvas, { accessToken, canvasId: str(args.canvasId) });
+    case "create_canvas": {
+      const result = await fetchMutation(api.mcp.createCanvas, {
+        accessToken,
+        title: str(args.title) || "Untitled Lean Canvas",
+        description: str(args.description) || undefined,
+        seedNotes: typeof args.seedNotes === "boolean" ? args.seedNotes : undefined,
+      });
+      return {
+        success: true,
+        ...result,
+        message: `Created new Lean Canvas. View and collaborate in realtime at ${result.url}`,
+      };
+    }
+    case "add_note":
+      return await fetchMutation(api.mcp.addNote, {
+        accessToken,
+        canvasId: str(args.canvasId),
+        block: args.block as any, // validated by Convex
+        content: str(args.content),
+        evidenceState: (args.evidenceState as any) || undefined,
+      });
+    case "update_evidence_state":
+      return await fetchMutation(api.mcp.updateEvidenceState, {
+        accessToken,
+        noteId: str(args.noteId),
+        evidenceState: args.evidenceState as any, // validated by Convex
+      });
+    case "run_stress_test":
+      return await fetchAction(api.mcp.runStressTest, { accessToken, canvasId: str(args.canvasId) });
+    default:
+      return undefined;
+  }
+}
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -199,6 +233,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
+  const accessToken = bearerToken(req);
 
   // When Claude probes the connector with POST initialize, it checks for 401 Unauthorized + WWW-Authenticate to detect OAuth!
   if (!authHeader) {
@@ -225,6 +260,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { method, params, id } = body;
+
+    if (!accessToken || !(await fetchQuery(api.mcp.verifyToken, { accessToken }))) {
+      return unauthorized(id, "Invalid or expired access token");
+    }
 
     // Handle JSON-RPC / MCP protocol methods
     if (method === "initialize") {
@@ -269,75 +308,11 @@ export async function POST(req: NextRequest) {
       const args = params?.arguments || {};
 
       let resultText = "";
+      let isError = false;
 
-      switch (toolName) {
-        case "create_canvas": {
-          const title = (args?.title as string) || "Untitled Lean Canvas";
-          const description = (args?.description as string) || "";
-          const slug = title
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/(^-|-$)/g, "")
-            .substring(0, 30);
-          const canvasId = `canvas_${Date.now().toString(36)}_${slug || "new"}`;
-          const canvasUrl = `https://lean.incrementic.com/canvas/${canvasId}`;
-
-          resultText = JSON.stringify(
-            {
-              success: true,
-              canvasId,
-              title,
-              description,
-              url: canvasUrl,
-              message: `Created new Lean Canvas "${title}". View and collaborate in realtime at ${canvasUrl}`,
-            },
-            null,
-            2
-          );
-          break;
-        }
-        case "get_canvas":
-          resultText = JSON.stringify(DEMO_CANVAS_PAYLOAD, null, 2);
-          break;
-        case "add_note":
-          resultText = `Added note to block "${args.block}": "${args.content}" (evidence: ${args.evidenceState || "assumption"}).`;
-          break;
-        case "update_evidence_state":
-          resultText = `Note ${args.noteId} evidence state updated to "${args.evidenceState}".`;
-          break;
-        case "run_stress_test":
-          resultText = JSON.stringify(
-            {
-              scores: {
-                clarity: 8.8,
-                desirability: 7.2,
-                viability: 6.8,
-                feasibility: 8.5,
-                defensibility: 5.8,
-                timing: 8.0,
-                mission: 8.5,
-              },
-              overallScore: 7.7,
-              riskiestAssumptions: [
-                {
-                  block: "revenueStreams",
-                  assumption: "Couples will pay $6/mo for meal coordination rather than using a free shared note.",
-                  reason: "Zero friction free substitutes already exist; willingness-to-pay is untested.",
-                  suggestedExperiment: "Run a pre-order paywall test or ask 10 couples to prepay $15 for 3 months access.",
-                },
-                {
-                  block: "unfairAdvantage",
-                  assumption: "Local grocery SKU mapping acts as a defensible moat against larger recipe apps.",
-                  reason: "Grocery APIs are increasingly commoditized or restricted by big chains.",
-                  suggestedExperiment: "Validate partner API access with 2 regional stores before building scraper architecture.",
-                },
-              ],
-            },
-            null,
-            2
-          );
-          break;
-        default:
+      try {
+        const result = await callTool(accessToken, toolName, args);
+        if (result === undefined) {
           return NextResponse.json(
             {
               jsonrpc: "2.0",
@@ -349,6 +324,17 @@ export async function POST(req: NextRequest) {
             },
             { status: 404, headers: CORS_HEADERS }
           );
+        }
+        resultText = JSON.stringify(result, null, 2);
+      } catch (err) {
+        if (err instanceof ConvexError && err.data === "INVALID_ACCESS_TOKEN") {
+          return unauthorized(id, "Invalid or expired access token");
+        }
+        isError = true;
+        resultText =
+          err instanceof ConvexError && typeof err.data === "string"
+            ? err.data
+            : `Error: ${err instanceof Error ? err.message : "tool call failed"}`;
       }
 
       return NextResponse.json(
@@ -362,6 +348,7 @@ export async function POST(req: NextRequest) {
                 text: resultText,
               },
             ],
+            isError,
           },
         },
         { headers: CORS_HEADERS }

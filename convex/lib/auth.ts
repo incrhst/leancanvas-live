@@ -1,31 +1,48 @@
 import { QueryCtx, MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { ConvexError } from "convex/values";
 
 export type Role = "owner" | "editor" | "viewer";
 
 /**
- * Gets the current authenticated user record, or null if anonymous.
- * Supports tokenIdentifier lookup from standard auth or custom session token.
+ * Gets the current authenticated user record (via Convex Auth), or null if anonymous.
  */
 export async function getCurrentUser(ctx: QueryCtx | MutationCtx) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    return null;
-  }
+  const userId = await getAuthUserId(ctx);
+  if (!userId) return null;
+  return await ctx.db.get(userId);
+}
 
-  // Look up user by tokenIdentifier or email
-  let user = await ctx.db
-    .query("users")
-    .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
-    .first();
+/**
+ * SHA-256 hex digest, used to store OAuth codes and tokens without keeping the raw secret.
+ */
+export async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
-  if (!user && identity.email) {
-    user = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", identity.email!))
-      .first();
-  }
+/**
+ * Resolves the user behind an MCP bearer access token, or null if invalid/expired/revoked.
+ */
+export async function getUserFromAccessToken(ctx: QueryCtx | MutationCtx, accessToken: string) {
+  const hash = await sha256Hex(accessToken);
+  const record = await ctx.db
+    .query("oauthTokens")
+    .withIndex("by_access_hash", (q) => q.eq("accessTokenHash", hash))
+    .unique();
+  if (!record || record.revokedAt || record.accessExpiresAt < Date.now()) return null;
+  return await ctx.db.get(record.userId);
+}
 
+/**
+ * Like getUserFromAccessToken, but throws a recognizable error the MCP route maps to HTTP 401.
+ */
+export async function requireTokenUser(ctx: QueryCtx | MutationCtx, accessToken: string) {
+  const user = await getUserFromAccessToken(ctx, accessToken);
+  if (!user) throw new ConvexError("INVALID_ACCESS_TOKEN");
   return user;
 }
 

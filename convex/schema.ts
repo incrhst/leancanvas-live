@@ -1,15 +1,53 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
+  ...authTables,
+
+  // Overrides the Convex Auth users table (fields must stay optional; index "email" is required by Convex Auth)
   users: defineTable({
-    name: v.string(),
-    email: v.string(),
-    imageUrl: v.optional(v.string()),
-    tokenIdentifier: v.optional(v.string()),
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    email: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
   })
-    .index("by_email", ["email"])
-    .index("by_token", ["tokenIdentifier"]),
+    .index("email", ["email"])
+    .index("phone", ["phone"]),
+
+  // OAuth 2.1 clients registered via RFC 7591 Dynamic Client Registration (e.g. Claude)
+  oauthClients: defineTable({
+    clientId: v.string(),
+    clientName: v.string(),
+    redirectUris: v.array(v.string()),
+    createdAt: v.number(),
+  }).index("by_client_id", ["clientId"]),
+
+  // Short-lived, single-use authorization codes (stored hashed)
+  oauthCodes: defineTable({
+    codeHash: v.string(),
+    clientId: v.string(),
+    userId: v.id("users"),
+    redirectUri: v.string(),
+    codeChallenge: v.string(),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+  }).index("by_code_hash", ["codeHash"]),
+
+  // MCP access/refresh tokens (stored hashed)
+  oauthTokens: defineTable({
+    accessTokenHash: v.string(),
+    refreshTokenHash: v.string(),
+    clientId: v.string(),
+    userId: v.id("users"),
+    accessExpiresAt: v.number(),
+    revokedAt: v.optional(v.number()),
+  })
+    .index("by_access_hash", ["accessTokenHash"])
+    .index("by_refresh_hash", ["refreshTokenHash"]),
 
   workspaces: defineTable({
     name: v.string(),

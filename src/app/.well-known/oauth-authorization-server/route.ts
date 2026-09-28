@@ -19,12 +19,11 @@ export async function GET(req: NextRequest) {
       authorization_endpoint: `${origin}/api/oauth/authorize`,
       token_endpoint: `${origin}/api/oauth/token`,
       registration_endpoint: `${origin}/api/oauth/register`,
-      jwks_uri: `${origin}/api/oauth/jwks`,
       response_types_supported: ["code"],
       grant_types_supported: ["authorization_code", "refresh_token"],
-      token_endpoint_auth_methods_supported: ["none", "client_secret_post", "client_secret_basic"],
+      token_endpoint_auth_methods_supported: ["none"],
       code_challenge_methods_supported: ["S256"], // OAuth 2.1 PKCE requirement
-      scopes_supported: ["openid", "profile", "email", "canvases:read", "canvases:write"],
+      scopes_supported: ["canvases:read", "canvases:write"],
     },
     { headers: CORS_HEADERS }
   );

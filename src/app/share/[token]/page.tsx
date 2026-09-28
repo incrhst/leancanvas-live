@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { LeanCanvasBoard, CANVAS_BLOCKS } from "../../../components/LeanCanvasBoard";
@@ -10,130 +12,39 @@ import { NoteItem, StressTestResult } from "../../../types/canvas";
 import { GlobeIcon, SparklesIcon, LogInIcon, FileTextIcon, DownloadIcon } from "lucide-react";
 import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
 
-// Mock public data payload matching getCanvasByPublicToken query response
-const PUBLIC_DEMO_NOTES: NoteItem[] = [
-  {
-    _id: "pub-1",
-    block: "problem",
-    content: "Couples spend 30+ minutes every week deciding what to cook for dinner.",
-    order: 0,
-    evidenceState: "observed",
-    updatedAt: Date.now(),
-  },
-  {
-    _id: "pub-2",
-    block: "problem",
-    content: "Grocery lists are fragmented across multiple apps and WhatsApp chats.",
-    order: 1,
-    evidenceState: "supported",
-    updatedAt: Date.now(),
-  },
-  {
-    _id: "pub-3",
-    block: "customerSegments",
-    content: "Dual-income couples without children (25-38).",
-    order: 0,
-    evidenceState: "supported",
-    updatedAt: Date.now(),
-  },
-  {
-    _id: "pub-4",
-    block: "uniqueValueProposition",
-    content: "Dinner decided in 2 minutes, together.",
-    order: 0,
-    evidenceState: "assumption",
-    updatedAt: Date.now(),
-  },
-  {
-    _id: "pub-5",
-    block: "solution",
-    content: "Tinder-style swipe meal voting + shared live pantry checklist.",
-    order: 0,
-    evidenceState: "assumption",
-    updatedAt: Date.now(),
-  },
-  {
-    _id: "pub-6",
-    block: "channels",
-    content: "TikTok food creators & partner referral onboarding loop.",
-    order: 0,
-    evidenceState: "unknown",
-    updatedAt: Date.now(),
-  },
-  {
-    _id: "pub-7",
-    block: "revenueStreams",
-    content: "Household subscription: $6/month after 14-day free trial.",
-    order: 0,
-    evidenceState: "assumption",
-    updatedAt: Date.now(),
-  },
-  {
-    _id: "pub-8",
-    block: "costStructure",
-    content: "Serverless hosting & real-time sync database, creator sponsorship.",
-    order: 0,
-    evidenceState: "decision",
-    updatedAt: Date.now(),
-  },
-  {
-    _id: "pub-9",
-    block: "keyMetrics",
-    content: "Weekly Active Households (WAH) & plans completed.",
-    order: 0,
-    evidenceState: "decision",
-    updatedAt: Date.now(),
-  },
-  {
-    _id: "pub-10",
-    block: "unfairAdvantage",
-    content: "Proprietary partner taste alignment engine.",
-    order: 0,
-    evidenceState: "assumption",
-    updatedAt: Date.now(),
-  },
-];
-
 export default function PublicSharePage() {
   const params = useParams();
-  const token = (params?.token as string) || "token";
+  const token = (params?.token as string) || "";
 
-  const [notes] = useState<NoteItem[]>(PUBLIC_DEMO_NOTES);
+  const data = useQuery(api.canvases.getCanvasByPublicToken, { token });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showStressTest, setShowStressTest] = useState(false);
 
+  if (data === undefined) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-canvas text-xs text-muted">
+        Loading shared canvas...
+      </div>
+    );
+  }
+
+  if (data === null) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-2 bg-canvas px-4 text-center">
+        <h1 className="text-lg font-semibold text-ink">Link unavailable</h1>
+        <p className="text-xs text-muted max-w-sm">
+          This public link is invalid or has been disabled by the canvas owner.
+        </p>
+      </div>
+    );
+  }
+
+  const notes: NoteItem[] = data.notes;
+  const publicStressTest: StressTestResult | null = data.latestStressTest;
   const selectedNote = notes.find((n) => n._id === selectedId) || null;
 
-  const publicStressTest: StressTestResult = {
-    scores: {
-      clarity: 8.5,
-      desirability: 7.0,
-      viability: 6.5,
-      feasibility: 8.0,
-      defensibility: 5.5,
-      timing: 7.5,
-      mission: 8.0,
-    },
-    overallScore: 7.3,
-    riskiestAssumptions: [
-      {
-        block: "revenueStreams",
-        assumption: "Couples will pay $6/mo for meal coordination rather than using a free shared note.",
-        reason: "Zero friction free substitutes already exist; willingness-to-pay is untested.",
-        suggestedExperiment: "Run a pre-order paywall test or ask 10 couples to prepay $15 for 3 months access.",
-      },
-      {
-        block: "unfairAdvantage",
-        assumption: "Local grocery SKU mapping acts as a defensible moat against larger recipe apps.",
-        reason: "Grocery APIs are increasingly commoditized or restricted by big chains.",
-        suggestedExperiment: "Validate partner API access with 2 regional stores before building scraper architecture.",
-      },
-    ],
-    createdAt: Date.now(),
-  };
-
   const handleExportMarkdown = () => {
-    const md = exportCanvasMarkdown("Splitwise for Meals (Public View)", notes, publicStressTest);
+    const md = exportCanvasMarkdown(`${data.canvas.title} (Public View)`, notes, publicStressTest);
     downloadFile(`leancanvas-public.md`, md, "text/markdown");
   };
 
@@ -148,7 +59,7 @@ export default function PublicSharePage() {
           </span>
         </div>
         <Link
-          href={`/login?redirect=/canvas/demo-live-1`}
+          href={`/login?redirect=/canvas/${data.canvas._id}`}
           className="inline-flex items-center gap-1.5 px-3 py-1 bg-ink text-surface rounded-md text-xs font-semibold hover:bg-ink/90 transition-colors shadow-sm"
         >
           <LogInIcon className="w-3.5 h-3.5" />
@@ -159,7 +70,7 @@ export default function PublicSharePage() {
       {/* Header */}
       <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-4">
         <div className="flex items-center gap-3">
-          <h1 className="font-bold text-base text-ink">Splitwise for Meals (Pantry & Couples)</h1>
+          <h1 className="font-bold text-base text-ink">{data.canvas.title}</h1>
           <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-stone-100 text-stone-700 border border-stone-300">
             VIEWER (READ-ONLY)
           </span>
