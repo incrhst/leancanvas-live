@@ -36,6 +36,7 @@ export default function CanvasEditorPage() {
   const updateNote = useMutation(api.notes.updateNote);
   const deleteNote = useMutation(api.notes.deleteNote);
   const setPublicView = useMutation(api.canvases.setPublicView);
+  const setPublicViewPassword = useMutation(api.canvases.setPublicViewPassword);
   const createInvite = useMutation(api.invites.createInvite);
   const runStressTest = useAction(api.stressTests.runStressTest);
 
@@ -207,8 +208,12 @@ export default function CanvasEditorPage() {
           isPublicViewEnabled={canvas.isPublicViewEnabled}
           publicViewToken={canvas.publicViewToken}
           isOwner={role === "owner"}
+          hasPassword={canvas.hasPublicViewPassword}
           onTogglePublic={async (enabled) => {
             await setPublicView({ canvasId, enabled });
+          }}
+          onSetPassword={async (password) => {
+            await setPublicViewPassword({ canvasId, password });
           }}
           onCreateInvite={async (inviteRole, email) => {
             const { token } = await createInvite({ canvasId, role: inviteRole, email });

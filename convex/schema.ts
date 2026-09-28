@@ -18,6 +18,21 @@ export default defineSchema({
     .index("email", ["email"])
     .index("phone", ["phone"]),
 
+  // Short-lived viewing passes issued after entering a public link's password (stored hashed)
+  publicViewGrants: defineTable({
+    canvasId: v.id("canvases"),
+    grantHash: v.string(),
+    passwordSetAt: v.number(),
+    expiresAt: v.number(),
+  }).index("by_grant_hash", ["grantHash"]),
+
+  // Per-canvas throttle for public link password attempts
+  shareUnlockAttempts: defineTable({
+    canvasId: v.id("canvases"),
+    windowStart: v.number(),
+    count: v.number(),
+  }).index("by_canvas", ["canvasId"]),
+
   // OAuth 2.1 clients registered via RFC 7591 Dynamic Client Registration (e.g. Claude)
   oauthClients: defineTable({
     clientId: v.string(),
@@ -63,6 +78,9 @@ export default defineSchema({
     publicViewToken: v.optional(v.string()),
     // Whether the public link is currently enabled
     isPublicViewEnabled: v.boolean(),
+    // Optional password on the public link (PBKDF2 hash) and when it was last set/cleared
+    publicViewPasswordHash: v.optional(v.string()),
+    publicViewPasswordSetAt: v.optional(v.number()),
     createdBy: v.id("users"),
     updatedAt: v.number(),
   })

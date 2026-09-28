@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
-import { requireAuth, requireOwner, requireEditor, getCurrentUser, getCanvasRole, Role } from "./lib/auth";
+import { ConvexError, v } from "convex/values";
+import { hashPassword, verifyPassword } from "./lib/password";
+import { requireAuth, requireOwner, requireEditor, getCurrentUser, getCanvasRole, Role, sha256Hex } from "./lib/auth";
 import { Doc, Id } from "./_generated/dataModel";
 import { MutationCtx, QueryCtx } from "./_generated/server";
 
@@ -178,14 +179,9 @@ export const getCanvas = query({
       role = await getCanvasRole(ctx, args.canvasId, user._id);
     }
 
-    // If not authenticated or not a member, check public view status
-    if (!role) {
-      if (canvas.isPublicViewEnabled) {
-        role = "viewer";
-      } else {
-        return null;
-      }
-    }
+    // Non-members can only view through the public share link (/share/[token]),
+    // which enforces the optional link password.
+    if (!role) return null;
 
     // Fetch notes
     const notes = await ctx.db
@@ -212,13 +208,122 @@ export const getCanvas = query({
       })
     );
 
+    const { publicViewPasswordHash, ...canvasFields } = canvas;
+
     return {
-      canvas,
+      canvas: { ...canvasFields, hasPublicViewPassword: !!publicViewPasswordHash },
       notes: notes.sort((a, b) => a.order - b.order),
       members: memberDetails,
       currentUserRole: role,
       isAnonymous: !user,
     };
+  },
+});
+
+const GRANT_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const UNLOCK_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const UNLOCK_MAX_FAILURES = 20; // failed password attempts per canvas per window
+
+/**
+ * Checks a viewing pass issued by unlockPublicView. Passes are invalidated whenever the
+ * link password is changed or removed (publicViewPasswordSetAt changes).
+ */
+async function isValidGrant(ctx: QueryCtx, canvas: Doc<"canvases">, grant?: string) {
+  if (!grant) return false;
+  const grantHash = await sha256Hex(grant);
+  const grantDoc = await ctx.db
+    .query("publicViewGrants")
+    .withIndex("by_grant_hash", (q) => q.eq("grantHash", grantHash))
+    .unique();
+  return (
+    !!grantDoc &&
+    grantDoc.canvasId === canvas._id &&
+    grantDoc.passwordSetAt === canvas.publicViewPasswordSetAt &&
+    grantDoc.expiresAt > Date.now()
+  );
+}
+
+/**
+ * Exchanges a public link password for a short-lived viewing pass.
+ * Failed attempts are throttled per canvas.
+ */
+export const unlockPublicView = mutation({
+  args: {
+    token: v.string(),
+    password: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const canvas = await ctx.db
+      .query("canvases")
+      .withIndex("by_public_token", (q) => q.eq("publicViewToken", args.token))
+      .first();
+    if (!canvas || !canvas.isPublicViewEnabled || !canvas.publicViewPasswordHash) {
+      return { ok: false as const, reason: "unavailable" as const };
+    }
+
+    const now = Date.now();
+    const attempts = await ctx.db
+      .query("shareUnlockAttempts")
+      .withIndex("by_canvas", (q) => q.eq("canvasId", canvas._id))
+      .unique();
+    const inWindow = attempts && now - attempts.windowStart < UNLOCK_WINDOW_MS;
+    if (inWindow && attempts.count >= UNLOCK_MAX_FAILURES) {
+      return { ok: false as const, reason: "rate_limited" as const };
+    }
+
+    if (!(await verifyPassword(args.password, canvas.publicViewPasswordHash))) {
+      if (!attempts) {
+        await ctx.db.insert("shareUnlockAttempts", { canvasId: canvas._id, windowStart: now, count: 1 });
+      } else if (inWindow) {
+        await ctx.db.patch(attempts._id, { count: attempts.count + 1 });
+      } else {
+        await ctx.db.patch(attempts._id, { windowStart: now, count: 1 });
+      }
+      return { ok: false as const, reason: "invalid" as const };
+    }
+
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    const grant = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    await ctx.db.insert("publicViewGrants", {
+      canvasId: canvas._id,
+      grantHash: await sha256Hex(grant),
+      passwordSetAt: canvas.publicViewPasswordSetAt ?? 0,
+      expiresAt: now + GRANT_TTL_MS,
+    });
+    return { ok: true as const, grant, expiresAt: now + GRANT_TTL_MS };
+  },
+});
+
+/**
+ * Sets (or clears, with null) the password on the public read-only link (Owner only).
+ * Changing it invalidates all existing viewing passes.
+ */
+export const setPublicViewPassword = mutation({
+  args: {
+    canvasId: v.id("canvases"),
+    password: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await requireOwner(ctx, args.canvasId);
+    if (args.password !== null && args.password.length < 4) {
+      throw new ConvexError("Password must be at least 4 characters");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(args.canvasId, {
+      publicViewPasswordHash: args.password === null ? undefined : await hashPassword(args.password),
+      publicViewPasswordSetAt: now,
+      updatedAt: now,
+    });
+
+    await ctx.db.insert("activity", {
+      canvasId: args.canvasId,
+      userId: user._id,
+      type: "public_view_changed",
+      message: args.password === null ? "removed the public link password" : "set a public link password",
+      createdAt: now,
+    });
   },
 });
 
@@ -229,6 +334,8 @@ export const getCanvas = query({
 export const getCanvasByPublicToken = query({
   args: {
     token: v.string(),
+    // Viewing pass from unlockPublicView, required when the link is password protected
+    grant: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const canvas = await ctx.db
@@ -238,6 +345,10 @@ export const getCanvasByPublicToken = query({
 
     if (!canvas || !canvas.isPublicViewEnabled) {
       return null;
+    }
+
+    if (canvas.publicViewPasswordHash && !(await isValidGrant(ctx, canvas, args.grant))) {
+      return { passwordRequired: true as const };
     }
 
     const notes = await ctx.db

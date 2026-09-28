@@ -1,12 +1,14 @@
 import React, { useState } from "react";
-import { Share2Icon, CopyIcon, CheckIcon, LockIcon, GlobeIcon, MailIcon, ShieldCheckIcon } from "lucide-react";
+import { Share2Icon, CopyIcon, CheckIcon, LockIcon, GlobeIcon, MailIcon, ShieldCheckIcon, KeyRoundIcon } from "lucide-react";
 
 interface ShareModalProps {
   canvasId: string;
   isPublicViewEnabled: boolean;
   publicViewToken?: string;
   isOwner: boolean;
+  hasPassword: boolean;
   onTogglePublic: (enabled: boolean) => Promise<void>;
+  onSetPassword: (password: string | null) => Promise<void>;
   onCreateInvite: (role: "editor" | "viewer", email?: string) => Promise<string>;
   onClose: () => void;
 }
@@ -16,7 +18,9 @@ export function ShareModal({
   isPublicViewEnabled,
   publicViewToken,
   isOwner,
+  hasPassword,
   onTogglePublic,
+  onSetPassword,
   onCreateInvite,
   onClose,
 }: ShareModalProps) {
@@ -26,6 +30,29 @@ export function ShareModal({
   const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isEditingPassword, setIsEditingPassword] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  const savePassword = async (password: string | null) => {
+    if (password !== null && password.length < 4) {
+      setPasswordError("Use at least 4 characters.");
+      return;
+    }
+    setSavingPassword(true);
+    setPasswordError(null);
+    try {
+      await onSetPassword(password);
+      setIsEditingPassword(false);
+      setPasswordInput("");
+    } catch (err) {
+      console.error(err);
+      setPasswordError("Could not update the password. Please try again.");
+    } finally {
+      setSavingPassword(false);
+    }
+  };
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const publicShareUrl = publicViewToken ? `${origin}/share/${publicViewToken}` : "";
@@ -81,7 +108,7 @@ export function ShareModal({
                 Public Read-Only Link
               </div>
               <p className="text-[11px] text-muted">
-                Anyone with this link can view the canvas. <strong>No anonymous editing allowed.</strong>
+                Anyone with this link{hasPassword ? " and the password" : ""} can view the canvas. <strong>No anonymous editing allowed.</strong>
               </p>
             </div>
             {isOwner && (
@@ -113,6 +140,85 @@ export function ShareModal({
                 {copiedPublic ? <CheckIcon className="w-3.5 h-3.5 text-emerald-400" /> : <CopyIcon className="w-3.5 h-3.5" />}
                 {copiedPublic ? "Copied" : "Copy"}
               </button>
+            </div>
+          )}
+
+          {isPublicViewEnabled && (
+            <div className="space-y-2 border-t border-line/70 pt-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-xs text-ink">
+                  <KeyRoundIcon className={`w-3.5 h-3.5 ${hasPassword ? "text-emerald-600" : "text-muted"}`} />
+                  {hasPassword ? "Password protected" : "No password: anyone with the link can view"}
+                </div>
+                {isOwner && !isEditingPassword && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingPassword(true);
+                        setPasswordError(null);
+                      }}
+                      className="text-xs font-medium text-accent hover:underline"
+                    >
+                      {hasPassword ? "Change" : "Add password"}
+                    </button>
+                    {hasPassword && (
+                      <button
+                        type="button"
+                        disabled={savingPassword}
+                        onClick={() => savePassword(null)}
+                        className="text-xs text-muted hover:text-rose-600 disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {isOwner && isEditingPassword && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void savePassword(passwordInput);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <input
+                    type="password"
+                    autoFocus
+                    autoComplete="new-password"
+                    placeholder={hasPassword ? "New password" : "Set a password"}
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    className="w-full text-xs bg-white border border-line rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingPassword}
+                    className="px-3 py-1.5 bg-ink text-surface rounded-lg text-xs font-medium hover:bg-ink/90 disabled:opacity-50 shrink-0"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingPassword(false);
+                      setPasswordInput("");
+                      setPasswordError(null);
+                    }}
+                    className="text-xs text-muted hover:text-ink shrink-0"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              )}
+              {passwordError && <p className="text-[11px] text-rose-600">{passwordError}</p>}
+              {hasPassword && (
+                <p className="text-[11px] text-muted">
+                  Share the password separately. Changing it signs out everyone currently viewing.
+                </p>
+              )}
             </div>
           )}
         </div>

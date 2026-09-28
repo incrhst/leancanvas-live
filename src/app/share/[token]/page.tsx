@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { useQuery } from "convex/react";
+import React, { useEffect, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -9,16 +9,66 @@ import { LeanCanvasBoard, CANVAS_BLOCKS } from "../../../components/LeanCanvasBo
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { NoteItem, StressTestResult } from "../../../types/canvas";
-import { GlobeIcon, SparklesIcon, LogInIcon, FileTextIcon, DownloadIcon } from "lucide-react";
+import { GlobeIcon, SparklesIcon, LogInIcon, FileTextIcon, DownloadIcon, LockIcon } from "lucide-react";
 import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
 
 export default function PublicSharePage() {
   const params = useParams();
   const token = (params?.token as string) || "";
 
-  const data = useQuery(api.canvases.getCanvasByPublicToken, { token });
+  const grantKey = `leancanvas_share_grant_${token}`;
+  const [grant, setGrant] = useState<string | undefined>(undefined);
+  const [grantLoaded, setGrantLoaded] = useState(false);
+  const data = useQuery(
+    api.canvases.getCanvasByPublicToken,
+    grantLoaded ? { token, grant } : "skip"
+  );
+  const unlockPublicView = useMutation(api.canvases.unlockPublicView);
+  const [password, setPassword] = useState("");
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [unlocking, setUnlocking] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showStressTest, setShowStressTest] = useState(false);
+
+  // Restore a viewing pass from this browser session, if any
+  useEffect(() => {
+    try {
+      setGrant(sessionStorage.getItem(grantKey) ?? undefined);
+    } catch {
+      // storage unavailable; the viewer just re-enters the password
+    }
+    setGrantLoaded(true);
+  }, [grantKey]);
+
+  const handleUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password || unlocking) return;
+    setUnlocking(true);
+    setUnlockError(null);
+    try {
+      const result = await unlockPublicView({ token, password });
+      if (result.ok) {
+        try {
+          sessionStorage.setItem(grantKey, result.grant);
+        } catch {
+          // ignore
+        }
+        setGrant(result.grant);
+        setPassword("");
+      } else if (result.reason === "rate_limited") {
+        setUnlockError("Too many attempts. Please wait a few minutes and try again.");
+      } else if (result.reason === "invalid") {
+        setUnlockError("Incorrect password.");
+      } else {
+        setUnlockError("This link is no longer available.");
+      }
+    } catch (err) {
+      console.error(err);
+      setUnlockError("Something went wrong. Please try again.");
+    } finally {
+      setUnlocking(false);
+    }
+  };
 
   if (data === undefined) {
     return (
@@ -35,6 +85,45 @@ export default function PublicSharePage() {
         <p className="text-xs text-muted max-w-sm">
           This public link is invalid or has been disabled by the canvas owner.
         </p>
+      </div>
+    );
+  }
+
+  if ("passwordRequired" in data) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-canvas px-4">
+        <form
+          onSubmit={handleUnlock}
+          className="w-full max-w-sm rounded-2xl bg-surface border border-line p-8 shadow-sm space-y-5"
+        >
+          <div className="text-center space-y-1">
+            <div className="inline-flex w-10 h-10 rounded-xl bg-accent-soft text-accent items-center justify-center mb-2">
+              <LockIcon className="w-5 h-5" />
+            </div>
+            <h1 className="text-lg font-bold text-ink">Password required</h1>
+            <p className="text-xs text-muted">
+              The owner has protected this shared canvas. Enter the password to view it.
+            </p>
+          </div>
+          <input
+            type="password"
+            autoFocus
+            required
+            autoComplete="current-password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full text-sm border border-line rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-accent/50"
+          />
+          {unlockError && <p className="text-xs text-rose-600">{unlockError}</p>}
+          <button
+            type="submit"
+            disabled={unlocking}
+            className="w-full py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:bg-accent/90 disabled:opacity-60 transition-colors"
+          >
+            {unlocking ? "Checking..." : "View canvas"}
+          </button>
+        </form>
       </div>
     );
   }

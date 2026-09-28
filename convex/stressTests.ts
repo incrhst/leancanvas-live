@@ -9,7 +9,7 @@ import { STRESS_TEST_SYSTEM_PROMPT } from "./constants/prompts";
 async function canReadCanvas(ctx: QueryCtx, canvasId: Id<"canvases">) {
   const canvas = await ctx.db.get(canvasId);
   if (!canvas) return false;
-  if (canvas.isPublicViewEnabled) return true;
+  // Public viewers get the latest result through canvases.getCanvasByPublicToken instead
   const user = await getCurrentUser(ctx);
   return !!user && !!(await getCanvasRole(ctx, canvasId, user._id));
 }

@@ -14,6 +14,7 @@ import type * as constants_prompts from "../constants/prompts.js";
 import type * as http from "../http.js";
 import type * as invites from "../invites.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_password from "../lib/password.js";
 import type * as mcp from "../mcp.js";
 import type * as notes from "../notes.js";
 import type * as oauth from "../oauth.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   invites: typeof invites;
   "lib/auth": typeof lib_auth;
+  "lib/password": typeof lib_password;
   mcp: typeof mcp;
   notes: typeof notes;
   oauth: typeof oauth;
