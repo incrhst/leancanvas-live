@@ -72,6 +72,8 @@ export const CANVAS_BLOCKS: BlockDef[] = [
 interface LeanCanvasBoardProps {
   notes: NoteItem[];
   selectedId: string | null;
+  /** noteId -> 1-based rank from the latest stress test's riskiest assumptions */
+  riskRanks?: Record<string, number>;
   canEdit?: boolean;
   onSelect: (id: string) => void;
   onAdd?: (blockId: BlockId, text: string) => void;
@@ -82,6 +84,7 @@ interface LeanCanvasBoardProps {
 export function LeanCanvasBoard({
   notes,
   selectedId,
+  riskRanks,
   canEdit = true,
   onSelect,
   onAdd,
@@ -97,6 +100,7 @@ export function LeanCanvasBoard({
             block={block}
             notes={notes.filter((n) => n.block === block.id)}
             selectedId={selectedId}
+            riskRanks={riskRanks}
             canEdit={canEdit}
             onSelect={onSelect}
             onAdd={onAdd ? (text) => onAdd(block.id, text) : undefined}

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
@@ -11,6 +11,8 @@ import { LeanCanvasBoard, CANVAS_BLOCKS } from "../../../components/LeanCanvasBo
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { ShareModal } from "../../../components/ShareModal";
+import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptionsView";
+import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/CanvasViewToggle";
 import { useAuth } from "../../../components/ConvexClientProvider";
 import { NoteItem, BlockId, EvidenceState, StressTestResult } from "../../../types/canvas";
 import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
@@ -27,6 +29,13 @@ const EVIDENCE_CYCLE: EvidenceState[] = [
 
 export default function CanvasEditorPage() {
   const params = useParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const view: CanvasView = searchParams.get("view") === "risks" ? "risks" : "canvas";
+  const setView = (next: CanvasView) => {
+    router.replace(next === "risks" ? `${pathname}?view=risks` : pathname, { scroll: false });
+  };
   const canvasId = (params?.id as string) as Id<"canvases">;
   const { user, isLoading } = useAuth();
 
@@ -50,6 +59,7 @@ export default function CanvasEditorPage() {
   const canEdit = role === "owner" || role === "editor";
   const stressResult: StressTestResult | null = latestStressTest ?? null;
   const selectedNote = notes.find((n) => n._id === selectedId) || null;
+  const riskRanks = riskRanksFor(stressResult?.riskiestAssumptions);
 
   if (isLoading || data === undefined) {
     return (
@@ -148,8 +158,30 @@ export default function CanvasEditorPage() {
 
       <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
         {/* Board */}
-        <div className="flex-1 overflow-y-auto p-3 lg:p-4">
+        <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3">
+          <CanvasViewToggle
+            view={view}
+            riskCount={stressResult?.riskiestAssumptions.length ?? 0}
+            onChange={setView}
+          />
+          {view === "risks" ? (
+            <RiskiestAssumptionsView
+              result={stressResult}
+              notes={notes}
+              canEdit={canEdit}
+              canRun={canEdit}
+              isRunning={isTesting}
+              onRunTest={handleRunStressTest}
+              onUpdateEvidence={handleUpdateEvidence}
+              onOpenNote={(noteId) => {
+                setView("canvas");
+                setSelectedId(noteId);
+                setActivePanel("detail");
+              }}
+            />
+          ) : (
           <LeanCanvasBoard
+            riskRanks={riskRanks}
             notes={notes}
             selectedId={selectedId}
             canEdit={canEdit}
@@ -166,6 +198,7 @@ export default function CanvasEditorPage() {
             onCycleEvidence={canEdit ? handleCycleEvidence : undefined}
             onDelete={canEdit ? handleDeleteNote : undefined}
           />
+          )}
         </div>
 
         {/* Side Panel (Note Detail or Stress Test) */}
@@ -195,6 +228,10 @@ export default function CanvasEditorPage() {
                 canRun={canEdit}
                 onRunTest={handleRunStressTest}
                 onClose={() => setActivePanel(null)}
+                onViewRisks={() => {
+                  setView("risks");
+                  setActivePanel(null);
+                }}
               />
             )}
           </aside>

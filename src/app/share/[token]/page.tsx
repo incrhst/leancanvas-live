@@ -4,10 +4,12 @@ import React, { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LeanCanvasBoard, CANVAS_BLOCKS } from "../../../components/LeanCanvasBoard";
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
 import { StressTestPanel } from "../../../components/StressTestPanel";
+import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptionsView";
+import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/CanvasViewToggle";
 import { NoteItem, StressTestResult } from "../../../types/canvas";
 import { GlobeIcon, SparklesIcon, LogInIcon, FileTextIcon, DownloadIcon, LockIcon } from "lucide-react";
 import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
@@ -15,6 +17,13 @@ import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
 export default function PublicSharePage() {
   const params = useParams();
   const token = (params?.token as string) || "";
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const view: CanvasView = searchParams.get("view") === "risks" ? "risks" : "canvas";
+  const setView = (next: CanvasView) => {
+    router.replace(next === "risks" ? `${pathname}?view=risks` : pathname, { scroll: false });
+  };
 
   const grantKey = `leancanvas_share_grant_${token}`;
   const [grant, setGrant] = useState<string | undefined>(undefined);
@@ -194,13 +203,30 @@ export default function PublicSharePage() {
 
       {/* Main Board (canEdit = false) */}
       <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-3 lg:p-4">
+        <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3">
+          <CanvasViewToggle
+            view={view}
+            riskCount={publicStressTest?.riskiestAssumptions.length ?? 0}
+            onChange={setView}
+          />
+          {view === "risks" ? (
+            <RiskiestAssumptionsView
+              result={publicStressTest}
+              notes={notes}
+              onOpenNote={(noteId) => {
+                setView("canvas");
+                setSelectedId(noteId);
+              }}
+            />
+          ) : (
           <LeanCanvasBoard
+            riskRanks={riskRanksFor(publicStressTest?.riskiestAssumptions)}
             notes={notes}
             selectedId={selectedId}
             canEdit={false} // Strictly read-only for anonymous users
             onSelect={(id) => setSelectedId((curr) => (curr === id ? null : id))}
           />
+          )}
         </div>
 
         {/* Read-only side panel */}
@@ -213,6 +239,10 @@ export default function PublicSharePage() {
                 canRun={false} // Anonymous users cannot run mutations or trigger AI actions
                 onRunTest={() => {}}
                 onClose={() => setShowStressTest(false)}
+                onViewRisks={() => {
+                  setView("risks");
+                  setShowStressTest(false);
+                }}
               />
             ) : selectedNote ? (
               <NoteDetailPanel

@@ -8,6 +8,7 @@ interface CanvasBlockProps {
   block: BlockDef;
   notes: NoteItem[];
   selectedId: string | null;
+  riskRanks?: Record<string, number>;
   canEdit?: boolean;
   onSelect: (id: string) => void;
   onAdd?: (text: string) => void;
@@ -19,6 +20,7 @@ export function CanvasBlock({
   block,
   notes,
   selectedId,
+  riskRanks,
   canEdit = true,
   onSelect,
   onAdd,
@@ -64,6 +66,7 @@ export function CanvasBlock({
                 key={note._id}
                 note={note}
                 selected={selectedId === note._id}
+                riskRank={riskRanks?.[note._id]}
                 canEdit={canEdit}
                 onSelect={() => onSelect(note._id)}
                 onCycleEvidence={() => onCycleEvidence && onCycleEvidence(note._id)}
