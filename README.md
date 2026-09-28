@@ -1,11 +1,52 @@
 # LeanCanvas Live
 
-Realtime multiplayer collaborative Lean Canvas powered by Next.js 15, Convex, and AI stress-testing.
+Realtime multiplayer collaborative Lean Canvas by **Incrementic** (`lean.incrementic.com`), powered by Next.js 15, Convex, and AI stress-testing.
+
+- **Canonical Domain**: [https://lean.incrementic.com](https://lean.incrementic.com)
+- **Brand System**: Incrementic Design System (Sora, Inter, IBM Plex Mono, `#EA5148`)
+
+---
 
 ## Tech Stack
 - **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS, Framer Motion, Lucide
 - **Backend & Realtime**: Convex (Database, Queries, Mutations, Actions, Auth, Real-time)
-- **Deployment**: Vercel (Git-connected)
+- **Email Delivery**: Resend (`RESEND_API_KEY`, `RESEND_FROM`)
+- **Deployment**: Vercel (Git-connected to `incrhst/leancanvas-live`)
+
+---
+
+## Setting Up MCP (Model Context Protocol) for Claude
+
+You can connect Claude (Desktop, Claude Code, or Cursor) to LeanCanvas Live via MCP to inspect, edit, or stress-test your canvases directly from your Claude conversation.
+
+### 1. Claude Desktop Configuration
+Add the LeanCanvas MCP server entry to your Claude Desktop configuration file:
+
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "leancanvas": {
+      "command": "npx",
+      "args": ["-y", "tsx", "/path/to/leanon/mcp/server.ts"],
+      "env": {
+        "CONVEX_URL": "https://<your-deployment>.convex.cloud",
+        "LEANCANVAS_API_TOKEN": "<your-auth-token-or-session-secret>"
+      }
+    }
+  }
+}
+```
+
+### 2. Available MCP Tools for Claude
+When configured, Claude has access to:
+- `get_canvas({ canvasId })`: Fetches full structured canvas, blocks, and current notes with evidence states.
+- `add_note({ canvasId, block, content, evidenceState })`: Inserts a note into any of the 9 blocks.
+- `update_evidence({ noteId, evidenceState })`: Updates state (`unknown`, `assumption`, `observed`, `supported`, `contradicted`, `decision`).
+- `run_stress_test({ canvasId })`: Triggers the Ash Maurya 7-dimension diagnostic and extracts top riskiest assumptions.
+- `export_canvas({ canvasId, format })`: Returns Markdown or JSON for documentation and agent workflows.
 
 ---
 
@@ -56,4 +97,4 @@ npx convex dev
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the app.
+Open [http://localhost:3000](http://localhost:3000) or deploy to [https://lean.incrementic.com](https://lean.incrementic.com).

@@ -21,8 +21,26 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://lean.incrementic.com"),
   title: "LeanCanvas Live — Realtime Collaborative Lean Canvas by Incrementic",
-  description: "Realtime multiplayer Lean Canvas tool with AI stress-testing and evidence-based assumption tracking. The shortest distance to your next validated business.",
+  description:
+    "Realtime multiplayer Lean Canvas tool with AI stress-testing and evidence-based assumption tracking. The shortest distance to your next validated business.",
+  alternates: {
+    canonical: "https://lean.incrementic.com",
+  },
+  openGraph: {
+    title: "LeanCanvas Live — by Incrementic",
+    description: "The shortest distance to your next validated business.",
+    url: "https://lean.incrementic.com",
+    siteName: "LeanCanvas Live",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "LeanCanvas Live — by Incrementic",
+    description: "The shortest distance to your next validated business.",
+  },
 };
 
 export default function RootLayout({
