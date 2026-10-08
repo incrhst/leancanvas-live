@@ -1,5 +1,6 @@
 import React from "react";
 import { CanvasBlock } from "./CanvasBlock";
+import { MobileCanvasBoard } from "./MobileCanvasBoard";
 import type { BlockDef, BlockId, NoteItem } from "../types/canvas";
 
 interface CanvasBoardProps {
@@ -28,7 +29,22 @@ export function CanvasBoard({
   onDelete,
 }: CanvasBoardProps) {
   return (
-    <div className="relative w-full h-full min-h-[720px]">
+    <>
+    {/* Phones get one block at a time with a minimap dock; md and up get the full grid. */}
+    <div className="md:hidden">
+      <MobileCanvasBoard
+        blocks={blocks}
+        notes={notes}
+        selectedId={selectedId}
+        riskRanks={riskRanks}
+        canEdit={canEdit}
+        onSelect={onSelect}
+        onAdd={onAdd}
+        onCycleEvidence={onCycleEvidence}
+        onDelete={onDelete}
+      />
+    </div>
+    <div className="relative hidden w-full h-full min-h-[720px] md:block">
       <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-line bg-line md:grid-cols-2 lg:h-full lg:grid-cols-10 lg:grid-rows-[minmax(240px,1fr)_minmax(240px,1fr)_minmax(180px,0.8fr)]">
         {blocks.map((block) => (
           <CanvasBlock
@@ -46,5 +62,6 @@ export function CanvasBoard({
         ))}
       </div>
     </div>
+    </>
   );
 }
