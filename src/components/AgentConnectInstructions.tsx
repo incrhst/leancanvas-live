@@ -15,10 +15,15 @@ const ANTIGRAVITY_CONFIG = `{
 
 type AgentId = "chatgpt" | "claude" | "gemini" | "antigravity";
 
-const AGENTS: { id: AgentId; label: string; steps: React.ReactNode[] }[] = [
+const AGENTS: { id: AgentId; label: string; note?: React.ReactNode; steps: React.ReactNode[] }[] = [
   {
     id: "chatgpt",
-    label: "ChatGPT",
+    label: "ChatGPT Desktop",
+    note: (
+      <>
+        These steps are for the <strong>ChatGPT desktop app</strong>, not chatgpt.com in a browser.
+      </>
+    ),
     steps: [
       <>
         Open <strong>Plugins</strong>, click <strong>Manage</strong> (the gear icon), then open{" "}
@@ -259,6 +264,9 @@ export function AgentConnectInstructions() {
 
           {/* Steps for the selected agent */}
           <div role="tabpanel" id={`agent-panel-${active.id}`} aria-labelledby={`agent-tab-${active.id}`}>
+            {active.note && (
+              <p className="mb-3 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-muted">{active.note}</p>
+            )}
             <ol className="space-y-2.5 text-xs text-muted">
               {active.steps.map((step, index) => (
                 <li key={index} className="flex items-start gap-2">
