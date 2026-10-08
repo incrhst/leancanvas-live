@@ -19,6 +19,8 @@ interface TopBarProps {
   onOpenStressTest?: () => void;
   onExportMarkdown?: () => void;
   onExportJson?: () => void;
+  /** PDF and PNG export menu, rendered before the Markdown and JSON buttons */
+  exportMenu?: React.ReactNode;
 }
 
 export function TopBar({
@@ -29,6 +31,7 @@ export function TopBar({
   onOpenStressTest,
   onExportMarkdown,
   onExportJson,
+  exportMenu,
 }: TopBarProps) {
   const isAnonymous = role === "anonymous" || role === "viewer";
 
@@ -78,6 +81,7 @@ export function TopBar({
 
       <div className="flex shrink-0 items-center gap-2">
         {/* Export buttons */}
+        {exportMenu && <div className="hidden sm:block">{exportMenu}</div>}
         {onExportMarkdown && (
           <button
             type="button"

@@ -15,6 +15,7 @@ import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptions
 import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/CanvasViewToggle";
 import { useAuth } from "../../../components/ConvexClientProvider";
 import { NoteItem, BlockId, EvidenceState, StressTestResult } from "../../../types/canvas";
+import { ExportMenu } from "../../../components/ExportMenu";
 import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
 import { getCanvasTemplate } from "../../../utils/canvasTemplates";
 
@@ -156,6 +157,9 @@ export default function CanvasEditorPage() {
         onOpenStressTest={() => setActivePanel((curr) => (curr === "stressTest" ? null : "stressTest"))}
         onExportMarkdown={handleExportMarkdown}
         onExportJson={handleExportJson}
+        exportMenu={
+          <ExportMenu title={canvas.title} template={template} notes={notes} stressResult={stressResult} />
+        }
       />
 
       <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">

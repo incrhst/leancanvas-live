@@ -12,6 +12,7 @@ import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptions
 import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/CanvasViewToggle";
 import { NoteItem, StressTestResult } from "../../../types/canvas";
 import { GlobeIcon, SparklesIcon, LogInIcon, FileTextIcon, DownloadIcon, LockIcon } from "lucide-react";
+import { ExportMenu } from "../../../components/ExportMenu";
 import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
 import { getCanvasTemplate } from "../../../utils/canvasTemplates";
 
@@ -183,6 +184,14 @@ export default function PublicSharePage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <ExportMenu
+            title={data.canvas.title}
+            badge="Public view"
+            template={template}
+            notes={notes}
+            stressResult={publicStressTest}
+          />
+
           <button
             type="button"
             onClick={handleExportMarkdown}
