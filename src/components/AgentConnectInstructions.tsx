@@ -13,7 +13,7 @@ const ANTIGRAVITY_CONFIG = `{
   }
 }`;
 
-type AgentId = "chatgpt" | "claude" | "antigravity";
+type AgentId = "chatgpt" | "claude" | "gemini" | "antigravity";
 
 const AGENTS: { id: AgentId; label: string; steps: React.ReactNode[] }[] = [
   {
@@ -46,6 +46,24 @@ const AGENTS: { id: AgentId; label: string; steps: React.ReactNode[] }[] = [
       </>,
       <>
         In a chat, click <strong>+</strong> and select <strong>Connectors</strong> to turn LeanCanvas on.
+      </>,
+    ],
+  },
+  {
+    id: "gemini",
+    label: "Gemini",
+    steps: [
+      <>
+        Open <strong>Settings</strong> (the gear icon), go to <strong>Personal Intelligence</strong>, and open{" "}
+        <strong>Custom Apps</strong>.
+      </>,
+      <>
+        Scroll down and add a custom app with the URL above.
+      </>,
+      <>
+        Sign in with your LeanCanvas account if asked, then approve access. If Gemini shows{" "}
+        <em>&quot;Account linking is required to use this custom app. Please try again.&quot;</em>, try again. It
+        connected on the second attempt when we tested it.
       </>,
     ],
   },
