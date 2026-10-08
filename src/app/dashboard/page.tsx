@@ -7,6 +7,7 @@ import { api } from "../../../convex/_generated/api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../components/ConvexClientProvider";
+import { AgentConnectInstructions } from "../../components/AgentConnectInstructions";
 import { CANVAS_TEMPLATE_LIST, getCanvasTemplate } from "../../utils/canvasTemplates";
 import type { CanvasTemplate } from "../../types/canvas";
 import {
@@ -15,9 +16,6 @@ import {
   CalendarIcon,
   ArrowRightIcon,
   LogOutIcon,
-  BotIcon,
-  CopyIcon,
-  CheckIcon,
   SparklesIcon,
 } from "lucide-react";
 
@@ -32,17 +30,10 @@ export default function DashboardPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newTemplate, setNewTemplate] = useState<CanvasTemplate>("lean");
-  const [mcpCopied, setMcpCopied] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace("/login?redirect=/dashboard");
   }, [isLoading, user, router]);
-
-  const copyMcpUrl = () => {
-    navigator.clipboard?.writeText("https://lean.incrementic.com/api/mcp");
-    setMcpCopied(true);
-    setTimeout(() => setMcpCopied(false), 2000);
-  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,79 +120,8 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* MCP Connect Card for Non-Savvy Users */}
-        <div className="rounded-2xl bg-surface border border-line p-5 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-line/70">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-incrementic-soft border border-incrementic-hair text-incrementic-red flex items-center justify-center">
-                <BotIcon className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="font-display font-semibold text-sm text-ink flex items-center gap-2">
-                  Connect to Claude (MCP)
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-100 text-emerald-800 font-medium">
-                    1-Click Ready
-                  </span>
-                </h3>
-                <p className="text-xs text-muted">
-                  Use Claude Desktop, Web, or Mobile to inspect canvases, add notes, and stress-test assumptions.
-                </p>
-              </div>
-            </div>
-
-            {/* MCP URL Copy input */}
-            <div className="flex items-center gap-2 bg-surface-2 border border-line rounded-lg p-1.5 max-w-md w-full sm:w-auto">
-              <span className="font-mono text-[11px] text-incrementic-charcoal select-all truncate px-2">
-                https://lean.incrementic.com/api/mcp
-              </span>
-              <button
-                type="button"
-                onClick={copyMcpUrl}
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-incrementic-ink text-white rounded-md text-xs font-semibold hover:bg-black transition-colors shrink-0"
-              >
-                {mcpCopied ? (
-                  <>
-                    <CheckIcon className="w-3.5 h-3.5 text-emerald-400" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <CopyIcon className="w-3.5 h-3.5" />
-                    Copy URL
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Step-by-step for non-technical users */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs text-muted">
-            <div className="flex items-start gap-2">
-              <span className="w-5 h-5 rounded-full bg-incrementic-hair text-ink font-mono font-semibold flex items-center justify-center text-[10px] shrink-0 mt-0.5">
-                1
-              </span>
-              <span>
-                In Claude, click <strong>Settings</strong> or the tools icon, then choose <strong>Connectors</strong>.
-              </span>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="w-5 h-5 rounded-full bg-incrementic-hair text-ink font-mono font-semibold flex items-center justify-center text-[10px] shrink-0 mt-0.5">
-                2
-              </span>
-              <span>
-                Click <strong>+ Add Connector</strong> and paste the copied MCP URL above.
-              </span>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="w-5 h-5 rounded-full bg-incrementic-hair text-ink font-mono font-semibold flex items-center justify-center text-[10px] shrink-0 mt-0.5">
-                3
-              </span>
-              <span>
-                Ask Claude: <em>&quot;Review my Lean Canvas and find the 3 riskiest assumptions.&quot;</em>
-              </span>
-            </div>
-          </div>
-        </div>
+        {/* Instructions for connecting an agent */}
+        <AgentConnectInstructions />
 
         {/* Modal for creating canvas */}
         {isCreating && (
