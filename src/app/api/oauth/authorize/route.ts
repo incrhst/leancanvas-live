@@ -19,6 +19,9 @@ function errorPage(message: string, status = 400) {
   );
 }
 
+// Must match `issuer` in /.well-known/oauth-authorization-server exactly (RFC 9207).
+const ISSUER = "https://lean.incrementic.com";
+
 interface AuthorizeParams {
   clientId: string;
   redirectUri: string;
@@ -38,6 +41,11 @@ async function validateClient(params: AuthorizeParams) {
   const client = await fetchQuery(api.oauth.getClient, { clientId: params.clientId });
   if (!client) return { error: "Unknown client_id. Please reconnect the connector." };
   if (!client.redirectUris.includes(params.redirectUri)) {
+    console.warn("redirect_uri not registered", {
+      clientId: params.clientId,
+      redirectUri: params.redirectUri,
+      registered: client.redirectUris,
+    });
     return { error: "redirect_uri is not registered for this client" };
   }
   return { client };
@@ -48,6 +56,7 @@ function redirectWithParams(redirectUri: string, params: Record<string, string>)
   for (const [key, value] of Object.entries(params)) {
     if (value) target.searchParams.set(key, value);
   }
+  target.searchParams.set("iss", ISSUER);
   return NextResponse.redirect(target.toString(), 302);
 }
 
@@ -91,6 +100,7 @@ export async function GET(req: NextRequest) {
   const cancelUrl = new URL(params.redirectUri);
   cancelUrl.searchParams.set("error", "access_denied");
   if (params.state) cancelUrl.searchParams.set("state", params.state);
+  cancelUrl.searchParams.set("iss", ISSUER);
 
   const clientName = escapeHtml(client.clientName);
 

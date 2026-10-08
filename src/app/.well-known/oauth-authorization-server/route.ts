@@ -23,6 +23,9 @@ export async function GET(req: NextRequest) {
       grant_types_supported: ["authorization_code", "refresh_token"],
       token_endpoint_auth_methods_supported: ["none"],
       code_challenge_methods_supported: ["S256"], // OAuth 2.1 PKCE requirement
+      // RFC 9207: authorization responses carry `iss`. ChatGPT uses its stable redirect URI
+      // (connector_platform_oauth_redirect) only when this is advertised.
+      authorization_response_iss_parameter_supported: true,
       scopes_supported: ["canvases:read", "canvases:write"],
     },
     { headers: CORS_HEADERS }
