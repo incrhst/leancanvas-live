@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchAction, fetchMutation, fetchQuery } from "convex/nextjs";
 import { ConvexError } from "convex/values";
 import { api } from "../../../../convex/_generated/api";
+import { GTM_BLOCK_IDS, LEAN_BLOCK_IDS } from "../../../../convex/lib/canvasTemplates";
+import { getCanvasTemplate } from "../../../utils/canvasTemplates";
+
+const ALL_BLOCK_IDS = [...new Set([...LEAN_BLOCK_IDS, ...GTM_BLOCK_IDS])];
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -19,7 +23,7 @@ export async function OPTIONS() {
 const TOOLS_MANIFEST = [
   {
     name: "list_canvases",
-    description: "List the Lean Canvases the signed-in user owns or collaborates on (returns canvasId, title, role and URL)",
+    description: "List the canvases (Lean or GTM) the signed-in user owns or collaborates on (returns canvasId, title, template, role and URL)",
     inputSchema: {
       type: "object",
       properties: {},
@@ -27,17 +31,24 @@ const TOOLS_MANIFEST = [
   },
   {
     name: "create_canvas",
-    description: "Create a new Lean Canvas for a startup, project, or business idea",
+    description: "Create a new canvas for a startup, project, or business idea: a Lean Canvas (default) or a GTM Canvas",
     inputSchema: {
       type: "object",
       properties: {
         title: {
           type: "string",
-          description: "Title of the Lean Canvas (e.g. 'AI Bookkeeping for Freelancers')",
+          description: "Title of the canvas (e.g. 'AI Bookkeeping for Freelancers')",
         },
         description: {
           type: "string",
           description: "Optional one-sentence summary of the business model or problem being solved",
+        },
+        template: {
+          type: "string",
+          enum: ["lean", "gtm"],
+          default: "lean",
+          description:
+            "'lean' for a Lean Canvas (business model: problem, solution, metrics, costs), or 'gtm' for a go-to-market canvas (ideal customer, positioning, channels, sales motion, pricing, 90-day launch plan)",
         },
         seedNotes: {
           type: "boolean",
@@ -50,7 +61,7 @@ const TOOLS_MANIFEST = [
   },
   {
     name: "get_canvas",
-    description: "Fetch a Lean Canvas with all 9 blocks and sticky notes",
+    description: "Fetch a canvas (Lean or GTM) with all of its blocks and sticky notes",
     inputSchema: {
       type: "object",
       properties: {
@@ -64,24 +75,16 @@ const TOOLS_MANIFEST = [
   },
   {
     name: "add_note",
-    description: "Add a new sticky note to a specific Lean Canvas block",
+    description:
+      `Add a new sticky note to a block of a canvas. The block must belong to the canvas's template. ` +
+      `Lean blocks: ${LEAN_BLOCK_IDS.join(", ")}. GTM blocks: ${GTM_BLOCK_IDS.join(", ")}.`,
     inputSchema: {
       type: "object",
       properties: {
         canvasId: { type: "string" },
         block: {
           type: "string",
-          enum: [
-            "problem",
-            "customerSegments",
-            "uniqueValueProposition",
-            "solution",
-            "channels",
-            "revenueStreams",
-            "costStructure",
-            "keyMetrics",
-            "unfairAdvantage",
-          ],
+          enum: ALL_BLOCK_IDS,
         },
         content: { type: "string" },
         evidenceState: {
@@ -110,7 +113,8 @@ const TOOLS_MANIFEST = [
   },
   {
     name: "run_stress_test",
-    description: "Execute the Ash Maurya 7-dimension AI stress test on a canvas",
+    description:
+      "Run the 7-dimension AI stress test on a canvas (Ash Maurya methodology for Lean Canvases, go-to-market criteria for GTM Canvases)",
     inputSchema: {
       type: "object",
       properties: {
@@ -154,14 +158,16 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
     case "create_canvas": {
       const result = await fetchMutation(api.mcp.createCanvas, {
         accessToken,
-        title: str(args.title) || "Untitled Lean Canvas",
+        title: str(args.title),
         description: str(args.description) || undefined,
         seedNotes: typeof args.seedNotes === "boolean" ? args.seedNotes : undefined,
+        template: (str(args.template) || undefined) as any, // validated by Convex
       });
+      const label = getCanvasTemplate(str(args.template)).label;
       return {
         success: true,
         ...result,
-        message: `Created new Lean Canvas. View and collaborate in realtime at ${result.url}`,
+        message: `Created new ${label}. View and collaborate in realtime at ${result.url}`,
       };
     }
     case "add_note":

@@ -207,13 +207,13 @@ export async function GET(req: NextRequest) {
     </div>
     <h1>Connect ${clientName} to LeanCanvas</h1>
     <p>
-      ${clientName} is requesting permission to view your Lean Canvases, add sticky notes, and run AI stress testing on your business models.
+      ${clientName} is requesting permission to view your Lean and GTM canvases, add sticky notes, and run AI stress testing on your business models.
     </p>
 
     <div class="permissions">
       <div>✓ Read access to your active workspaces and canvases</div>
       <div>✓ Ability to create canvases, post new notes and update evidence status</div>
-      <div>✓ Run Ash Maurya 7-dimension stress test diagnostics</div>
+      <div>✓ Run 7-dimension stress test diagnostics</div>
     </div>
 
     <form method="POST" action="/api/oauth/authorize">

@@ -4,34 +4,77 @@ import { hashPassword, verifyPassword } from "./lib/password";
 import { requireAuth, requireOwner, requireEditor, getCurrentUser, getCanvasRole, Role, sha256Hex } from "./lib/auth";
 import { Doc, Id } from "./_generated/dataModel";
 import { MutationCtx, QueryCtx } from "./_generated/server";
+import {
+  BlockId,
+  CanvasTemplate,
+  DEFAULT_TITLE_BY_TEMPLATE,
+  canvasTemplateValidator,
+  templateOf,
+} from "./lib/canvasTemplates";
+
+type EvidenceState = Doc<"notes">["evidenceState"];
+type SeedNote = { block: BlockId; content: string; order: number; evidenceState: EvidenceState };
 
 // Initial seed notes for new canvases (standard Lean Canvas starter items)
-const DEFAULT_SEED_NOTES = [
+const LEAN_SEED_NOTES: SeedNote[] = [
   {
-    block: "problem" as const,
+    block: "problem",
     content: "Existing solutions are clunky, siloed, and fail to provide fast validation signals.",
     order: 0,
-    evidenceState: "observed" as const,
+    evidenceState: "observed",
   },
   {
-    block: "customerSegments" as const,
+    block: "customerSegments",
     content: "Early-stage startup founders and product leads iterating fast.",
     order: 0,
-    evidenceState: "supported" as const,
+    evidenceState: "supported",
   },
   {
-    block: "uniqueValueProposition" as const,
+    block: "uniqueValueProposition",
     content: "Realtime collaborative Lean Canvas with automated AI stress-testing and evidence tracking.",
     order: 0,
-    evidenceState: "assumption" as const,
+    evidenceState: "assumption",
   },
   {
-    block: "solution" as const,
+    block: "solution",
     content: "Live multiplayer canvas with 1-click shareable read-only links and assumption heatmaps.",
     order: 0,
-    evidenceState: "assumption" as const,
+    evidenceState: "assumption",
   },
 ];
+
+// GTM starter notes are untested guesses, so they start as assumptions or unknowns, not evidence
+const GTM_SEED_NOTES: SeedNote[] = [
+  {
+    block: "idealCustomer",
+    content: "Early-stage B2B SaaS founders about to start selling, with no written go-to-market plan.",
+    order: 0,
+    evidenceState: "assumption",
+  },
+  {
+    block: "painsAndAlternatives",
+    content: "GTM plans live in scattered docs and go stale within weeks; teams guess at what is working.",
+    order: 0,
+    evidenceState: "assumption",
+  },
+  {
+    block: "messaging",
+    content: "One shared plan that tells the whole team who to sell to, what to say, and where to reach them.",
+    order: 0,
+    evidenceState: "unknown",
+  },
+  {
+    block: "channels",
+    content: "Founder-led outbound plus one content channel; test paid channels once conversion is proven.",
+    order: 0,
+    evidenceState: "unknown",
+  },
+];
+
+const SEED_NOTES: Record<CanvasTemplate, SeedNote[]> = {
+  lean: LEAN_SEED_NOTES,
+  gtm: GTM_SEED_NOTES,
+};
 
 /**
  * Shared implementation for creating a canvas (used by the web app and the MCP server).
@@ -39,8 +82,10 @@ const DEFAULT_SEED_NOTES = [
 export async function createCanvasForUser(
   ctx: MutationCtx,
   user: Doc<"users">,
-  args: { title: string; description?: string; seedNotes?: boolean }
+  args: { title: string; description?: string; seedNotes?: boolean; template?: CanvasTemplate }
 ): Promise<Id<"canvases">> {
+  const template = args.template ?? "lean";
+
   // Get or create user workspace
   let workspace = await ctx.db
     .query("workspaces")
@@ -58,12 +103,13 @@ export async function createCanvasForUser(
   if (!workspace) throw new Error("Could not initialize workspace");
 
   const now = Date.now();
-  const title = args.title.trim() || "Untitled Lean Canvas";
+  const title = args.title.trim() || DEFAULT_TITLE_BY_TEMPLATE[template];
 
   const canvasId = await ctx.db.insert("canvases", {
     workspaceId: workspace._id,
     title,
     description: args.description?.trim() || undefined,
+    template,
     status: "active",
     publicViewToken: crypto.randomUUID(),
     isPublicViewEnabled: false,
@@ -80,7 +126,7 @@ export async function createCanvasForUser(
 
   // Seed initial notes
   if (args.seedNotes !== false) {
-    for (const note of DEFAULT_SEED_NOTES) {
+    for (const note of SEED_NOTES[template]) {
       await ctx.db.insert("notes", {
         canvasId,
         block: note.block,
@@ -112,6 +158,7 @@ export const createCanvas = mutation({
   args: {
     title: v.string(),
     description: v.optional(v.string()),
+    template: v.optional(canvasTemplateValidator),
   },
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx);
@@ -211,7 +258,7 @@ export const getCanvas = query({
     const { publicViewPasswordHash, ...canvasFields } = canvas;
 
     return {
-      canvas: { ...canvasFields, hasPublicViewPassword: !!publicViewPasswordHash },
+      canvas: { ...canvasFields, template: templateOf(canvas), hasPublicViewPassword: !!publicViewPasswordHash },
       notes: notes.sort((a, b) => a.order - b.order),
       members: memberDetails,
       currentUserRole: role,
@@ -403,6 +450,7 @@ export const getCanvasByPublicToken = query({
         _id: canvas._id,
         title: canvas.title,
         description: canvas.description,
+        template: templateOf(canvas),
         status: canvas.status,
         updatedAt: canvas.updatedAt,
       },

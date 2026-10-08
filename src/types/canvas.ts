@@ -1,3 +1,5 @@
+export type CanvasTemplate = "lean" | "gtm";
+
 export type BlockId =
   | "problem"
   | "customerSegments"
@@ -8,7 +10,13 @@ export type BlockId =
   | "costStructure"
   | "keyMetrics"
   | "unfairAdvantage"
-  | "uvp";
+  | "idealCustomer"
+  | "painsAndAlternatives"
+  | "positioning"
+  | "messaging"
+  | "salesMotion"
+  | "pricing"
+  | "launchPlan";
 
 export type EvidenceState =
   | "unknown"

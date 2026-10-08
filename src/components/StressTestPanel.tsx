@@ -1,8 +1,10 @@
 import React from "react";
 import { StressTestResult } from "../types/canvas";
+import { blockName, CanvasTemplateDef } from "../utils/canvasTemplates";
 import { SparklesIcon, ShieldAlertIcon, CheckCircle2Icon, Loader2Icon } from "lucide-react";
 
 interface StressTestPanelProps {
+  template: CanvasTemplateDef;
   result: StressTestResult | null;
   isRunning: boolean;
   canRun: boolean;
@@ -11,17 +13,8 @@ interface StressTestPanelProps {
   onViewRisks?: () => void;
 }
 
-const SCORE_LABELS: Record<string, { label: string; desc: string }> = {
-  clarity: { label: "Clarity", desc: "Sharpness of problem & UVP" },
-  desirability: { label: "Desirability", desc: "Customer urgency & demand" },
-  viability: { label: "Viability", desc: "Unit economics & margin" },
-  feasibility: { label: "Feasibility", desc: "Ease of technical delivery" },
-  defensibility: { label: "Defensibility", desc: "True unfair advantage" },
-  timing: { label: "Timing", desc: "Market catalysts & why now" },
-  mission: { label: "Mission", desc: "Strategic coherence" },
-};
-
 export function StressTestPanel({
+  template,
   result,
   isRunning,
   canRun,
@@ -56,7 +49,7 @@ export function StressTestPanel({
           {isRunning ? (
             <>
               <Loader2Icon className="w-4 h-4 animate-spin" />
-              Running Ash Maurya Stress Test...
+              Running {template.stressTestName}...
             </>
           ) : (
             <>
@@ -104,7 +97,7 @@ export function StressTestPanel({
             </h3>
             <div className="space-y-2">
               {Object.entries(result.scores).map(([key, val]) => {
-                const meta = SCORE_LABELS[key] || { label: key, desc: "" };
+                const meta = template.scoreLabels[key] || { label: key, desc: "" };
                 return (
                   <div key={key} className="space-y-1">
                     <div className="flex justify-between text-xs font-medium">
@@ -149,7 +142,7 @@ export function StressTestPanel({
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-amber-950 uppercase tracking-tight text-[11px]">
-                      {item.block}
+                      {blockName(template.blocks, item.block)}
                     </span>
                     <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 font-medium">
                       Risk #{idx + 1}

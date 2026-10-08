@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
+import { blockValidator, canvasTemplateValidator } from "./lib/canvasTemplates";
 
 export default defineSchema({
   ...authTables,
@@ -75,6 +76,8 @@ export default defineSchema({
     workspaceId: v.id("workspaces"),
     title: v.string(),
     description: v.optional(v.string()),
+    // Which block set this canvas uses. Unset on canvases created before templates (= lean). Fixed at creation.
+    template: v.optional(canvasTemplateValidator),
     status: v.union(v.literal("draft"), v.literal("active"), v.literal("archived")),
     // Public read-only link token (null = private)
     publicViewToken: v.optional(v.string()),
@@ -103,17 +106,8 @@ export default defineSchema({
   // Sticky notes inside blocks
   notes: defineTable({
     canvasId: v.id("canvases"),
-    block: v.union(
-      v.literal("problem"),
-      v.literal("customerSegments"),
-      v.literal("uniqueValueProposition"),
-      v.literal("solution"),
-      v.literal("channels"),
-      v.literal("revenueStreams"),
-      v.literal("costStructure"),
-      v.literal("keyMetrics"),
-      v.literal("unfairAdvantage")
-    ),
+    // Must belong to the canvas's template; checked in notes.ts
+    block: blockValidator,
     content: v.string(),
     order: v.number(),
     evidenceState: v.union(

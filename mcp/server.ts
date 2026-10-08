@@ -29,17 +29,23 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: "create_canvas",
-        description: "Create a new Lean Canvas for a startup, project, or business idea",
+        description: "Create a new canvas for a startup, project, or business idea: a Lean Canvas (default) or a GTM Canvas",
         inputSchema: {
           type: "object",
           properties: {
             title: {
               type: "string",
-              description: "Title of the Lean Canvas (e.g. 'AI Bookkeeping for Freelancers')",
+              description: "Title of the canvas (e.g. 'AI Bookkeeping for Freelancers')",
             },
             description: {
               type: "string",
               description: "Optional one-sentence summary of the business model or problem being solved",
+            },
+            template: {
+              type: "string",
+              enum: ["lean", "gtm"],
+              default: "lean",
+              description: "'lean' for a Lean Canvas, or 'gtm' for a go-to-market canvas",
             },
             seedNotes: {
               type: "boolean",
@@ -52,7 +58,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "get_canvas",
-        description: "Fetch a Lean Canvas with all 9 blocks and sticky notes",
+        description: "Fetch a canvas (Lean or GTM) with all of its blocks and sticky notes",
         inputSchema: {
           type: "object",
           properties: {
@@ -70,7 +76,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "add_note",
-        description: "Add a new sticky note to a specific Lean Canvas block",
+        description: "Add a new sticky note to a block of a canvas. The block must belong to the canvas's template",
         inputSchema: {
           type: "object",
           properties: {
@@ -87,6 +93,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 "costStructure",
                 "keyMetrics",
                 "unfairAdvantage",
+                "idealCustomer",
+                "painsAndAlternatives",
+                "positioning",
+                "messaging",
+                "salesMotion",
+                "pricing",
+                "launchPlan",
               ],
             },
             content: { type: "string" },
@@ -116,7 +129,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "run_stress_test",
-        description: "Execute the Ash Maurya 7-dimension AI stress test on a canvas",
+        description: "Run the 7-dimension AI stress test on a canvas (Ash Maurya for Lean, go-to-market criteria for GTM)",
         inputSchema: {
           type: "object",
           properties: {
@@ -136,7 +149,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   switch (name) {
     case "create_canvas": {
-      const title = (args?.title as string) || "Untitled Lean Canvas";
+      const label = args?.template === "gtm" ? "GTM Canvas" : "Lean Canvas";
+      const title = (args?.title as string) || `Untitled ${label}`;
       const description = (args?.description as string) || "";
       const slug = title
         .toLowerCase()
@@ -157,7 +171,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 title,
                 description,
                 url: canvasUrl,
-                message: `Created new Lean Canvas "${title}". View and collaborate in realtime at ${canvasUrl}`,
+                message: `Created new ${label} "${title}". View and collaborate in realtime at ${canvasUrl}`,
               },
               null,
               2

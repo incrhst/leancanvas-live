@@ -9,10 +9,12 @@ import {
   HistoryIcon,
 } from "lucide-react";
 import { EvidenceBadge, EVIDENCE_CONFIG } from "./EvidenceBadge";
-import { CANVAS_BLOCKS } from "./LeanCanvasBoard";
-import type { EvidenceState, NoteItem, StressTestResult } from "../types/canvas";
+import { blockName } from "../utils/canvasTemplates";
+import type { BlockDef, EvidenceState, NoteItem, StressTestResult } from "../types/canvas";
 
 interface RiskiestAssumptionsViewProps {
+  /** The template's blocks, used to name each risk's block */
+  blocks: BlockDef[];
   result: StressTestResult | null;
   notes: NoteItem[];
   canEdit?: boolean;
@@ -26,11 +28,6 @@ interface RiskiestAssumptionsViewProps {
 // Evidence states you'd typically move a risky assumption to after running its experiment
 const RESOLUTION_STATES: EvidenceState[] = ["observed", "supported", "contradicted"];
 
-function blockTitle(blockId: string) {
-  const title = CANVAS_BLOCKS.find((b) => b.id === blockId)?.title ?? blockId;
-  return title.replace(/^\d+\.\s*/, "");
-}
-
 function statusFor(note: NoteItem | undefined) {
   if (!note) return null;
   if (note.evidenceState === "supported" || note.evidenceState === "decision") {
@@ -43,6 +40,7 @@ function statusFor(note: NoteItem | undefined) {
 }
 
 export function RiskiestAssumptionsView({
+  blocks,
   result,
   notes,
   canEdit = false,
@@ -123,7 +121,7 @@ export function RiskiestAssumptionsView({
                   #{idx + 1}
                 </span>
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-                  {blockTitle(item.block)}
+                  {blockName(blocks, item.block)}
                 </span>
                 {status && (
                   <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${status.className}`}>

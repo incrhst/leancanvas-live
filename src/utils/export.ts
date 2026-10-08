@@ -1,15 +1,16 @@
 import { NoteItem, StressTestResult } from "../types/canvas";
-import { CANVAS_BLOCKS } from "../components/LeanCanvasBoard";
+import { CanvasTemplateDef } from "./canvasTemplates";
 
 export function exportCanvasMarkdown(
   title: string,
+  template: CanvasTemplateDef,
   notes: NoteItem[],
   stressTest?: StressTestResult | null
 ): string {
-  let md = `# Lean Canvas: ${title}\n\n`;
+  let md = `# ${template.label}: ${title}\n\n`;
   md += `_Generated on ${new Date().toLocaleDateString()}_ \n\n---\n\n`;
 
-  for (const block of CANVAS_BLOCKS) {
+  for (const block of template.blocks) {
     md += `## ${block.title}\n`;
     md += `*${block.prompt}*\n\n`;
 
@@ -25,11 +26,11 @@ export function exportCanvasMarkdown(
   }
 
   if (stressTest) {
-    md += `\n---\n\n## Ash Maurya Stress Test Evaluation\n\n`;
+    md += `\n---\n\n## ${template.stressTestName} Evaluation\n\n`;
     md += `**Overall Score:** ${stressTest.overallScore} / 10\n\n`;
     md += `### Dimension Scores:\n`;
     for (const [dim, score] of Object.entries(stressTest.scores)) {
-      md += `- **${dim}**: ${score}/10\n`;
+      md += `- **${template.scoreLabels[dim]?.label ?? dim}**: ${score}/10\n`;
     }
 
     if (stressTest.riskiestAssumptions.length > 0) {

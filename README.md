@@ -1,9 +1,22 @@
 # LeanCanvas Live
 
-Realtime multiplayer collaborative Lean Canvas by **Incrementic** (`lean.incrementic.com`), powered by Next.js 15, Convex, and AI stress-testing.
+Realtime multiplayer collaborative canvases by **Incrementic** (`lean.incrementic.com`), powered by Next.js 15, Convex, and AI stress-testing. Choose a **Lean Canvas** or a **GTM Canvas** for each new canvas.
 
 - **Canonical Domain**: [https://lean.incrementic.com](https://lean.incrementic.com)
 - **Brand System**: Incrementic Design System (Sora, Inter, IBM Plex Mono, `#EA5148`)
+
+---
+
+## Canvas Templates
+
+Each canvas has one template, chosen when it is created and fixed after that. Existing canvases with no template are Lean Canvases.
+
+| Template | Blocks | Stress test |
+|---|---|---|
+| **Lean** (`lean`) | Problem, Customer Segments, Unique Value Proposition, Solution, Channels, Revenue Streams, Cost Structure, Key Metrics, Unfair Advantage | Ash Maurya methodology |
+| **GTM** (`gtm`) | Ideal Customer, Pains & Alternatives, Positioning, Value Proposition & Messaging, Channels, Sales Motion, Pricing & Packaging, 90-Day Launch Plan, Success Metrics | Go-to-market criteria |
+
+Both templates use the same 7 stress-test scores, so the stored results and the riskiest-assumptions view work the same way. Only the labels and the prompt change. The GTM blocks are based on common go-to-market frameworks (ideal customer profile, positioning, channels, sales motion, pricing, and launch plan), since there is no single standard GTM canvas.
 
 ---
 
@@ -47,11 +60,12 @@ If you prefer adding it to your `claude_desktop_config.json`:
 
 ### 2. Available MCP Tools for Claude
 When configured, Claude has access to:
-- `create_canvas({ title, description, seedNotes })`: Initializes a new Lean Canvas and returns the direct collaboration URL.
+- `list_canvases()`: Lists your canvases with their `template`, role, and URL.
+- `create_canvas({ title, description, template, seedNotes })`: Initializes a new canvas (`template`: `lean` by default, or `gtm`) and returns the direct collaboration URL.
 - `get_canvas({ canvasId })`: Fetches full structured canvas, blocks, and current notes with evidence states.
-- `add_note({ canvasId, block, content, evidenceState })`: Inserts a note into any of the 9 blocks.
+- `add_note({ canvasId, block, content, evidenceState })`: Inserts a note into a block of the canvas's template. A block from the other template is rejected.
 - `update_evidence_state({ noteId, evidenceState })`: Updates state (`unknown`, `assumption`, `observed`, `supported`, `contradicted`, `decision`).
-- `run_stress_test({ canvasId })`: Triggers the Ash Maurya 7-dimension diagnostic and extracts top riskiest assumptions.
+- `run_stress_test({ canvasId })`: Triggers the 7-dimension diagnostic (Ash Maurya for Lean, go-to-market criteria for GTM) and extracts top riskiest assumptions.
 
 ---
 
@@ -79,7 +93,7 @@ When configured, Claude has access to:
 
 ## Convex Functions
 
-- `canvases:createCanvas`: Create canvas and default workspace with owner membership
+- `canvases:createCanvas`: Create canvas (optional `template`, default `lean`) and default workspace with owner membership
 - `canvases:getCanvas`: Secure query for authenticated members
 - `canvases:getCanvasByPublicToken`: Sanitized read-only query for public sharing
 - `canvases:setPublicView`: Enable/disable public read-only link and regenerate token (Owner only)

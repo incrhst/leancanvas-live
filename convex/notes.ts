@@ -2,6 +2,7 @@ import { mutation, query, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
 import { requireEditor, getCanvasRole, getCurrentUser } from "./lib/auth";
+import { assertBlockForTemplate, blockValidator, templateOf } from "./lib/canvasTemplates";
 
 type EvidenceState = Doc<"notes">["evidenceState"];
 
@@ -13,6 +14,10 @@ export async function addNoteForUser(
   userId: Id<"users">,
   args: { canvasId: Id<"canvases">; block: Doc<"notes">["block"]; content: string; evidenceState?: EvidenceState }
 ): Promise<Id<"notes">> {
+  const canvas = await ctx.db.get(args.canvasId);
+  if (!canvas) throw new Error("Canvas not found");
+  assertBlockForTemplate(templateOf(canvas), args.block);
+
   // Find highest order in this block
   const existing = await ctx.db
     .query("notes")
@@ -81,17 +86,7 @@ export async function updateNoteForUser(
 export const addNote = mutation({
   args: {
     canvasId: v.id("canvases"),
-    block: v.union(
-      v.literal("problem"),
-      v.literal("customerSegments"),
-      v.literal("uniqueValueProposition"),
-      v.literal("solution"),
-      v.literal("channels"),
-      v.literal("revenueStreams"),
-      v.literal("costStructure"),
-      v.literal("keyMetrics"),
-      v.literal("unfairAdvantage")
-    ),
+    block: blockValidator,
     content: v.string(),
     evidenceState: v.optional(
       v.union(
@@ -173,21 +168,14 @@ export const deleteNote = mutation({
 export const reorderNotes = mutation({
   args: {
     canvasId: v.id("canvases"),
-    block: v.union(
-      v.literal("problem"),
-      v.literal("customerSegments"),
-      v.literal("uniqueValueProposition"),
-      v.literal("solution"),
-      v.literal("channels"),
-      v.literal("revenueStreams"),
-      v.literal("costStructure"),
-      v.literal("keyMetrics"),
-      v.literal("unfairAdvantage")
-    ),
+    block: blockValidator,
     orderedNoteIds: v.array(v.id("notes")),
   },
   handler: async (ctx, args) => {
     await requireEditor(ctx, args.canvasId);
+    const canvas = await ctx.db.get(args.canvasId);
+    if (!canvas) throw new Error("Canvas not found");
+    assertBlockForTemplate(templateOf(canvas), args.block);
     const now = Date.now();
 
     for (let index = 0; index < args.orderedNoteIds.length; index++) {
