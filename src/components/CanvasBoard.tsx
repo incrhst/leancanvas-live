@@ -1,0 +1,50 @@
+import React from "react";
+import { CanvasBlock } from "./CanvasBlock";
+import type { BlockDef, BlockId, NoteItem } from "../types/canvas";
+
+interface CanvasBoardProps {
+  /** The template's blocks, from getCanvasTemplate(...).blocks */
+  blocks: BlockDef[];
+  notes: NoteItem[];
+  selectedId: string | null;
+  /** noteId -> 1-based rank from the latest stress test's riskiest assumptions */
+  riskRanks?: Record<string, number>;
+  canEdit?: boolean;
+  onSelect: (id: string) => void;
+  onAdd?: (blockId: BlockId, text: string) => void;
+  onCycleEvidence?: (noteId: string) => void;
+  onDelete?: (noteId: string) => void;
+}
+
+export function CanvasBoard({
+  blocks,
+  notes,
+  selectedId,
+  riskRanks,
+  canEdit = true,
+  onSelect,
+  onAdd,
+  onCycleEvidence,
+  onDelete,
+}: CanvasBoardProps) {
+  return (
+    <div className="relative w-full h-full min-h-[720px]">
+      <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-line bg-line md:grid-cols-2 lg:h-full lg:grid-cols-10 lg:grid-rows-[minmax(240px,1fr)_minmax(240px,1fr)_minmax(180px,0.8fr)]">
+        {blocks.map((block) => (
+          <CanvasBlock
+            key={block.id}
+            block={block}
+            notes={notes.filter((n) => n.block === block.id)}
+            selectedId={selectedId}
+            riskRanks={riskRanks}
+            canEdit={canEdit}
+            onSelect={onSelect}
+            onAdd={onAdd ? (text) => onAdd(block.id, text) : undefined}
+            onCycleEvidence={onCycleEvidence}
+            onDelete={onDelete}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

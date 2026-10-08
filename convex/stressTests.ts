@@ -4,7 +4,8 @@ import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { getCurrentUser, getCanvasRole } from "./lib/auth";
-import { STRESS_TEST_SYSTEM_PROMPT } from "./constants/prompts";
+import { BLOCKS_BY_TEMPLATE, BlockId, CanvasTemplate, templateOf } from "./lib/canvasTemplates";
+import { GTM_STRESS_TEST_SYSTEM_PROMPT, STRESS_TEST_SYSTEM_PROMPT } from "./constants/prompts";
 
 async function canReadCanvas(ctx: QueryCtx, canvasId: Id<"canvases">) {
   const canvas = await ctx.db.get(canvasId);
@@ -111,6 +112,54 @@ export const saveStressTestResult = internalMutation({
   },
 });
 
+const STRESS_TEST_PROMPTS: Record<CanvasTemplate, string> = {
+  lean: STRESS_TEST_SYSTEM_PROMPT,
+  gtm: GTM_STRESS_TEST_SYSTEM_PROMPT,
+};
+
+/**
+ * Offline heuristic used when no OpenAI key is configured or the call fails. It scores the
+ * seven dimensions from which blocks have notes, so each template names its own blocks.
+ */
+const HEURISTIC_SIGNALS: Record<
+  CanvasTemplate,
+  {
+    clarity: BlockId[]; // +2 each block with notes, on a base of 5
+    viability: BlockId; // +2 with notes, -1 without, on a base of 5
+    feasibility: BlockId; // +2 with notes, on a base of 6
+    defensibility: BlockId; // +4 with notes, on a base of 3
+    fallbackBlock: BlockId; // where the canvas-wide risk goes when every note is already evidenced
+    fallbackRisk: { assumption: string; reason: string; suggestedExperiment: string };
+  }
+> = {
+  lean: {
+    clarity: ["problem", "uniqueValueProposition"],
+    viability: "revenueStreams",
+    feasibility: "solution",
+    defensibility: "unfairAdvantage",
+    fallbackBlock: "customerSegments",
+    fallbackRisk: {
+      assumption: "Customers are actively feeling this pain enough to change their existing workflow.",
+      reason: "Status quo bias is the most common reason early-stage products stall.",
+      suggestedExperiment:
+        "Run 10 cold outreach discovery calls asking about what they did the last time this issue occurred.",
+    },
+  },
+  gtm: {
+    clarity: ["idealCustomer", "messaging"],
+    viability: "pricing",
+    feasibility: "launchPlan",
+    defensibility: "positioning",
+    fallbackBlock: "idealCustomer",
+    fallbackRisk: {
+      assumption: "Target buyers are already looking for a fix and will change how they buy when they hear this message.",
+      reason: "If buyers are not actively looking, every channel pays to create demand the plan never priced in.",
+      suggestedExperiment:
+        "Run 10 discovery calls with ICP accounts about how they bought the last tool in this category, then test the message on a landing page with a small paid-traffic budget.",
+    },
+  },
+};
+
 /**
  * Shared stress test implementation (web app and MCP server).
  * Calls OpenAI if an API key is configured; otherwise uses a heuristic fallback score.
@@ -125,21 +174,21 @@ export async function runStressTestForUser(
     userId,
   });
 
+  const template = templateOf(canvasData.canvas);
   const notes = canvasData.notes;
+  const hasNotes = (block: BlockId) => notes.some((n) => n.block === block);
+
   const canvasPayload = {
     title: canvasData.canvas.title,
     description: canvasData.canvas.description,
-    blocks: {
-      problem: notes.filter((n) => n.block === "problem").map((n) => ({ id: n._id, text: n.content, evidence: n.evidenceState })),
-      customerSegments: notes.filter((n) => n.block === "customerSegments").map((n) => ({ id: n._id, text: n.content, evidence: n.evidenceState })),
-      uniqueValueProposition: notes.filter((n) => n.block === "uniqueValueProposition").map((n) => ({ id: n._id, text: n.content, evidence: n.evidenceState })),
-      solution: notes.filter((n) => n.block === "solution").map((n) => ({ id: n._id, text: n.content, evidence: n.evidenceState })),
-      channels: notes.filter((n) => n.block === "channels").map((n) => ({ id: n._id, text: n.content, evidence: n.evidenceState })),
-      revenueStreams: notes.filter((n) => n.block === "revenueStreams").map((n) => ({ id: n._id, text: n.content, evidence: n.evidenceState })),
-      costStructure: notes.filter((n) => n.block === "costStructure").map((n) => ({ id: n._id, text: n.content, evidence: n.evidenceState })),
-      keyMetrics: notes.filter((n) => n.block === "keyMetrics").map((n) => ({ id: n._id, text: n.content, evidence: n.evidenceState })),
-      unfairAdvantage: notes.filter((n) => n.block === "unfairAdvantage").map((n) => ({ id: n._id, text: n.content, evidence: n.evidenceState })),
-    },
+    blocks: Object.fromEntries(
+      BLOCKS_BY_TEMPLATE[template].map((block) => [
+        block,
+        notes
+          .filter((n) => n.block === block)
+          .map((n) => ({ id: n._id, text: n.content, evidence: n.evidenceState })),
+      ])
+    ),
   };
 
   const apiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY;
@@ -157,7 +206,7 @@ export async function runStressTestForUser(
           model: "gpt-4o-mini",
           response_format: { type: "json_object" },
           messages: [
-            { role: "system", content: STRESS_TEST_SYSTEM_PROMPT },
+            { role: "system", content: STRESS_TEST_PROMPTS[template] },
             { role: "user", content: JSON.stringify(canvasPayload) },
           ],
           temperature: 0.3,
@@ -172,6 +221,7 @@ export async function runStressTestForUser(
 
   // Fallback heuristic scoring if no API key or LLM error
   if (!resultJson) {
+    const signals = HEURISTIC_SIGNALS[template];
     const totalNotes = notes.length;
     const evidenceCounts = notes.reduce(
       (acc, n) => {
@@ -184,11 +234,11 @@ export async function runStressTestForUser(
     const supportedRatio = (evidenceCounts.supported || 0) / Math.max(1, totalNotes);
     const assumptionRatio = (evidenceCounts.assumption || 0) / Math.max(1, totalNotes);
 
-    const clarity = Math.min(10, Math.max(4, Math.round(5 + (canvasPayload.blocks.problem.length > 0 ? 2 : 0) + (canvasPayload.blocks.uniqueValueProposition.length > 0 ? 2 : 0))));
+    const clarity = Math.min(10, Math.max(4, Math.round(5 + signals.clarity.filter(hasNotes).length * 2)));
     const desirability = Math.min(10, Math.max(3, Math.round(4 + supportedRatio * 5)));
-    const viability = Math.min(10, Math.max(3, Math.round(5 + (canvasPayload.blocks.revenueStreams.length > 0 ? 2 : -1))));
-    const feasibility = Math.min(10, Math.max(4, Math.round(6 + (canvasPayload.blocks.solution.length > 0 ? 2 : 0))));
-    const defensibility = Math.min(10, Math.max(2, Math.round(3 + (canvasPayload.blocks.unfairAdvantage.length > 0 ? 4 : 0))));
+    const viability = Math.min(10, Math.max(3, Math.round(5 + (hasNotes(signals.viability) ? 2 : -1))));
+    const feasibility = Math.min(10, Math.max(4, Math.round(6 + (hasNotes(signals.feasibility) ? 2 : 0))));
+    const defensibility = Math.min(10, Math.max(2, Math.round(3 + (hasNotes(signals.defensibility) ? 4 : 0))));
     const timing = 7.0;
     const mission = 7.5;
 
@@ -213,10 +263,8 @@ export async function runStressTestForUser(
     } else {
       riskiestAssumptions.push({
         noteId: undefined,
-        block: "customerSegments",
-        assumption: "Customers are actively feeling this pain enough to change their existing workflow.",
-        reason: "Status quo bias is the most common reason early-stage products stall.",
-        suggestedExperiment: "Run 10 cold outreach discovery calls asking about what they did the last time this issue occurred.",
+        block: signals.fallbackBlock,
+        ...signals.fallbackRisk,
       });
     }
 

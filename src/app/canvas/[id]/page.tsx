@@ -7,7 +7,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { TopBar } from "../../../components/TopBar";
-import { LeanCanvasBoard, CANVAS_BLOCKS } from "../../../components/LeanCanvasBoard";
+import { CanvasBoard } from "../../../components/CanvasBoard";
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { ShareModal } from "../../../components/ShareModal";
@@ -16,6 +16,7 @@ import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/
 import { useAuth } from "../../../components/ConvexClientProvider";
 import { NoteItem, BlockId, EvidenceState, StressTestResult } from "../../../types/canvas";
 import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
+import { getCanvasTemplate } from "../../../utils/canvasTemplates";
 
 type NoteBlock = Doc<"notes">["block"];
 const EVIDENCE_CYCLE: EvidenceState[] = [
@@ -88,6 +89,7 @@ export default function CanvasEditorPage() {
   }
 
   const { canvas } = data;
+  const template = getCanvasTemplate(canvas.template);
 
   // Add Note
   const handleAddNote = (block: BlockId, text: string) => {
@@ -135,13 +137,13 @@ export default function CanvasEditorPage() {
 
   // Export handlers
   const handleExportMarkdown = () => {
-    const md = exportCanvasMarkdown(canvas.title, notes, stressResult);
-    downloadFile(`leancanvas-${canvasId}.md`, md, "text/markdown");
+    const md = exportCanvasMarkdown(canvas.title, template, notes, stressResult);
+    downloadFile(`${template.fileSlug}-${canvasId}.md`, md, "text/markdown");
   };
 
   const handleExportJson = () => {
-    const json = JSON.stringify({ canvasId, title: canvas.title, notes, stressResult }, null, 2);
-    downloadFile(`leancanvas-${canvasId}.json`, json, "application/json");
+    const json = JSON.stringify({ canvasId, title: canvas.title, template: template.id, notes, stressResult }, null, 2);
+    downloadFile(`${template.fileSlug}-${canvasId}.json`, json, "application/json");
   };
 
   return (
@@ -166,6 +168,7 @@ export default function CanvasEditorPage() {
           />
           {view === "risks" ? (
             <RiskiestAssumptionsView
+              blocks={template.blocks}
               result={stressResult}
               notes={notes}
               canEdit={canEdit}
@@ -180,7 +183,8 @@ export default function CanvasEditorPage() {
               }}
             />
           ) : (
-          <LeanCanvasBoard
+          <CanvasBoard
+            blocks={template.blocks}
             riskRanks={riskRanks}
             notes={notes}
             selectedId={selectedId}
@@ -208,7 +212,7 @@ export default function CanvasEditorPage() {
               <NoteDetailPanel
                 note={selectedNote}
                 blockTitle={
-                  CANVAS_BLOCKS.find((b) => b.id === selectedNote.block)?.title || selectedNote.block
+                  template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block
                 }
                 canEdit={canEdit}
                 onClose={() => {
@@ -223,6 +227,7 @@ export default function CanvasEditorPage() {
 
             {activePanel === "stressTest" && (
               <StressTestPanel
+                template={template}
                 result={stressResult}
                 isRunning={isTesting}
                 canRun={canEdit}

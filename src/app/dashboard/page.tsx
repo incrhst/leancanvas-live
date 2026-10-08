@@ -8,6 +8,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../components/ConvexClientProvider";
 import { AgentConnectInstructions } from "../../components/AgentConnectInstructions";
+import { CANVAS_TEMPLATE_LIST, getCanvasTemplate } from "../../utils/canvasTemplates";
+import type { CanvasTemplate } from "../../types/canvas";
 import {
   PlusIcon,
   LayoutGridIcon,
@@ -27,6 +29,7 @@ export default function DashboardPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newTemplate, setNewTemplate] = useState<CanvasTemplate>("lean");
 
   useEffect(() => {
     if (!isLoading && !user) router.replace("/login?redirect=/dashboard");
@@ -42,10 +45,12 @@ export default function DashboardPage() {
       const canvasId = await createCanvas({
         title: newTitle.trim(),
         description: newDesc.trim() || undefined,
+        template: newTemplate,
       });
       setIsCreating(false);
       setNewTitle("");
       setNewDesc("");
+      setNewTemplate("lean");
       router.push(`/canvas/${canvasId}`);
     } catch (err) {
       console.error(err);
@@ -122,8 +127,29 @@ export default function DashboardPage() {
         {isCreating && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div className="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl border border-line space-y-4">
-              <h2 className="text-base font-semibold text-ink">Create New Lean Canvas</h2>
+              <h2 className="text-base font-semibold text-ink">Create New Canvas</h2>
               <form onSubmit={handleCreate} className="space-y-4">
+                <div className="space-y-1.5">
+                  <span className="text-xs font-semibold text-ink">Template</span>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {CANVAS_TEMPLATE_LIST.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        aria-pressed={newTemplate === t.id}
+                        onClick={() => setNewTemplate(t.id)}
+                        className={`rounded-lg border p-3 text-left transition-colors ${
+                          newTemplate === t.id
+                            ? "border-accent bg-accent-soft"
+                            : "border-line bg-white hover:border-accent/50"
+                        }`}
+                      >
+                        <span className="block text-xs font-semibold text-ink">{t.label}</span>
+                        <span className="mt-0.5 block text-[11px] leading-snug text-muted">{t.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-ink">Canvas Title</label>
                   <input
@@ -174,7 +200,7 @@ export default function DashboardPage() {
           <div className="rounded-2xl border border-dashed border-line bg-surface p-10 text-center space-y-2">
             <LayoutGridIcon className="w-6 h-6 text-muted mx-auto" />
             <p className="text-sm font-semibold text-ink">No canvases yet</p>
-            <p className="text-xs text-muted">Click &quot;New Canvas&quot; to start your first Lean Canvas.</p>
+            <p className="text-xs text-muted">Click &quot;New Canvas&quot; to start your first canvas.</p>
           </div>
         ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
@@ -186,9 +212,14 @@ export default function DashboardPage() {
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-100 text-emerald-800">
-                    {c.status}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-100 text-emerald-800">
+                      {c.status}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-stone-100 text-stone-700">
+                      {getCanvasTemplate(c.template).label}
+                    </span>
+                  </div>
                   <span className="text-[11px] text-muted flex items-center gap-1">
                     <CalendarIcon className="w-3 h-3" />
                     {formatDistanceToNow(c.updatedAt, { addSuffix: true })}
@@ -198,7 +229,7 @@ export default function DashboardPage() {
                   {c.title}
                 </h3>
                 <p className="text-xs text-muted line-clamp-2 leading-relaxed">
-                  {c.description || "Lean canvas model"}
+                  {c.description || getCanvasTemplate(c.template).label}
                 </p>
               </div>
 

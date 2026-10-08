@@ -10,18 +10,7 @@ import { getCanvasRole, getUserFromAccessToken, requireTokenUser } from "./lib/a
 import { createCanvasForUser, listCanvasesForUser } from "./canvases";
 import { addNoteForUser, updateNoteForUser } from "./notes";
 import { runStressTestForUser } from "./stressTests";
-
-const blockValidator = v.union(
-  v.literal("problem"),
-  v.literal("customerSegments"),
-  v.literal("uniqueValueProposition"),
-  v.literal("solution"),
-  v.literal("channels"),
-  v.literal("revenueStreams"),
-  v.literal("costStructure"),
-  v.literal("keyMetrics"),
-  v.literal("unfairAdvantage")
-);
+import { BLOCKS_BY_TEMPLATE, blockValidator, canvasTemplateValidator, templateOf } from "./lib/canvasTemplates";
 
 const evidenceValidator = v.union(
   v.literal("unknown"),
@@ -31,18 +20,6 @@ const evidenceValidator = v.union(
   v.literal("contradicted"),
   v.literal("decision")
 );
-
-const BLOCK_ORDER: Doc<"notes">["block"][] = [
-  "problem",
-  "customerSegments",
-  "uniqueValueProposition",
-  "solution",
-  "channels",
-  "revenueStreams",
-  "costStructure",
-  "keyMetrics",
-  "unfairAdvantage",
-];
 
 function canvasUrl(canvasId: Id<"canvases">) {
   return `${process.env.SITE_URL ?? "https://lean.incrementic.com"}/canvas/${canvasId}`;
@@ -73,6 +50,7 @@ export const listCanvases = query({
       canvasId: c._id,
       title: c.title,
       description: c.description ?? "",
+      template: templateOf(c),
       role: c.role,
       updatedAt: new Date(c.updatedAt).toISOString(),
       url: canvasUrl(c._id),
@@ -91,8 +69,9 @@ export const getCanvas = query({
       .withIndex("by_canvas_block", (q) => q.eq("canvasId", canvas._id))
       .collect();
 
+    const template = templateOf(canvas);
     const blocks: Record<string, { noteId: Id<"notes">; text: string; evidenceState: string }[]> = {};
-    for (const block of BLOCK_ORDER) {
+    for (const block of BLOCKS_BY_TEMPLATE[template]) {
       blocks[block] = notes
         .filter((n) => n.block === block)
         .sort((a, b) => a.order - b.order)
@@ -103,6 +82,7 @@ export const getCanvas = query({
       canvasId: canvas._id,
       title: canvas.title,
       description: canvas.description ?? "",
+      template,
       status: canvas.status,
       yourRole: role,
       url: canvasUrl(canvas._id),
@@ -117,6 +97,7 @@ export const createCanvas = mutation({
     title: v.string(),
     description: v.optional(v.string()),
     seedNotes: v.optional(v.boolean()),
+    template: v.optional(canvasTemplateValidator),
   },
   handler: async (ctx, args) => {
     const user = await requireTokenUser(ctx, args.accessToken);
@@ -124,6 +105,7 @@ export const createCanvas = mutation({
       title: args.title,
       description: args.description,
       seedNotes: args.seedNotes,
+      template: args.template,
     });
     return { canvasId, url: canvasUrl(canvasId) };
   },

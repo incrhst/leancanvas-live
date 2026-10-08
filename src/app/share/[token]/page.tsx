@@ -5,7 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { LeanCanvasBoard, CANVAS_BLOCKS } from "../../../components/LeanCanvasBoard";
+import { CanvasBoard } from "../../../components/CanvasBoard";
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptionsView";
@@ -13,6 +13,7 @@ import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/
 import { NoteItem, StressTestResult } from "../../../types/canvas";
 import { GlobeIcon, SparklesIcon, LogInIcon, FileTextIcon, DownloadIcon, LockIcon } from "lucide-react";
 import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
+import { getCanvasTemplate } from "../../../utils/canvasTemplates";
 
 export default function PublicSharePage() {
   const params = useParams();
@@ -146,10 +147,11 @@ export default function PublicSharePage() {
   const notes: NoteItem[] = data.notes;
   const publicStressTest: StressTestResult | null = data.latestStressTest;
   const selectedNote = notes.find((n) => n._id === selectedId) || null;
+  const template = getCanvasTemplate(data.canvas.template);
 
   const handleExportMarkdown = () => {
-    const md = exportCanvasMarkdown(`${data.canvas.title} (Public View)`, notes, publicStressTest);
-    downloadFile(`leancanvas-public.md`, md, "text/markdown");
+    const md = exportCanvasMarkdown(`${data.canvas.title} (Public View)`, template, notes, publicStressTest);
+    downloadFile(`${template.fileSlug}-public.md`, md, "text/markdown");
   };
 
   return (
@@ -211,6 +213,7 @@ export default function PublicSharePage() {
           />
           {view === "risks" ? (
             <RiskiestAssumptionsView
+              blocks={template.blocks}
               result={publicStressTest}
               notes={notes}
               onOpenNote={(noteId) => {
@@ -219,7 +222,8 @@ export default function PublicSharePage() {
               }}
             />
           ) : (
-          <LeanCanvasBoard
+          <CanvasBoard
+            blocks={template.blocks}
             riskRanks={riskRanksFor(publicStressTest?.riskiestAssumptions)}
             notes={notes}
             selectedId={selectedId}
@@ -234,6 +238,7 @@ export default function PublicSharePage() {
           <aside className="w-full shrink-0 border-t border-line bg-surface lg:h-full lg:w-[360px] lg:border-l lg:border-t-0 shadow-sm z-10 flex flex-col">
             {showStressTest ? (
               <StressTestPanel
+                template={template}
                 result={publicStressTest}
                 isRunning={false}
                 canRun={false} // Anonymous users cannot run mutations or trigger AI actions
@@ -248,7 +253,7 @@ export default function PublicSharePage() {
               <NoteDetailPanel
                 note={selectedNote}
                 blockTitle={
-                  CANVAS_BLOCKS.find((b) => b.id === selectedNote.block)?.title || selectedNote.block
+                  template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block
                 }
                 canEdit={false} // Read-only
                 onClose={() => setSelectedId(null)}
