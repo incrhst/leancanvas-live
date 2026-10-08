@@ -86,6 +86,8 @@ export function MobileCanvasBoard({
   const [index, setIndex] = useState(0);
   const [peekIndex, setPeekIndex] = useState<number | null>(null);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const scrubbing = useRef(false);
+  const skipClickUntil = useRef(0);
   const count = ordered.length;
   const go = (delta: number) => setIndex((i) => (i + delta + count) % count);
   const pick = (i: number) => {
@@ -114,6 +116,45 @@ export function MobileCanvasBoard({
     acc[n.evidenceState] = (acc[n.evidenceState] ?? 0) + 1;
     return acc;
   }, {});
+
+  // Press-and-slide on the minimap (touch and pen): the preview card follows the
+  // finger and lifting it opens the block underneath. Lifting off the map cancels.
+  const cellAt = (x: number, y: number): number | null => {
+    const cell = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-minimap-cell]");
+    return cell ? Number(cell.dataset.minimapCell) : null;
+  };
+  const onScrubStart = (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse") return;
+    // Touch pointers are captured by the pressed cell; release so moves report the cell under the finger.
+    const target = e.target as Element;
+    if (target.hasPointerCapture?.(e.pointerId)) target.releasePointerCapture(e.pointerId);
+    scrubbing.current = true;
+    setPeekIndex(cellAt(e.clientX, e.clientY));
+  };
+  const onScrubMove = (e: React.PointerEvent) => {
+    if (!scrubbing.current) return;
+    const i = cellAt(e.clientX, e.clientY);
+    setPeekIndex((prevPeek) => {
+      if (i !== null && i !== prevPeek) navigator.vibrate?.(5);
+      return i;
+    });
+  };
+  const onScrubEnd = (e: React.PointerEvent) => {
+    if (!scrubbing.current) return;
+    scrubbing.current = false;
+    const i = cellAt(e.clientX, e.clientY);
+    if (i === null) {
+      setPeekIndex(null);
+      return;
+    }
+    pick(i);
+    // The browser may still fire a click on the cell first pressed; the lift already decided.
+    skipClickUntil.current = Date.now() + 500;
+  };
+  const onScrubCancel = () => {
+    scrubbing.current = false;
+    setPeekIndex(null);
+  };
 
   const onPointerDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest("textarea, input")) return;
@@ -229,7 +270,7 @@ export function MobileCanvasBoard({
 
         <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted">
           <span className="min-w-0 flex-1 truncate">‹ {prev.name}</span>
-          <span className="shrink-0 font-mono text-[11px] text-ink">swipe or tap the map</span>
+          <span className="shrink-0 font-mono text-[11px] text-ink">tap or slide the map</span>
           <span className="min-w-0 flex-1 truncate text-right">{next.name} ›</span>
         </div>
 
@@ -243,7 +284,13 @@ export function MobileCanvasBoard({
             <ChevronLeftIcon size={20} aria-hidden="true" />
           </button>
 
-          <div className="grid h-[138px] min-w-0 flex-1 grid-cols-10 grid-rows-3 gap-[3px]">
+          <div
+            onPointerDown={onScrubStart}
+            onPointerMove={onScrubMove}
+            onPointerUp={onScrubEnd}
+            onPointerCancel={onScrubCancel}
+            className="grid h-[138px] min-w-0 flex-1 touch-none select-none grid-cols-10 grid-rows-3 gap-[3px]"
+          >
             {ordered.map((o, i) => {
               const blockNotes = notesByBlock.get(o.block.id) ?? [];
               const active = i === index;
@@ -254,9 +301,10 @@ export function MobileCanvasBoard({
                   key={o.block.id}
                   type="button"
                   style={o.placement}
-                  onClick={() => pick(i)}
-                  onPointerEnter={(e) => e.pointerType !== "touch" && setPeekIndex(i)}
-                  onPointerLeave={() => setPeekIndex(null)}
+                  data-minimap-cell={i}
+                  onClick={() => Date.now() > skipClickUntil.current && pick(i)}
+                  onPointerEnter={(e) => e.pointerType === "mouse" && setPeekIndex(i)}
+                  onPointerLeave={(e) => e.pointerType === "mouse" && setPeekIndex(null)}
                   onFocus={() => setPeekIndex(i)}
                   onBlur={() => setPeekIndex(null)}
                   aria-label={`${o.num}. ${o.name}, ${blockNotes.length} ${blockNotes.length === 1 ? "note" : "notes"}`}
