@@ -16,6 +16,11 @@ interface ExportJob {
   exportedAt: number;
 }
 
+export interface ExportRequest {
+  kind: ExportKind;
+  format: ExportFormat;
+}
+
 export interface ExportMenuProps {
   title: string;
   /** Shown on the sheet beside the template name, e.g. "Public view" */
@@ -23,6 +28,9 @@ export interface ExportMenuProps {
   template: CanvasTemplateDef;
   notes: NoteItem[];
   stressResult: StressTestResult | null;
+  /** An export asked for by a link. It runs once, then onAutoExportHandled is called. */
+  autoExport?: ExportRequest | null;
+  onAutoExportHandled?: () => void;
 }
 
 const KIND_LABEL: Record<ExportKind, string> = {
@@ -35,11 +43,26 @@ const KIND_SUFFIX: Record<ExportKind, string> = {
   risks: "riskiest-assumptions",
 };
 
+/** Reads an export request from a link's `export` param, e.g. `?export=risks-pdf`. */
+export function parseExportRequest(value: string | null): ExportRequest | null {
+  const match = value?.match(/^(canvas|risks)-(pdf|png)$/);
+  if (!match) return null;
+  return { kind: match[1] as ExportKind, format: match[2] as ExportFormat };
+}
+
 /**
  * Export dropdown for the canvas and its riskiest assumptions, as PDF or PNG.
  * Choosing an export mounts the sheet off-screen, captures it, then unmounts it.
  */
-export function ExportMenu({ title, badge, template, notes, stressResult }: ExportMenuProps) {
+export function ExportMenu({
+  title,
+  badge,
+  template,
+  notes,
+  stressResult,
+  autoExport,
+  onAutoExportHandled,
+}: ExportMenuProps) {
   const [open, setOpen] = useState(false);
   const [job, setJob] = useState<ExportJob | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +124,19 @@ export function ExportMenu({ title, badge, template, notes, stressResult }: Expo
       exportedAt: Date.now(),
     });
   };
+
+  // Runs an export that a link asked for, once. The page then clears the request from the URL.
+  const autoExportHandled = useRef(false);
+  useEffect(() => {
+    if (!autoExport || autoExportHandled.current) return;
+    autoExportHandled.current = true;
+    if (autoExport.kind === "risks" && !hasRisks) {
+      setError("This canvas has no riskiest assumptions to export yet.");
+    } else {
+      startExport(autoExport.kind, autoExport.format);
+    }
+    onAutoExportHandled?.();
+  }, [autoExport, hasRisks, onAutoExportHandled]);
 
   return (
     <div ref={rootRef} className="relative">

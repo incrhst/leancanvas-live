@@ -66,6 +66,7 @@ When configured, Claude has access to:
 - `add_note({ canvasId, block, content, evidenceState })`: Inserts a note into a block of the canvas's template. A block from the other template is rejected.
 - `update_evidence_state({ noteId, evidenceState })`: Updates state (`unknown`, `assumption`, `observed`, `supported`, `contradicted`, `decision`).
 - `run_stress_test({ canvasId })`: Triggers the 7-dimension diagnostic (Ash Maurya for Lean, go-to-market criteria for GTM) and extracts top riskiest assumptions.
+- `export_canvas({ canvasId, view, format })`: Returns a link that downloads the canvas (`view: "canvas"`) or its riskiest assumptions (`view: "riskiest_assumptions"`, needs a stress test first) as a PDF or PNG (`format`). The file is rendered in the browser, so open the link while signed in.
 
 ---
 

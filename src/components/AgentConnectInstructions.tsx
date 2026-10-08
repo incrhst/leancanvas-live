@@ -139,6 +139,18 @@ const AGENT_TOOLS: AgentTool[] = [
     changesCanvas: true,
     inputs: [{ name: "canvasId", required: true }],
   },
+  {
+    name: "export_canvas",
+    summary: "Get a PDF or PNG of a canvas or its riskiest assumptions.",
+    detail:
+      "Returns a link. Open it signed in to LeanCanvas and the file downloads once the canvas loads. Riskiest assumptions need a stress test first.",
+    changesCanvas: false,
+    inputs: [
+      { name: "canvasId", required: true },
+      { name: "view", required: false },
+      { name: "format", required: false },
+    ],
+  },
 ];
 
 export function AgentConnectInstructions() {
