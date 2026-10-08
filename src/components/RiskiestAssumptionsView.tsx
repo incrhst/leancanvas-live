@@ -28,7 +28,7 @@ interface RiskiestAssumptionsViewProps {
 // Evidence states you'd typically move a risky assumption to after running its experiment
 const RESOLUTION_STATES: EvidenceState[] = ["observed", "supported", "contradicted"];
 
-function statusFor(note: NoteItem | undefined) {
+export function statusFor(note: NoteItem | undefined) {
   if (!note) return null;
   if (note.evidenceState === "supported" || note.evidenceState === "decision") {
     return { label: "Validated", className: "bg-emerald-100 text-emerald-800" };
@@ -114,7 +114,7 @@ export function RiskiestAssumptionsView({
           return (
             <li
               key={`${item.noteId ?? "general"}-${idx}`}
-              className="rounded-xl border border-rose-200 border-l-4 border-l-rose-500 bg-surface p-4 shadow-sm space-y-3"
+              className="rounded-xl border border-line bg-white p-4 space-y-3"
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded bg-rose-600 px-2 py-0.5 text-xs font-bold text-white">
@@ -157,7 +157,7 @@ export function RiskiestAssumptionsView({
                 <strong className="text-ink">Why it&apos;s lethal:</strong> {item.reason}
               </p>
 
-              <div className="flex items-start gap-2 rounded-lg border border-emerald-200/70 bg-emerald-50/60 p-2.5 text-xs text-emerald-900">
+              <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-900">
                 <FlaskConicalIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
                 <span className="leading-snug">
                   <strong>Experiment:</strong> {item.suggestedExperiment}

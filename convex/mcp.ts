@@ -91,6 +91,49 @@ export const getCanvas = query({
   },
 });
 
+/**
+ * Returns a link that downloads the canvas, or its riskiest assumptions, as a PDF or PNG.
+ * The file is rendered in the browser, so the link opens the canvas with an `export` param that the page acts on.
+ */
+export const exportCanvas = query({
+  args: {
+    accessToken: v.string(),
+    canvasId: v.string(),
+    view: v.union(v.literal("canvas"), v.literal("riskiest_assumptions")),
+    format: v.union(v.literal("pdf"), v.literal("png")),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { canvas } = await resolveCanvas(ctx, user, args.canvasId, false);
+
+    const params = new URLSearchParams();
+    const kind = args.view === "riskiest_assumptions" ? "risks" : "canvas";
+    if (kind === "risks") {
+      const latest = await ctx.db
+        .query("stressTests")
+        .withIndex("by_canvas", (q) => q.eq("canvasId", canvas._id))
+        .order("desc")
+        .first();
+      if (!latest || latest.riskiestAssumptions.length === 0) {
+        throw new ConvexError("This canvas has no riskiest assumptions yet. Run the stress test first.");
+      }
+      params.set("view", "risks");
+    }
+    params.set("export", `${kind}-${args.format}`);
+
+    const format = args.format.toUpperCase();
+    const url = `${canvasUrl(canvas._id)}?${params.toString()}`;
+    return {
+      canvasId: canvas._id,
+      title: canvas.title,
+      view: args.view,
+      format: args.format,
+      url,
+      message: `Open this link while signed in to LeanCanvas. The ${format} downloads once the canvas loads: ${url}`,
+    };
+  },
+});
+
 export const createCanvas = mutation({
   args: {
     accessToken: v.string(),

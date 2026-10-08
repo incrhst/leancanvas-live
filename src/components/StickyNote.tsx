@@ -48,7 +48,7 @@ export function StickyNote({
       transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
       className={`group relative rounded-lg border p-2.5 transition-all duration-150 hover:shadow-sm ${
         riskRank
-          ? "bg-rose-50/80 border-rose-300 border-l-4 border-l-rose-500"
+          ? "bg-rose-50 border-rose-300"
           : "bg-amber-50/70 border-amber-200/80"
       } ${selected ? "ring-2 ring-accent ring-offset-1 ring-offset-surface" : ""}`}
     >

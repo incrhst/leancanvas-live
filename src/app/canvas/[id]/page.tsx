@@ -15,6 +15,7 @@ import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptions
 import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/CanvasViewToggle";
 import { useAuth } from "../../../components/ConvexClientProvider";
 import { NoteItem, BlockId, EvidenceState, StressTestResult } from "../../../types/canvas";
+import { ExportMenu, parseExportRequest } from "../../../components/ExportMenu";
 import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
 import { getCanvasTemplate } from "../../../utils/canvasTemplates";
 
@@ -36,6 +37,14 @@ export default function CanvasEditorPage() {
   const view: CanvasView = searchParams.get("view") === "risks" ? "risks" : "canvas";
   const setView = (next: CanvasView) => {
     router.replace(next === "risks" ? `${pathname}?view=risks` : pathname, { scroll: false });
+  };
+  // An export a link asked for, e.g. ?export=risks-pdf. The param is cleared once it has run.
+  const exportRequest = parseExportRequest(searchParams.get("export"));
+  const clearExportRequest = () => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("export");
+    const query = next.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
   const canvasId = (params?.id as string) as Id<"canvases">;
   const { user, isLoading } = useAuth();
@@ -156,6 +165,17 @@ export default function CanvasEditorPage() {
         onOpenStressTest={() => setActivePanel((curr) => (curr === "stressTest" ? null : "stressTest"))}
         onExportMarkdown={handleExportMarkdown}
         onExportJson={handleExportJson}
+        exportMenu={
+          <ExportMenu
+            title={canvas.title}
+            template={template}
+            notes={notes}
+            stressResult={stressResult}
+            // Wait for the stress test to load, so a risks export sees the real result
+            autoExport={latestStressTest !== undefined ? exportRequest : null}
+            onAutoExportHandled={clearExportRequest}
+          />
+        }
       />
 
       <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">

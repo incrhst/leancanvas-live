@@ -123,6 +123,30 @@ const TOOLS_MANIFEST = [
       required: ["canvasId"],
     },
   },
+  {
+    name: "export_canvas",
+    description:
+      "Get a link that downloads a canvas, or its riskiest assumptions, as a PDF or PNG. The file is rendered in the browser, so the user opens the link while signed in to LeanCanvas and the download starts once the canvas loads. The riskiest assumptions need a stress test first.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        canvasId: { type: "string" },
+        view: {
+          type: "string",
+          enum: ["canvas", "riskiest_assumptions"],
+          default: "canvas",
+          description:
+            "'canvas' for the full board, or 'riskiest_assumptions' for the ranked risks from the latest stress test",
+        },
+        format: {
+          type: "string",
+          enum: ["pdf", "png"],
+          default: "pdf",
+        },
+      },
+      required: ["canvasId"],
+    },
+  },
 ];
 
 const UNAUTHORIZED_HEADERS = {
@@ -186,6 +210,13 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
       });
     case "run_stress_test":
       return await fetchAction(api.mcp.runStressTest, { accessToken, canvasId: str(args.canvasId) });
+    case "export_canvas":
+      return await fetchQuery(api.mcp.exportCanvas, {
+        accessToken,
+        canvasId: str(args.canvasId),
+        view: (str(args.view) || "canvas") as any, // validated by Convex
+        format: (str(args.format) || "pdf") as any, // validated by Convex
+      });
     default:
       return undefined;
   }
