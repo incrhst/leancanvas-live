@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { BotIcon, CheckIcon, CopyIcon } from "lucide-react";
+import { BotIcon, CheckIcon, ChevronDownIcon, CopyIcon } from "lucide-react";
 
 const MCP_URL = "https://lean.incrementic.com/api/mcp";
 
@@ -72,9 +72,80 @@ const AGENTS: { id: AgentId; label: string; steps: React.ReactNode[] }[] = [
   },
 ];
 
+type AgentTool = {
+  name: string;
+  summary: string;
+  detail: string;
+  changesCanvas: boolean;
+  inputs: { name: string; required: boolean }[];
+};
+
+// Plain-language view of the tools served by TOOLS_MANIFEST in src/app/api/mcp/route.ts.
+// Keep the names and inputs in step with that manifest.
+const AGENT_TOOLS: AgentTool[] = [
+  {
+    name: "list_canvases",
+    summary: "See the canvases you own or can access.",
+    detail: "Returns each canvas's ID, title, template, your role, and link.",
+    changesCanvas: false,
+    inputs: [],
+  },
+  {
+    name: "create_canvas",
+    summary: "Start a new Lean or GTM canvas.",
+    detail: "Template is lean (the default) or gtm. Starter notes are added unless seedNotes is false.",
+    changesCanvas: true,
+    inputs: [
+      { name: "title", required: true },
+      { name: "description", required: false },
+      { name: "template", required: false },
+      { name: "seedNotes", required: false },
+    ],
+  },
+  {
+    name: "get_canvas",
+    summary: "Read a canvas with its blocks and sticky notes.",
+    detail: "Returns the canvas's template, each block's notes, and every note's evidence state.",
+    changesCanvas: false,
+    inputs: [{ name: "canvasId", required: true }],
+  },
+  {
+    name: "add_note",
+    summary: "Add a sticky note to a block on a canvas.",
+    detail: "The block must belong to the canvas's template. Notes start as assumptions unless evidenceState is set.",
+    changesCanvas: true,
+    inputs: [
+      { name: "canvasId", required: true },
+      { name: "block", required: true },
+      { name: "content", required: true },
+      { name: "evidenceState", required: false },
+    ],
+  },
+  {
+    name: "update_evidence_state",
+    summary: "Change how a note is marked, such as assumption to observed.",
+    detail: "Valid states: unknown, assumption, observed, supported, contradicted, decision.",
+    changesCanvas: true,
+    inputs: [
+      { name: "noteId", required: true },
+      { name: "evidenceState", required: true },
+    ],
+  },
+  {
+    name: "run_stress_test",
+    summary: "Score a canvas on 7 dimensions and surface its riskiest assumptions.",
+    detail:
+      "Lean canvases use Ash Maurya's methodology and GTM canvases use go-to-market criteria. The results are saved to the canvas.",
+    changesCanvas: true,
+    inputs: [{ name: "canvasId", required: true }],
+  },
+];
+
 export function AgentConnectInstructions() {
   const [activeId, setActiveId] = useState<AgentId>("chatgpt");
   const [copied, setCopied] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [openToolName, setOpenToolName] = useState<string | null>(null);
 
   const active = AGENTS.find((agent) => agent.id === activeId) ?? AGENTS[0];
 
@@ -157,6 +228,85 @@ export function AgentConnectInstructions() {
             </li>
           ))}
         </ol>
+      </div>
+
+      {/* Tools the agent gets. Level 1: names only. Level 2: a tool's details, opened on demand. */}
+      <div className="rounded-xl border border-line bg-surface-2 overflow-hidden">
+        <button
+          type="button"
+          aria-expanded={toolsOpen}
+          aria-controls="agent-tools-list"
+          onClick={() => setToolsOpen((open) => !open)}
+          className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left"
+        >
+          <span className="text-xs font-semibold text-ink">What your agent can do</span>
+          <span className="flex items-center gap-2 text-[11px] text-muted">
+            {AGENT_TOOLS.length} tools
+            <ChevronDownIcon
+              aria-hidden="true"
+              className={`w-4 h-4 motion-safe:transition-transform ${toolsOpen ? "rotate-180" : ""}`}
+            />
+          </span>
+        </button>
+
+        {!toolsOpen && (
+          <div className="flex flex-wrap gap-1.5 px-3.5 pb-3">
+            {AGENT_TOOLS.map((tool) => (
+              <code
+                key={tool.name}
+                className="rounded-md bg-surface border border-line px-1.5 py-0.5 font-mono text-[10px] text-incrementic-charcoal"
+              >
+                {tool.name}
+              </code>
+            ))}
+          </div>
+        )}
+
+        <ul id="agent-tools-list" hidden={!toolsOpen} className="divide-y divide-line/70 border-t border-line bg-surface">
+          {AGENT_TOOLS.map((tool) => {
+            const open = openToolName === tool.name;
+            return (
+              <li key={tool.name}>
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  aria-controls={`agent-tool-${tool.name}`}
+                  onClick={() => setOpenToolName(open ? null : tool.name)}
+                  className="w-full flex items-start justify-between gap-3 px-3.5 py-2.5 text-left"
+                >
+                  <span className="min-w-0 flex-1">
+                    <code className="block font-mono text-[11px] font-semibold text-ink">{tool.name}</code>
+                    <span className="block mt-0.5 text-xs text-muted">{tool.summary}</span>
+                  </span>
+                  <ChevronDownIcon
+                    aria-hidden="true"
+                    className={`w-4 h-4 mt-0.5 shrink-0 text-muted motion-safe:transition-transform ${open ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                <div id={`agent-tool-${tool.name}`} hidden={!open} className="space-y-2 px-3.5 pb-3 text-xs text-muted">
+                  <p>{tool.detail}</p>
+                  <p>
+                    <span className="font-semibold text-ink">Access:</span>{" "}
+                    {tool.changesCanvas ? "makes changes to the canvas" : "read only"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-ink">Inputs:</span>{" "}
+                    {tool.inputs.length === 0
+                      ? "none"
+                      : tool.inputs.map((input, index) => (
+                          <React.Fragment key={input.name}>
+                            {index > 0 && ", "}
+                            <code className="font-mono text-[11px] text-ink">{input.name}</code>
+                            {input.required ? " (required)" : " (optional)"}
+                          </React.Fragment>
+                        ))}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </div>
 
       <p className="text-xs text-muted pt-3 border-t border-line/60">
