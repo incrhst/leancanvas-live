@@ -58,7 +58,7 @@ export function ExportSheet({
     <div
       ref={ref}
       style={{ width: isRisks ? RISKS_WIDTH : CANVAS_WIDTH }}
-      className="border-t-4 border-accent bg-white p-12 font-sans text-ink"
+      className="bg-white p-12 font-sans text-ink"
     >
       <header className="flex items-start justify-between gap-6">
         <div className="flex items-center gap-3">
