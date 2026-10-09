@@ -60,6 +60,7 @@ When configured, Claude has access to:
 - `create_snapshot({ canvasId, label })`: Freezes the canvas under a label, e.g. `Day 30`.
 - `list_snapshots({ canvasId })`: The canvas's snapshots, newest first.
 - `compare_snapshots({ canvasId, from, to })`: Notes added, removed or changed between two snapshots; `to` defaults to `current` (the canvas now).
+- `get_review({ canvasId, sinceSnapshotId })`: The review-meeting view, also at `/canvas/[id]/review`: tests grouped by how the latest result compares with the pass mark (missed, no result yet, too early, met), overdue reviews, open decisions, and what changed since the latest (or given) snapshot.
 - `update_evidence_state({ noteId, evidenceState, reason })`: Updates state (`unknown`, `assumption`, `observed`, `supported`, `contradicted`, `decision`).
 - `run_stress_test({ canvasId })`: Triggers the 7-dimension diagnostic (Ash Maurya for Lean, go-to-market criteria for GTM) and extracts top riskiest assumptions.
 - `export_canvas({ canvasId, view, format })`: Returns a link that downloads the canvas (`view: "canvas"`) or its riskiest assumptions (`view: "riskiest_assumptions"`, needs a stress test first) as a PDF or PNG (`format`). The file is rendered in the browser, so open the link while signed in. `format: "summary"` instead returns plain-language text right away: one short paragraph per block for a non-technical reader.

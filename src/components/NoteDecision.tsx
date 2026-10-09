@@ -286,10 +286,12 @@ export function DecisionsWaitingChip() {
   return (
     <Link
       href="/decisions"
+      title={`${open.length} ${open.length === 1 ? "decision" : "decisions"} waiting for you`}
       className="inline-flex items-center gap-1 whitespace-nowrap rounded border border-ink bg-ink px-2 py-0.5 text-[11px] font-semibold text-surface hover:opacity-90"
     >
       <GavelIcon size={12} aria-hidden="true" />
-      {open.length} {open.length === 1 ? "decision" : "decisions"} for you
+      {open.length}
+      <span className="hidden sm:inline">{open.length === 1 ? "decision" : "decisions"} for you</span>
     </Link>
   );
 }

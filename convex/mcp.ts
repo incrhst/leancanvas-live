@@ -10,6 +10,7 @@ import { getCanvasRole, getUserFromAccessToken, requireTokenActor, requireTokenU
 import { listNoteHistory } from "./lib/history";
 import { listCanvasMembers } from "./lib/members";
 import { compareSnapshots, createSnapshotForUser, listSnapshots } from "./lib/snapshots";
+import { buildReview } from "./lib/review";
 import {
   answerDecisionForUser,
   decisionAnswerValidator,
@@ -560,6 +561,35 @@ export const compareCanvasSnapshots = query({
       ...result,
       from: { ...result.from, takenAt: new Date(result.from.takenAt).toISOString() },
       to: { ...result.to, takenAt: new Date(result.to.takenAt).toISOString() },
+    };
+  },
+});
+
+/** The review-meeting view: tests and results, open decisions, changes since a snapshot. */
+export const getReview = query({
+  args: { accessToken: v.string(), canvasId: v.string(), sinceSnapshotId: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { canvas } = await resolveCanvas(ctx, user, args.canvasId, false);
+    let since: Id<"canvasSnapshots"> | undefined;
+    if (args.sinceSnapshotId) {
+      const id = ctx.db.normalizeId("canvasSnapshots", args.sinceSnapshotId);
+      if (!id) throw new ConvexError(`Snapshot not found: ${args.sinceSnapshotId}`);
+      since = id;
+    }
+    const review = await buildReview(ctx, canvas, since);
+    const iso = (ms: number) => new Date(ms).toISOString();
+    return {
+      ...review,
+      openDecisions: review.openDecisions.map(({ deciderId: _id, ...d }) => d),
+      since: review.since && { ...review.since, takenAt: iso(review.since.takenAt) },
+      snapshots: review.snapshots.map((s) => ({ ...s, takenAt: iso(s.takenAt) })),
+      changes: review.changes && {
+        ...review.changes,
+        from: { ...review.changes.from, takenAt: iso(review.changes.from.takenAt) },
+        to: { ...review.changes.to, takenAt: iso(review.changes.to.takenAt) },
+      },
+      url: `${canvasUrl(canvas._id)}/review`,
     };
   },
 });

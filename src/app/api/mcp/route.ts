@@ -345,6 +345,19 @@ const TOOLS_MANIFEST = [
     },
   },
   {
+    name: "get_review",
+    description:
+      "The review-meeting view of a canvas, and nothing else: every note with a test and how its latest result compares with its pass mark (missed, no result yet, unclear, met; overdue reviews flagged), the open decisions, and what changed since a snapshot (the latest one unless sinceSnapshotId is given). Use it to prepare or run a day-30/60/90 review.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        canvasId: { type: "string" },
+        sinceSnapshotId: { type: "string", description: "Compare with this snapshot instead of the latest" },
+      },
+      required: ["canvasId"],
+    },
+  },
+  {
     name: "update_evidence_state",
     description: "Update the empirical evidence state of a note",
     inputSchema: {
@@ -594,6 +607,12 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         canvasId: str(args.canvasId),
         from: str(args.from),
         to: optStr(args.to),
+      });
+    case "get_review":
+      return await fetchQuery(api.mcp.getReview, {
+        accessToken,
+        canvasId: str(args.canvasId),
+        sinceSnapshotId: optStr(args.sinceSnapshotId),
       });
     case "update_evidence_state":
       return await fetchMutation(api.mcp.updateEvidenceState, {

@@ -193,6 +193,7 @@ export default function CanvasEditorPage() {
         }
         onOpenShare={() => setIsShareModalOpen(true)}
         onOpenStressTest={() => setActivePanel((curr) => (curr === "stressTest" ? null : "stressTest"))}
+        reviewHref={user ? `/canvas/${canvasId}/review` : undefined}
         onOpenSnapshots={user ? () => setActivePanel((curr) => (curr === "snapshots" ? null : "snapshots")) : undefined}
         onExportMarkdown={handleExportMarkdown}
         onExportSummary={handleExportSummary}

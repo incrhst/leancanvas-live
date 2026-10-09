@@ -286,6 +286,17 @@ const AGENT_TOOLS: AgentTool[] = [
     ],
   },
   {
+    name: "get_review",
+    summary: "Get the review-meeting view of a canvas.",
+    detail:
+      "Only what a review needs: each test and how its latest result compares with the pass mark, overdue reviews, open decisions, and what changed since the last snapshot.",
+    changesCanvas: false,
+    inputs: [
+      { name: "canvasId", required: true },
+      { name: "sinceSnapshotId", required: false },
+    ],
+  },
+  {
     name: "update_evidence_state",
     summary: "Change how a note is marked, such as assumption to observed.",
     detail: "Valid states: unknown, assumption, observed, supported, contradicted, decision.",
