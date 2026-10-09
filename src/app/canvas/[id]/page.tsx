@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -13,7 +13,7 @@ import { LaunchDayChip } from "../../../components/LaunchDayChip";
 import { DecisionsWaitingChip } from "../../../components/NoteDecision";
 import { CheckInsWaitingChip } from "../../../components/CheckIn";
 import { SnapshotsPanel } from "../../../components/SnapshotsPanel";
-import { useEvidenceFilter } from "../../../utils/evidenceFilter";
+import { noteMatchesEvidence, useEvidenceFilter } from "../../../utils/evidenceFilter";
 import { EvidenceLegend } from "../../../components/EvidenceLegend";
 import { matchesOwnerFilter, OwnerFilter, OwnerFilterValue } from "../../../components/OwnerControls";
 import { MarketFilter, marketsOf, matchesMarketFilter } from "../../../components/MarketControls";
@@ -24,9 +24,11 @@ import { plainSummary, summaryFromNotes } from "../../../utils/plainSummary";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { ShareModal } from "../../../components/ShareModal";
 import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptionsView";
+import { SearchIcon } from "lucide-react";
 import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/CanvasViewToggle";
 import { useAuth } from "../../../components/ConvexClientProvider";
 import { NoteItem, BlockId, EvidenceState, StressTestResult } from "../../../types/canvas";
+import { NoteSearch } from "../../../components/NoteSearch";
 import { ExportMenu, parseExportRequest } from "../../../components/ExportMenu";
 import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
 import { getCanvasTemplate } from "../../../utils/canvasTemplates";
@@ -71,6 +73,22 @@ export default function CanvasEditorPage() {
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilterValue>("all");
   const [marketFilter, setMarketFilter] = useState("all");
   const evidence = useEvidenceFilter();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // Cmd/Ctrl+K opens quick search anywhere; "/" does too when not typing in a field
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      const typing = !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+      const combo = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k";
+      const slash = e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey && !typing;
+      if (!combo && !slash) return;
+      e.preventDefault();
+      setIsSearchOpen(true);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const notes: NoteItem[] = data?.notes ?? [];
   const role = data?.currentUserRole ?? "viewer";
@@ -226,12 +244,24 @@ export default function CanvasEditorPage() {
                   riskCount={stressResult?.riskiestAssumptions.length ?? 0}
                   onChange={setView}
                 />
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsSearchOpen(true)}
+                    title="Search notes (Ctrl/Cmd+K or /)"
+                    className="inline-flex h-8 items-center gap-2 rounded-md border border-line bg-surface px-2.5 text-xs text-muted hover:bg-surface-2 hover:text-ink transition-colors"
+                  >
+                    <SearchIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                    Search notes
+                    <kbd className="hidden rounded border border-line bg-surface-2 px-1 text-[10px] font-medium sm:inline">/</kbd>
+                  </button>
                 {view === "canvas" && (
-                  <div className="flex flex-wrap items-center gap-2">
+                  <>
                     <MarketFilter markets={allMarkets} value={marketFilter} onChange={setMarketFilter} />
                     <OwnerFilter value={ownerFilter} currentUserId={user?.id} onChange={setOwnerFilter} />
-                  </div>
+                  </>
                 )}
+                </div>
               </div>
               {view === "canvas" && (
               <EvidenceLegend
@@ -349,6 +379,34 @@ export default function CanvasEditorPage() {
           </main>
         </LaunchDateContext.Provider>
       </MembersContext.Provider>
+
+      {isSearchOpen && (
+        <MembersContext.Provider value={members}>
+        <NoteSearch
+          notes={notes}
+          blocks={template.blocks}
+          onClose={() => setIsSearchOpen(false)}
+          onSelect={(noteId) => {
+            const note = notes.find((n) => n._id === noteId);
+            // Reveal a note the current filters would hide
+            if (note && !visibleNotes.includes(note)) {
+              setOwnerFilter("all");
+              setMarketFilter("all");
+            }
+            if (note && evidence.filter.mode === "hide" && !noteMatchesEvidence(note, evidence.filter)) {
+              evidence.clear();
+            }
+            setIsSearchOpen(false);
+            setView("canvas");
+            setSelectedId(noteId);
+            setActivePanel("detail");
+            setTimeout(() => {
+              document.getElementById(`note-${noteId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+            }, 80);
+          }}
+        />
+        </MembersContext.Provider>
+      )}
 
       {/* Share Modal */}
       {isShareModalOpen && (
