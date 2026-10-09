@@ -88,6 +88,20 @@ export interface LatestResult {
   verdict?: Verdict;
 }
 
+export type DecisionStatus = "open" | "approved" | "rejected" | "changes_requested";
+
+export interface DecisionRequest {
+  question: string;
+  deciderId: string;
+  /** YYYY-MM-DD */
+  dueDate: string;
+  requestedBy: string;
+  requestedAt: number;
+  status: DecisionStatus;
+  comment?: string;
+  answeredAt?: number;
+}
+
 export interface NoteItem {
   _id: string;
   canvasId?: string;
@@ -101,6 +115,7 @@ export interface NoteItem {
   reviewDate?: string;
   latestResult?: LatestResult;
   ownerId?: string;
+  decision?: DecisionRequest;
   createdBy?: string;
   updatedAt: number;
 }

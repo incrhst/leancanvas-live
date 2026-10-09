@@ -7,6 +7,7 @@ import { NoteHistory } from "./NoteHistory";
 import { EditableField } from "./EditableField";
 import { NoteTestFields, TestFieldsPatch } from "./NoteTestFields";
 import { NoteOwnerField } from "./OwnerControls";
+import { NoteDecisionSection } from "./NoteDecision";
 
 interface NoteDetailPanelProps {
   note: NoteItem;
@@ -190,6 +191,8 @@ export function NoteDetailPanel({
             </p>
           )}
         </div>
+
+        <NoteDecisionSection note={note} canEdit={canEdit} />
 
         <NoteOwnerField note={note} canEdit={canEdit} onChange={onUpdateOwner} />
 

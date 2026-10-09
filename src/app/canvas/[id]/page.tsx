@@ -10,6 +10,7 @@ import { TopBar } from "../../../components/TopBar";
 import { CanvasBoard } from "../../../components/CanvasBoard";
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
 import { LaunchDayChip } from "../../../components/LaunchDayChip";
+import { DecisionsWaitingChip } from "../../../components/NoteDecision";
 import { EvidenceLegend } from "../../../components/EvidenceLegend";
 import { matchesOwnerFilter, OwnerFilter, OwnerFilterValue } from "../../../components/OwnerControls";
 import { CanvasMember, MembersContext } from "../../../utils/members";
@@ -160,10 +161,13 @@ export default function CanvasEditorPage() {
         role={user ? role : "anonymous"}
         isPublicViewEnabled={canvas.isPublicViewEnabled}
         status={
-          <LaunchDayChip
-            launchDate={canvas.launchDate}
-            onChange={canEdit ? (launchDate) => void updateCanvasMeta({ canvasId, launchDate }) : undefined}
-          />
+          <>
+            <LaunchDayChip
+              launchDate={canvas.launchDate}
+              onChange={canEdit ? (launchDate) => void updateCanvasMeta({ canvasId, launchDate }) : undefined}
+            />
+            {user && <DecisionsWaitingChip />}
+          </>
         }
         onOpenShare={() => setIsShareModalOpen(true)}
         onOpenStressTest={() => setActivePanel((curr) => (curr === "stressTest" ? null : "stressTest"))}

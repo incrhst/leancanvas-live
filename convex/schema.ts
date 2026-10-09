@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 import { blockValidator, canvasTemplateValidator } from "./lib/canvasTemplates";
 import { testFieldsSchema } from "./lib/testFields";
+import { decisionRequestValidator } from "./lib/decisions";
 
 export default defineSchema({
   ...authTables,
@@ -125,9 +126,13 @@ export default defineSchema({
     ...testFieldsSchema,
     // The one person responsible for this note; any canvas member, viewers included
     ownerId: v.optional(v.id("users")),
+    // A decision someone has been asked to make about this note
+    decision: v.optional(decisionRequestValidator),
     createdBy: v.id("users"),
     updatedAt: v.number(),
-  }).index("by_canvas_block", ["canvasId", "block"]),
+  })
+    .index("by_canvas_block", ["canvasId", "block"])
+    .index("by_decider_and_status", ["decision.deciderId", "decision.status"]),
 
   // One row per change to a note. Rows outlive the note, so a deleted note's history stays readable.
   noteHistory: defineTable({
@@ -137,7 +142,14 @@ export default defineSchema({
     // Where the change came from; an MCP token acts as its user, so this tells agent edits apart
     via: v.union(v.literal("ui"), v.literal("mcp")),
     clientName: v.optional(v.string()),
-    kind: v.union(v.literal("created"), v.literal("updated"), v.literal("deleted")),
+    kind: v.union(
+      v.literal("created"),
+      v.literal("updated"),
+      v.literal("deleted"),
+      v.literal("decision_requested"),
+      v.literal("decision_answered"),
+      v.literal("decision_withdrawn")
+    ),
     changes: v.array(
       v.object({
         field: v.string(),
