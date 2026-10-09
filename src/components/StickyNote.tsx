@@ -104,6 +104,7 @@ export function StickyNote({
 }: StickyNoteProps) {
   return (
     <motion.article
+      id={`note-${note._id}`}
       layout="position"
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: dimmed ? 0.35 : 1, scale: 1 }}
