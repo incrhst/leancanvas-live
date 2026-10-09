@@ -5,6 +5,8 @@ import { api } from "../../../../convex/_generated/api";
 import { GTM_BLOCK_IDS, LEAN_BLOCK_IDS } from "../../../../convex/lib/canvasTemplates";
 import { getCanvasTemplate } from "../../../utils/canvasTemplates";
 import { EVIDENCE_GLOSSARY, EVIDENCE_STATES } from "../../../utils/evidenceStates";
+import { plainSummary, SummaryNote } from "../../../utils/plainSummary";
+import { todayLocal } from "../../../utils/testFields";
 
 const ALL_BLOCK_IDS = [...new Set([...LEAN_BLOCK_IDS, ...GTM_BLOCK_IDS])];
 const EVIDENCE_STATE_PROPERTY = {
@@ -370,7 +372,7 @@ const TOOLS_MANIFEST = [
   {
     name: "export_canvas",
     description:
-      "Get a link that downloads a canvas, or its riskiest assumptions, as a PDF or PNG. The file is rendered in the browser, so the user opens the link while signed in to LeanCanvas and the download starts once the canvas loads. The riskiest assumptions need a stress test first.",
+      "Export a canvas. format 'summary' returns, right away, a plain-language summary with one short paragraph per block for a non-technical reader (what's decided, what held up, what didn't, what's still untested, what's waiting on a decision). format 'pdf' or 'png' returns a link that downloads the canvas, or its riskiest assumptions, as a file; the user opens it while signed in and the download starts once the canvas loads. The riskiest assumptions need a stress test first.",
     inputSchema: {
       type: "object",
       properties: {
@@ -384,8 +386,9 @@ const TOOLS_MANIFEST = [
         },
         format: {
           type: "string",
-          enum: ["pdf", "png"],
+          enum: ["pdf", "png", "summary"],
           default: "pdf",
+          description: "'summary' for plain-language text (canvas view only), or 'pdf' / 'png' for a file",
         },
       },
       required: ["canvasId"],
@@ -450,6 +453,37 @@ function testFieldArgs(args: Record<string, unknown>) {
             }
           : undefined,
   };
+}
+
+/** The plain-language summary, built from get_canvas so it says exactly what the canvas says. */
+async function exportSummary(accessToken: string, canvasId: string, view: string) {
+  if (view && view !== "canvas") throw new Error("The summary covers the whole canvas; use view 'canvas'");
+  const canvas = await fetchQuery(api.mcp.getCanvas, { accessToken, canvasId });
+  const template = getCanvasTemplate(canvas.template);
+  const blocks = template.blocks.map((block) => ({
+    title: block.title,
+    notes: (canvas.blocks[block.id] ?? []).map(
+      (n): SummaryNote => ({
+        text: n.text,
+        state: n.evidenceState,
+        markets: n.markets,
+        result: n.latestResult,
+        decision: n.decision && {
+          status: n.decision.status,
+          question: n.decision.question,
+          decider: n.decision.decider.name,
+          dueDate: n.decision.dueDate,
+        },
+      })
+    ),
+  }));
+  const summary = plainSummary({
+    title: canvas.title,
+    today: todayLocal(),
+    launchDate: canvas.launchDate,
+    blocks,
+  });
+  return { canvasId: canvas.canvasId, title: canvas.title, format: "summary", summary };
 }
 
 async function callTool(accessToken: string, toolName: string, args: Record<string, unknown>) {
@@ -571,6 +605,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
     case "run_stress_test":
       return await fetchAction(api.mcp.runStressTest, { accessToken, canvasId: str(args.canvasId) });
     case "export_canvas":
+      if (args.format === "summary") return await exportSummary(accessToken, str(args.canvasId), str(args.view));
       return await fetchQuery(api.mcp.exportCanvas, {
         accessToken,
         canvasId: str(args.canvasId),

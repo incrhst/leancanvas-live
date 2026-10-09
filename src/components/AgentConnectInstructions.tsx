@@ -306,9 +306,9 @@ const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "export_canvas",
-    summary: "Get a PDF or PNG of a canvas or its riskiest assumptions.",
+    summary: "Get a plain-language summary, or a PDF or PNG of a canvas or its riskiest assumptions.",
     detail:
-      "Returns a link. Open it signed in to LeanCanvas and the file downloads once the canvas loads. Riskiest assumptions need a stress test first.",
+      "format summary returns one short paragraph per block, written for someone who hasn't seen the canvas. PDF and PNG return a link: open it signed in and the file downloads once the canvas loads. Riskiest assumptions need a stress test first.",
     changesCanvas: false,
     inputs: [
       { name: "canvasId", required: true },
