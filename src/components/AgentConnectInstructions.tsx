@@ -137,7 +137,39 @@ const AGENT_TOOLS: AgentTool[] = [
       { name: "block", required: true },
       { name: "content", required: true },
       { name: "evidenceState", required: false },
+      { name: "reason", required: false },
     ],
+  },
+  {
+    name: "update_note",
+    summary: "Reword a note, move it to another block, or change its state.",
+    detail: "Pass only what changes. The change, and the reason if given, is kept in the note's history.",
+    changesCanvas: true,
+    inputs: [
+      { name: "noteId", required: true },
+      { name: "content", required: false },
+      { name: "block", required: false },
+      { name: "evidenceState", required: false },
+      { name: "reason", required: false },
+      { name: "link", required: false },
+    ],
+  },
+  {
+    name: "delete_note",
+    summary: "Remove a note from a canvas.",
+    detail: "The note's history, including its last text, stays readable.",
+    changesCanvas: true,
+    inputs: [
+      { name: "noteId", required: true },
+      { name: "reason", required: false },
+    ],
+  },
+  {
+    name: "get_note_history",
+    summary: "See every change to a note, newest first.",
+    detail: "Shows who changed what and when, whether it was done in the app or by an agent, and why. Works for deleted notes too.",
+    changesCanvas: false,
+    inputs: [{ name: "noteId", required: true }],
   },
   {
     name: "update_evidence_state",
@@ -147,6 +179,7 @@ const AGENT_TOOLS: AgentTool[] = [
     inputs: [
       { name: "noteId", required: true },
       { name: "evidenceState", required: true },
+      { name: "reason", required: false },
     ],
   },
   {

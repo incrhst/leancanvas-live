@@ -122,6 +122,30 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_canvas_block", ["canvasId", "block"]),
 
+  // One row per change to a note. Rows outlive the note, so a deleted note's history stays readable.
+  noteHistory: defineTable({
+    canvasId: v.id("canvases"),
+    noteId: v.id("notes"),
+    userId: v.id("users"),
+    // Where the change came from; an MCP token acts as its user, so this tells agent edits apart
+    via: v.union(v.literal("ui"), v.literal("mcp")),
+    clientName: v.optional(v.string()),
+    kind: v.union(v.literal("created"), v.literal("updated"), v.literal("deleted")),
+    changes: v.array(
+      v.object({
+        field: v.string(),
+        from: v.optional(v.string()),
+        to: v.optional(v.string()),
+      })
+    ),
+    reason: v.optional(v.string()),
+    link: v.optional(v.string()),
+    // Time of the latest change folded into this row (see recordNoteHistory)
+    at: v.number(),
+  })
+    .index("by_note", ["noteId"])
+    .index("by_canvas", ["canvasId"]),
+
   evidence: defineTable({
     noteId: v.id("notes"),
     type: v.union(v.literal("text"), v.literal("url"), v.literal("file")),

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Trash2Icon, XIcon, CheckCircle2Icon } from "lucide-react";
 import { NoteItem, EvidenceState } from "../types/canvas";
 import { EvidenceBadge, EVIDENCE_CONFIG } from "./EvidenceBadge";
+import { NoteHistory } from "./NoteHistory";
 
 interface NoteDetailPanelProps {
   note: NoteItem;
@@ -12,6 +13,8 @@ interface NoteDetailPanelProps {
   onUpdate: (content: string) => void;
   onUpdateEvidence: (state: EvidenceState) => void;
   onDelete: () => void;
+  /** Set to show the note's change history (canvas members only, not the public link) */
+  blockTitleOf?: (blockId: string) => string;
 }
 
 const EVIDENCE_STATES: EvidenceState[] = [
@@ -31,6 +34,7 @@ export function NoteDetailPanel({
   onUpdate,
   onUpdateEvidence,
   onDelete,
+  blockTitleOf,
 }: NoteDetailPanelProps) {
   const [content, setContent] = useState(note.content);
 
@@ -125,6 +129,8 @@ export function NoteDetailPanel({
             </p>
           )}
         </div>
+
+        {blockTitleOf && <NoteHistory noteId={note._id} blockTitleOf={blockTitleOf} />}
 
         {/* Validation hint */}
         <div className="rounded-xl bg-surface-2 border border-line p-3 text-xs text-muted space-y-1">

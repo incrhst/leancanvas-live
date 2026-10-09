@@ -6,9 +6,10 @@ import { action, internalQuery, mutation, query, QueryCtx } from "./_generated/s
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
-import { getCanvasRole, getUserFromAccessToken, requireTokenUser } from "./lib/auth";
+import { getCanvasRole, getUserFromAccessToken, requireTokenActor, requireTokenUser } from "./lib/auth";
+import { listNoteHistory } from "./lib/history";
 import { createCanvasForUser, listCanvasesForUser } from "./canvases";
-import { addNoteForUser, updateNoteForUser } from "./notes";
+import { addNoteForUser, deleteNoteForUser, updateNoteForUser } from "./notes";
 import { runStressTestForUser } from "./stressTests";
 import { BLOCKS_BY_TEMPLATE, blockValidator, canvasTemplateValidator, templateOf } from "./lib/canvasTemplates";
 
@@ -23,6 +24,14 @@ const evidenceValidator = v.union(
 
 function canvasUrl(canvasId: Id<"canvases">) {
   return `${process.env.SITE_URL ?? "https://lean.incrementic.com"}/canvas/${canvasId}`;
+}
+
+async function resolveNote(ctx: QueryCtx, user: Doc<"users">, rawNoteId: string, needEdit: boolean) {
+  const noteId = ctx.db.normalizeId("notes", rawNoteId);
+  const note = noteId ? await ctx.db.get(noteId) : null;
+  if (!note) throw new ConvexError(`Note not found: ${rawNoteId}`);
+  await resolveCanvas(ctx, user, note.canvasId, needEdit);
+  return note;
 }
 
 async function resolveCanvas(
@@ -161,17 +170,103 @@ export const addNote = mutation({
     block: blockValidator,
     content: v.string(),
     evidenceState: v.optional(evidenceValidator),
+    reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await requireTokenUser(ctx, args.accessToken);
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
     const { canvas } = await resolveCanvas(ctx, user, args.canvasId, true);
-    const noteId = await addNoteForUser(ctx, user._id, {
+    const noteId = await addNoteForUser(ctx, actor, {
       canvasId: canvas._id,
       block: args.block,
       content: args.content,
       evidenceState: args.evidenceState,
+      reason: args.reason,
     });
     return { noteId };
+  },
+});
+
+export const updateNote = mutation({
+  args: {
+    accessToken: v.string(),
+    noteId: v.string(),
+    content: v.optional(v.string()),
+    block: v.optional(blockValidator),
+    evidenceState: v.optional(evidenceValidator),
+    reason: v.optional(v.string()),
+    link: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    const note = await resolveNote(ctx, user, args.noteId, true);
+    const content = args.content?.trim();
+    if (args.content !== undefined && !content) throw new ConvexError("content cannot be empty");
+    if (content === undefined && args.block === undefined && args.evidenceState === undefined) {
+      throw new ConvexError("Nothing to change: pass content, block or evidenceState");
+    }
+    await updateNoteForUser(ctx, actor, note, {
+      content,
+      block: args.block,
+      evidenceState: args.evidenceState,
+      reason: args.reason,
+      link: args.link,
+    });
+    const updated = (await ctx.db.get(note._id))!;
+    return {
+      noteId: updated._id,
+      block: updated.block,
+      text: updated.content,
+      evidenceState: updated.evidenceState,
+    };
+  },
+});
+
+export const deleteNote = mutation({
+  args: {
+    accessToken: v.string(),
+    noteId: v.string(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    const note = await resolveNote(ctx, user, args.noteId, true);
+    await deleteNoteForUser(ctx, actor, note, { reason: args.reason });
+    return { noteId: note._id, deleted: true };
+  },
+});
+
+/**
+ * A note's change history, newest first. Still works after the note is deleted.
+ */
+export const getNoteHistory = query({
+  args: { accessToken: v.string(), noteId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const noteId = ctx.db.normalizeId("notes", args.noteId);
+    const note = noteId ? await ctx.db.get(noteId) : null;
+    // A deleted note is found through its history rows, which keep the canvas
+    const anyRow = noteId
+      ? await ctx.db.query("noteHistory").withIndex("by_note", (q) => q.eq("noteId", noteId)).first()
+      : null;
+    const canvasId = note?.canvasId ?? anyRow?.canvasId;
+    if (!noteId || !canvasId) throw new ConvexError(`Note not found: ${args.noteId}`);
+    await resolveCanvas(ctx, user, canvasId, false);
+
+    const rows = await listNoteHistory(ctx, noteId);
+    return {
+      noteId,
+      deleted: !note,
+      text: note?.content,
+      history: rows.map((row) => ({
+        at: new Date(row.at).toISOString(),
+        by: row.userName,
+        via: row.clientName ? `${row.via} (${row.clientName})` : row.via,
+        kind: row.kind,
+        changes: row.changes,
+        reason: row.reason,
+        link: row.link,
+      })),
+    };
   },
 });
 
@@ -180,14 +275,12 @@ export const updateEvidenceState = mutation({
     accessToken: v.string(),
     noteId: v.string(),
     evidenceState: evidenceValidator,
+    reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await requireTokenUser(ctx, args.accessToken);
-    const noteId = ctx.db.normalizeId("notes", args.noteId);
-    const note = noteId ? await ctx.db.get(noteId) : null;
-    if (!note) throw new ConvexError(`Note not found: ${args.noteId}`);
-    await resolveCanvas(ctx, user, note.canvasId, true);
-    await updateNoteForUser(ctx, user._id, note, { evidenceState: args.evidenceState });
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    const note = await resolveNote(ctx, user, args.noteId, true);
+    await updateNoteForUser(ctx, actor, note, { evidenceState: args.evidenceState, reason: args.reason });
     return { noteId: note._id, evidenceState: args.evidenceState };
   },
 });
