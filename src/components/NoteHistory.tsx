@@ -73,6 +73,21 @@ function describeEntry(kind: string, changes: Change[], blockTitleOf: (blockId: 
     ];
   }
   if (kind === "deleted") return ["Deleted"];
+  const value = (field: string) => changes.find((c) => c.field === field);
+  if (kind === "decision_requested") {
+    return [
+      `Asked ${value("decision.decider")?.to ?? "someone"} for a decision, due ${formatCalendarDate(value("decision.dueDate")?.to ?? "")}`,
+      `“${truncate(value("decision.question")?.to ?? "", 80)}”`,
+    ];
+  }
+  if (kind === "decision_answered") {
+    const outcome = { approved: "Approved", rejected: "Rejected", changes_requested: "Asked for a change" }[
+      value("decision.status")?.to ?? ""
+    ];
+    const comment = value("decision.comment")?.to;
+    return [`${outcome ?? "Answered"} the decision request${comment ? `: “${truncate(comment, 80)}”` : ""}`];
+  }
+  if (kind === "decision_withdrawn") return ["Withdrew the decision request"];
   return changes.map((c) => describeChange(c, blockTitleOf));
 }
 

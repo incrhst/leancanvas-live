@@ -238,6 +238,62 @@ const TOOLS_MANIFEST = [
     },
   },
   {
+    name: "request_decision",
+    description:
+      "Ask one canvas member to decide on a note. They're emailed a link and can answer from their phone, even with view-only access. A note can have one open request at a time.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        noteId: { type: "string" },
+        question: { type: "string", description: "The yes/no question to decide, in one line" },
+        deciderUserId: { type: "string", description: "Who decides: a userId from list_canvas_members" },
+        dueDate: { type: "string", description: "When it's needed by, as YYYY-MM-DD" },
+        dueDay: {
+          type: "integer",
+          description: "Alternative to dueDate: the day of the plan, counted from the canvas's launchDate",
+        },
+      },
+      required: ["noteId", "question", "deciderUserId"],
+    },
+  },
+  {
+    name: "answer_decision",
+    description:
+      "Answer a decision request addressed to you. approve or reject makes the note a decision; change sends it back to whoever asked, with your comment, and leaves the note as it is. Works with view-only access.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        noteId: { type: "string" },
+        answer: { type: "string", enum: ["approve", "reject", "change"] },
+        comment: { type: "string", description: "Optional for approve and reject; required for change" },
+      },
+      required: ["noteId", "answer"],
+    },
+  },
+  {
+    name: "withdraw_decision",
+    description: "Cancel an open decision request on a note.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        noteId: { type: "string" },
+        reason: REASON_PROPERTY,
+      },
+      required: ["noteId"],
+    },
+  },
+  {
+    name: "list_decisions",
+    description:
+      "With a canvasId: every note on that canvas with a decision request, open or answered, soonest due first. Without: the open decisions waiting on you across all your canvases.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        canvasId: { type: "string" },
+      },
+    },
+  },
+  {
     name: "update_evidence_state",
     description: "Update the empirical evidence state of a note",
     inputSchema: {
@@ -408,6 +464,30 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
       });
     case "get_note_history":
       return await fetchQuery(api.mcp.getNoteHistory, { accessToken, noteId: str(args.noteId) });
+    case "request_decision":
+      return await fetchMutation(api.mcp.requestDecision, {
+        accessToken,
+        noteId: str(args.noteId),
+        question: str(args.question),
+        deciderUserId: str(args.deciderUserId),
+        dueDate: optStr(args.dueDate),
+        dueDay: typeof args.dueDay === "number" ? args.dueDay : undefined,
+      });
+    case "answer_decision":
+      return await fetchMutation(api.mcp.answerDecision, {
+        accessToken,
+        noteId: str(args.noteId),
+        answer: args.answer as any, // validated by Convex
+        comment: optStr(args.comment),
+      });
+    case "withdraw_decision":
+      return await fetchMutation(api.mcp.withdrawDecision, {
+        accessToken,
+        noteId: str(args.noteId),
+        reason: optStr(args.reason),
+      });
+    case "list_decisions":
+      return await fetchQuery(api.mcp.listDecisions, { accessToken, canvasId: optStr(args.canvasId) });
     case "update_evidence_state":
       return await fetchMutation(api.mcp.updateEvidenceState, {
         accessToken,

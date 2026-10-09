@@ -53,6 +53,10 @@ When configured, Claude has access to:
 - `update_note({ noteId, content, block, evidenceState, ownerUserId, measure, passMark, reviewDate, reviewDay, latestResult, reason, link })`: Rewords a note, moves it to another block of the same template, changes its state, or sets its test. Pass only what changes; `null` clears a test field. Dates are `YYYY-MM-DD`, or give `reviewDay` (e.g. `30`) on a canvas with a launch date; `latestResult` is `{ text, date?, verdict? }` with verdict `pass`, `fail` or `inconclusive`.
 - `delete_note({ noteId, reason })`: Removes a note. Its history stays readable.
 - `get_note_history({ noteId })`: Lists every change to a note, newest first: who, when, app or agent, from and to, and the reason. Works for deleted notes.
+- `request_decision({ noteId, question, deciderUserId, dueDate | dueDay })`: Asks one canvas member to decide on a note. They're emailed a link to `/decisions` and can answer from a phone, even with view-only access.
+- `answer_decision({ noteId, answer, comment })`: The named decider answers `approve`, `reject` (both make the note a `decision`) or `change` (needs a comment; sends it back with the note unchanged).
+- `withdraw_decision({ noteId, reason })`: Cancels an open request.
+- `list_decisions({ canvasId })`: Decision requests on a canvas, or, without `canvasId`, the open ones waiting on you.
 - `update_evidence_state({ noteId, evidenceState, reason })`: Updates state (`unknown`, `assumption`, `observed`, `supported`, `contradicted`, `decision`).
 - `run_stress_test({ canvasId })`: Triggers the 7-dimension diagnostic (Ash Maurya for Lean, go-to-market criteria for GTM) and extracts top riskiest assumptions.
 - `export_canvas({ canvasId, view, format })`: Returns a link that downloads the canvas (`view: "canvas"`) or its riskiest assumptions (`view: "riskiest_assumptions"`, needs a stress test first) as a PDF or PNG (`format`). The file is rendered in the browser, so open the link while signed in.
@@ -61,12 +65,12 @@ When configured, Claude has access to:
 
 ## Access Control Matrix
 
-| Actor | View Canvas | Edit Canvas | Comment | Invite Others | Run Stress Test |
-|---|---|---|---|---|---|
-| **Anonymous** | Yes (via `/share/[token]`) | **No** | No | No | No |
-| **Authenticated Viewer** | Yes | No | Yes | No | No |
-| **Authenticated Editor** | Yes | Yes | Yes | Yes (Editor / Viewer) | Yes |
-| **Owner** | Yes | Yes | Yes | Yes | Yes |
+| Actor | View Canvas | Edit Canvas | Comment | Invite Others | Run Stress Test | Answer Decisions |
+|---|---|---|---|---|---|---|
+| **Anonymous** | Yes (via `/share/[token]`) | **No** | No | No | No | No |
+| **Authenticated Viewer** | Yes | No | Yes | No | No | Yes, when they're the named decider |
+| **Authenticated Editor** | Yes | Yes | Yes | Yes (Editor / Viewer) | Yes | Yes, when they're the named decider |
+| **Owner** | Yes | Yes | Yes | Yes | Yes | Yes, when they're the named decider |
 
 ---
 

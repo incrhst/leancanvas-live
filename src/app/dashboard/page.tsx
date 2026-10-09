@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../components/ConvexClientProvider";
 import { AgentConnectInstructions } from "../../components/AgentConnectInstructions";
+import { DecisionsWaitingChip } from "../../components/NoteDecision";
 import { CANVAS_TEMPLATE_LIST, getCanvasTemplate } from "../../utils/canvasTemplates";
 import type { CanvasTemplate } from "../../types/canvas";
 import {
@@ -82,6 +83,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-4">
+          {user && <DecisionsWaitingChip />}
           <span className="text-xs text-muted">
             {user ? (
               <>Signed in as <strong className="text-ink">{user.email}</strong></>

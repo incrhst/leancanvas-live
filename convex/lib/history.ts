@@ -160,9 +160,9 @@ export async function listNoteHistory(ctx: QueryCtx, noteId: Id<"notes">) {
       userName: await nameOf(row.userId),
       changes: await Promise.all(
         row.changes.map(async (c) =>
-          c.field === "ownerId"
+          c.field === "ownerId" || c.field === "decision.deciderId"
             ? {
-                field: "owner",
+                field: c.field === "ownerId" ? "owner" : "decision.decider",
                 from: c.from === undefined ? undefined : await nameOf(c.from),
                 to: c.to === undefined ? undefined : await nameOf(c.to),
               }

@@ -9,6 +9,13 @@ import { Doc, Id } from "./_generated/dataModel";
 import { getCanvasRole, getUserFromAccessToken, requireTokenActor, requireTokenUser } from "./lib/auth";
 import { listNoteHistory } from "./lib/history";
 import { listCanvasMembers } from "./lib/members";
+import {
+  answerDecisionForUser,
+  decisionAnswerValidator,
+  listOpenDecisionsFor,
+  requestDecisionForUser,
+  withdrawDecisionForUser,
+} from "./lib/decisions";
 import { addDays, daysBetween, testFieldsUpdateArgs, todayUtc } from "./lib/testFields";
 import { createCanvasForUser, listCanvasesForUser, updateCanvasMetaForUser } from "./canvases";
 import { addNoteForUser, deleteNoteForUser, updateNoteForUser } from "./notes";
@@ -48,6 +55,19 @@ function noteForAgent(n: Doc<"notes">, { launchDate, memberNames }: CanvasContex
     owner: n.ownerId
       ? { userId: n.ownerId, name: memberNames.get(n.ownerId) ?? "Former member" }
       : undefined,
+    decision: n.decision
+      ? {
+          question: n.decision.question,
+          status: n.decision.status,
+          decider: {
+            userId: n.decision.deciderId,
+            name: memberNames.get(n.decision.deciderId) ?? "Former member",
+          },
+          dueDate: n.decision.dueDate,
+          requestedBy: memberNames.get(n.decision.requestedBy) ?? "Former member",
+          comment: n.decision.comment,
+        }
+      : undefined,
     measure: n.measure,
     passMark: n.passMark,
     reviewDate: n.reviewDate,
@@ -66,19 +86,23 @@ function resolveOwner(ctx: QueryCtx, raw: string | null | undefined): Id<"users"
 }
 
 /**
- * Lets agents give a review date as a day of the plan ("day 30") instead of a calendar date.
+ * Lets agents give a date as a day of the plan ("day 30") instead of a calendar date.
  */
-function resolveReviewDay(
+function resolvePlanDate(
   canvas: Doc<"canvases">,
-  args: { reviewDate?: string | null; reviewDay?: number }
+  date: string | null | undefined,
+  day: number | undefined,
+  names = { date: "reviewDate", day: "reviewDay" }
 ): string | null | undefined {
-  if (args.reviewDay === undefined) return args.reviewDate;
-  if (args.reviewDate !== undefined) throw new ConvexError("Pass reviewDate or reviewDay, not both");
-  if (!Number.isInteger(args.reviewDay)) throw new ConvexError("reviewDay must be a whole number of days");
+  if (day === undefined) return date;
+  if (date !== undefined) throw new ConvexError(`Pass ${names.date} or ${names.day}, not both`);
+  if (!Number.isInteger(day)) throw new ConvexError(`${names.day} must be a whole number of days`);
   if (!canvas.launchDate) {
-    throw new ConvexError("This canvas has no launch date, so reviewDay can't be used. Set one with update_canvas, or pass reviewDate.");
+    throw new ConvexError(
+      `This canvas has no launch date, so ${names.day} can't be used. Set one with update_canvas, or pass ${names.date}.`
+    );
   }
-  return addDays(canvas.launchDate, args.reviewDay);
+  return addDays(canvas.launchDate, day);
 }
 
 async function resolveNote(ctx: QueryCtx, user: Doc<"users">, rawNoteId: string, needEdit: boolean) {
@@ -298,7 +322,7 @@ export const addNote = mutation({
     const { accessToken: _token, canvasId: _canvasId, reviewDay: _day, ownerUserId: _owner, ...fields } = args;
     const noteId = await addNoteForUser(ctx, actor, {
       ...fields,
-      reviewDate: resolveReviewDay(canvas, args),
+      reviewDate: resolvePlanDate(canvas, args.reviewDate, args.reviewDay),
       ownerId: resolveOwner(ctx, args.ownerUserId),
       canvasId: canvas._id,
     });
@@ -326,7 +350,7 @@ export const updateNote = mutation({
     const { accessToken: _token, noteId: _noteId, reason, link, reviewDay: _day, ownerUserId: _owner, ...rest } = args;
     const changes = {
       ...rest,
-      reviewDate: resolveReviewDay(canvas, args),
+      reviewDate: resolvePlanDate(canvas, args.reviewDate, args.reviewDay),
       ownerId: resolveOwner(ctx, args.ownerUserId),
     };
     const content = args.content?.trim();
@@ -402,6 +426,87 @@ export const updateEvidenceState = mutation({
     const note = await resolveNote(ctx, user, args.noteId, true);
     await updateNoteForUser(ctx, actor, note, { evidenceState: args.evidenceState, reason: args.reason });
     return { noteId: note._id, evidenceState: args.evidenceState };
+  },
+});
+
+export const requestDecision = mutation({
+  args: {
+    accessToken: v.string(),
+    noteId: v.string(),
+    question: v.string(),
+    deciderUserId: v.string(),
+    dueDate: v.optional(v.string()),
+    dueDay: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    const note = await resolveNote(ctx, user, args.noteId, true);
+    const canvas = (await ctx.db.get(note.canvasId))!;
+    const dueDate = resolvePlanDate(canvas, args.dueDate, args.dueDay, { date: "dueDate", day: "dueDay" });
+    if (!dueDate) throw new ConvexError("Pass dueDate (YYYY-MM-DD) or dueDay");
+    await requestDecisionForUser(ctx, actor, note, {
+      question: args.question,
+      deciderId: resolveOwner(ctx, args.deciderUserId)!,
+      dueDate,
+    });
+    return noteForAgent((await ctx.db.get(note._id))!, await canvasContext(ctx, canvas));
+  },
+});
+
+export const answerDecision = mutation({
+  args: {
+    accessToken: v.string(),
+    noteId: v.string(),
+    answer: decisionAnswerValidator,
+    comment: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    // Viewers can answer requests addressed to them, so no edit access is needed
+    const note = await resolveNote(ctx, user, args.noteId, false);
+    await answerDecisionForUser(ctx, actor, note, { answer: args.answer, comment: args.comment });
+    const canvas = (await ctx.db.get(note.canvasId))!;
+    return noteForAgent((await ctx.db.get(note._id))!, await canvasContext(ctx, canvas));
+  },
+});
+
+export const withdrawDecision = mutation({
+  args: { accessToken: v.string(), noteId: v.string(), reason: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    const note = await resolveNote(ctx, user, args.noteId, true);
+    await withdrawDecisionForUser(ctx, actor, note, { reason: args.reason });
+    return { noteId: note._id, withdrawn: true };
+  },
+});
+
+/**
+ * With a canvasId: every note on it that has a decision request, open or answered.
+ * Without: the open decisions waiting on the caller, across all their canvases.
+ */
+export const listDecisions = query({
+  args: { accessToken: v.string(), canvasId: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    if (!args.canvasId) {
+      const open = await listOpenDecisionsFor(ctx, user._id);
+      return {
+        waitingOnYou: open.map((d) => ({ ...d, requestedAt: new Date(d.requestedAt).toISOString() })),
+      };
+    }
+    const { canvas } = await resolveCanvas(ctx, user, args.canvasId, false);
+    const context = await canvasContext(ctx, canvas);
+    const notes = await ctx.db
+      .query("notes")
+      .withIndex("by_canvas_block", (q) => q.eq("canvasId", canvas._id))
+      .collect();
+    return {
+      canvasId: canvas._id,
+      decisions: notes
+        .filter((n) => n.decision)
+        .sort((a, b) => a.decision!.dueDate.localeCompare(b.decision!.dueDate))
+        .map((n) => noteForAgent(n, context)),
+    };
   },
 });
 

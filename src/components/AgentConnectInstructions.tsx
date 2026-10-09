@@ -211,6 +211,49 @@ const AGENT_TOOLS: AgentTool[] = [
     inputs: [{ name: "noteId", required: true }],
   },
   {
+    name: "request_decision",
+    summary: "Ask someone on the canvas to decide on a note.",
+    detail:
+      "They get an email with a link and can answer from their phone, even with view-only access. Give a due date (YYYY-MM-DD) or dueDay from the launch date.",
+    changesCanvas: true,
+    inputs: [
+      { name: "noteId", required: true },
+      { name: "question", required: true },
+      { name: "deciderUserId", required: true },
+      { name: "dueDate", required: false },
+      { name: "dueDay", required: false },
+    ],
+  },
+  {
+    name: "answer_decision",
+    summary: "Approve, reject or ask for a change on a decision request addressed to you.",
+    detail:
+      "Approve or reject makes the note a decision. Asking for a change needs a comment and sends it back to whoever asked. Works with view-only access.",
+    changesCanvas: true,
+    inputs: [
+      { name: "noteId", required: true },
+      { name: "answer", required: true },
+      { name: "comment", required: false },
+    ],
+  },
+  {
+    name: "withdraw_decision",
+    summary: "Cancel an open decision request.",
+    detail: "The request and its withdrawal stay in the note's history.",
+    changesCanvas: true,
+    inputs: [
+      { name: "noteId", required: true },
+      { name: "reason", required: false },
+    ],
+  },
+  {
+    name: "list_decisions",
+    summary: "See decision requests: on one canvas, or the ones waiting on you.",
+    detail: "With a canvasId, lists every decision request on that canvas, open or answered. Without one, lists what's waiting on you.",
+    changesCanvas: false,
+    inputs: [{ name: "canvasId", required: false }],
+  },
+  {
     name: "update_evidence_state",
     summary: "Change how a note is marked, such as assumption to observed.",
     detail: "Valid states: unknown, assumption, observed, supported, contradicted, decision.",
