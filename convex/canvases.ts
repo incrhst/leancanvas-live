@@ -647,6 +647,14 @@ export const deleteCanvas = mutation({
       await deleteSnapshotRows(ctx, snapshot._id);
     }
 
+    const checkIns = await ctx.db
+      .query("checkInItems")
+      .withIndex("by_canvas", (q) => q.eq("canvasId", args.canvasId))
+      .collect();
+    for (const item of checkIns) {
+      await ctx.db.delete(item._id);
+    }
+
     // Delete stress tests
     const stressTests = await ctx.db
       .query("stressTests")

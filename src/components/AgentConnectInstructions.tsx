@@ -297,6 +297,34 @@ const AGENT_TOOLS: AgentTool[] = [
     ],
   },
   {
+    name: "list_check_ins",
+    summary: "See this week's check-in questions waiting on you.",
+    detail: "One per note you own: has there been new evidence this week?",
+    changesCanvas: false,
+    inputs: [],
+  },
+  {
+    name: "answer_check_in",
+    summary: "Answer a weekly check-in on a note you own.",
+    detail:
+      "No records 'no new evidence'. Yes needs one line, which becomes the note's latest result. Both go into history. Works with view-only access.",
+    changesCanvas: true,
+    inputs: [
+      { name: "noteId", required: true },
+      { name: "hasEvidence", required: true },
+      { name: "text", required: false },
+      { name: "verdict", required: false },
+      { name: "date", required: false },
+    ],
+  },
+  {
+    name: "send_check_in",
+    summary: "Send this week's check-in for a canvas now.",
+    detail: "Each owner gets one email about their notes. Otherwise it goes out every Monday morning.",
+    changesCanvas: true,
+    inputs: [{ name: "canvasId", required: true }],
+  },
+  {
     name: "update_evidence_state",
     summary: "Change how a note is marked, such as assumption to observed.",
     detail: "Valid states: unknown, assumption, observed, supported, contradicted, decision.",

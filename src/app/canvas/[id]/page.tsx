@@ -11,6 +11,7 @@ import { CanvasBoard } from "../../../components/CanvasBoard";
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
 import { LaunchDayChip } from "../../../components/LaunchDayChip";
 import { DecisionsWaitingChip } from "../../../components/NoteDecision";
+import { CheckInsWaitingChip } from "../../../components/CheckIn";
 import { SnapshotsPanel } from "../../../components/SnapshotsPanel";
 import { EvidenceLegend } from "../../../components/EvidenceLegend";
 import { matchesOwnerFilter, OwnerFilter, OwnerFilterValue } from "../../../components/OwnerControls";
@@ -188,6 +189,7 @@ export default function CanvasEditorPage() {
               onChange={canEdit ? (launchDate) => void updateCanvasMeta({ canvasId, launchDate }) : undefined}
             />
             {user && <DecisionsWaitingChip />}
+            {user && <CheckInsWaitingChip />}
           </>
         }
         onOpenShare={() => setIsShareModalOpen(true)}
