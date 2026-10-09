@@ -4,9 +4,14 @@ import { ConvexError } from "convex/values";
 import { api } from "../../../../convex/_generated/api";
 import { GTM_BLOCK_IDS, LEAN_BLOCK_IDS } from "../../../../convex/lib/canvasTemplates";
 import { getCanvasTemplate } from "../../../utils/canvasTemplates";
+import { EVIDENCE_GLOSSARY, EVIDENCE_STATES } from "../../../utils/evidenceStates";
 
 const ALL_BLOCK_IDS = [...new Set([...LEAN_BLOCK_IDS, ...GTM_BLOCK_IDS])];
-const EVIDENCE_STATES = ["unknown", "assumption", "observed", "supported", "contradicted", "decision"];
+const EVIDENCE_STATE_PROPERTY = {
+  type: "string",
+  enum: EVIDENCE_STATES,
+  description: `How well the note is evidenced: ${EVIDENCE_GLOSSARY}`,
+};
 
 // Optional test fields, shared by add_note and update_note. On update_note, null clears a field.
 const TEST_FIELD_PROPERTIES = {
@@ -153,11 +158,7 @@ const TOOLS_MANIFEST = [
           enum: ALL_BLOCK_IDS,
         },
         content: { type: "string" },
-        evidenceState: {
-          type: "string",
-          enum: EVIDENCE_STATES,
-          default: "assumption",
-        },
+        evidenceState: { ...EVIDENCE_STATE_PROPERTY, default: "assumption" },
         ...TEST_FIELD_PROPERTIES,
         reason: REASON_PROPERTY,
       },
@@ -180,7 +181,7 @@ const TOOLS_MANIFEST = [
           enum: ALL_BLOCK_IDS,
           description: "Move the note to this block (it goes to the end). Must belong to the canvas's template.",
         },
-        evidenceState: { type: "string", enum: EVIDENCE_STATES },
+        evidenceState: EVIDENCE_STATE_PROPERTY,
         ...TEST_FIELD_PROPERTIES,
         reason: REASON_PROPERTY,
         link: { type: "string", description: "Optional link backing the change, kept in the note's history" },
@@ -219,10 +220,7 @@ const TOOLS_MANIFEST = [
       type: "object",
       properties: {
         noteId: { type: "string" },
-        evidenceState: {
-          type: "string",
-          enum: EVIDENCE_STATES,
-        },
+        evidenceState: EVIDENCE_STATE_PROPERTY,
         reason: REASON_PROPERTY,
       },
       required: ["noteId", "evidenceState"],

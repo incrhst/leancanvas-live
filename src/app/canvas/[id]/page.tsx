@@ -10,6 +10,7 @@ import { TopBar } from "../../../components/TopBar";
 import { CanvasBoard } from "../../../components/CanvasBoard";
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
 import { LaunchDayChip } from "../../../components/LaunchDayChip";
+import { EvidenceLegend } from "../../../components/EvidenceLegend";
 import { LaunchDateContext } from "../../../utils/testFields";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { ShareModal } from "../../../components/ShareModal";
@@ -22,15 +23,6 @@ import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
 import { getCanvasTemplate } from "../../../utils/canvasTemplates";
 
 type NoteBlock = Doc<"notes">["block"];
-const EVIDENCE_CYCLE: EvidenceState[] = [
-  "unknown",
-  "assumption",
-  "observed",
-  "supported",
-  "contradicted",
-  "decision",
-];
-
 export default function CanvasEditorPage() {
   const params = useParams();
   const router = useRouter();
@@ -56,6 +48,7 @@ export default function CanvasEditorPage() {
   const addNote = useMutation(api.notes.addNote);
   const updateNote = useMutation(api.notes.updateNote);
   const deleteNote = useMutation(api.notes.deleteNote);
+  const addReasonToLatestChange = useMutation(api.notes.addReasonToLatestChange);
   const setPublicView = useMutation(api.canvases.setPublicView);
   const updateCanvasMeta = useMutation(api.canvases.updateCanvasMeta);
   const setPublicViewPassword = useMutation(api.canvases.setPublicViewPassword);
@@ -106,14 +99,6 @@ export default function CanvasEditorPage() {
   // Add Note
   const handleAddNote = (block: BlockId, text: string) => {
     void addNote({ canvasId, block: block as NoteBlock, content: text });
-  };
-
-  // Cycle Evidence State
-  const handleCycleEvidence = (noteId: string) => {
-    const note = notes.find((n) => n._id === noteId);
-    if (!note) return;
-    const nextState = EVIDENCE_CYCLE[(EVIDENCE_CYCLE.indexOf(note.evidenceState) + 1) % EVIDENCE_CYCLE.length];
-    void updateNote({ noteId: noteId as Id<"notes">, evidenceState: nextState });
   };
 
   // Update Note Content
@@ -196,6 +181,7 @@ export default function CanvasEditorPage() {
               riskCount={stressResult?.riskiestAssumptions.length ?? 0}
               onChange={setView}
             />
+            {view === "canvas" && <EvidenceLegend />}
             {view === "risks" ? (
               <RiskiestAssumptionsView
                 blocks={template.blocks}
@@ -229,7 +215,6 @@ export default function CanvasEditorPage() {
                 }
               }}
               onAdd={canEdit ? handleAddNote : undefined}
-              onCycleEvidence={canEdit ? handleCycleEvidence : undefined}
               onDelete={canEdit ? handleDeleteNote : undefined}
             />
             )}
@@ -252,6 +237,9 @@ export default function CanvasEditorPage() {
                   onUpdate={(content) => handleUpdateNote(selectedNote._id, content)}
                   onUpdateEvidence={(state) => handleUpdateEvidence(selectedNote._id, state)}
                   onUpdateTest={(patch) => void updateNote({ noteId: selectedNote._id as Id<"notes">, ...patch })}
+                onAddReason={(reason) =>
+                  addReasonToLatestChange({ noteId: selectedNote._id as Id<"notes">, reason })
+                }
                   onDelete={() => handleDeleteNote(selectedNote._id)}
                   blockTitleOf={(blockId) => template.blocks.find((b) => b.id === blockId)?.title || blockId}
                 />

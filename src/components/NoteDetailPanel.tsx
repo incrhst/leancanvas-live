@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Trash2Icon, XIcon, CheckCircle2Icon } from "lucide-react";
 import { NoteItem, EvidenceState } from "../types/canvas";
-import { EvidenceBadge, EVIDENCE_CONFIG } from "./EvidenceBadge";
+import { EvidenceBadge, EVIDENCE_CONFIG, EVIDENCE_STATES } from "./EvidenceBadge";
 import { NoteHistory } from "./NoteHistory";
 import { EditableField } from "./EditableField";
 import { NoteTestFields, TestFieldsPatch } from "./NoteTestFields";
@@ -15,19 +15,12 @@ interface NoteDetailPanelProps {
   onUpdate: (content: string) => void;
   onUpdateEvidence: (state: EvidenceState) => void;
   onUpdateTest?: (patch: TestFieldsPatch) => void;
+  /** Adds a reason to the current user's latest change to this note */
+  onAddReason?: (reason: string) => Promise<void>;
   onDelete: () => void;
   /** Set to show the note's change history (canvas members only, not the public link) */
   blockTitleOf?: (blockId: string) => string;
 }
-
-const EVIDENCE_STATES: EvidenceState[] = [
-  "unknown",
-  "assumption",
-  "observed",
-  "supported",
-  "contradicted",
-  "decision",
-];
 
 export function NoteDetailPanel({
   note,
@@ -37,9 +30,42 @@ export function NoteDetailPanel({
   onUpdate,
   onUpdateEvidence,
   onUpdateTest,
+  onAddReason,
   onDelete,
   blockTitleOf,
 }: NoteDetailPanelProps) {
+  // After a state change here, offer a line on why. Cleared when another note is opened.
+  const [changedTo, setChangedTo] = useState<EvidenceState | null>(null);
+  const [reason, setReason] = useState("");
+  const [reasonStatus, setReasonStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  useEffect(() => {
+    setChangedTo(null);
+    setReason("");
+    setReasonStatus("idle");
+  }, [note._id]);
+
+  const changeState = (state: EvidenceState) => {
+    if (state === note.evidenceState) return;
+    onUpdateEvidence(state);
+    setChangedTo(state);
+    setReason("");
+    setReasonStatus("idle");
+  };
+
+  const saveReason = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onAddReason || !reason.trim()) return;
+    setReasonStatus("saving");
+    try {
+      await onAddReason(reason.trim());
+      setReasonStatus("saved");
+      setChangedTo(null);
+    } catch {
+      setReasonStatus("error");
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 8 }}
@@ -94,32 +120,67 @@ export function NoteDetailPanel({
           </div>
 
           {canEdit ? (
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              {EVIDENCE_STATES.map((state) => {
-                const conf = EVIDENCE_CONFIG[state];
-                const active = note.evidenceState === state;
-                return (
-                  <button
-                    key={state}
-                    type="button"
-                    onClick={() => onUpdateEvidence(state)}
-                    className={`flex flex-col items-start p-2 rounded-lg border text-left text-xs transition-all ${
-                      active
-                        ? `${conf.bg} ${conf.border} ring-1 ring-accent font-semibold`
-                        : "bg-surface border-line hover:bg-surface-2"
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-current opacity-75" />
-                      {conf.label}
-                    </span>
-                    <span className="text-[10px] text-muted font-normal mt-0.5 line-clamp-1">
-                      {conf.desc}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {EVIDENCE_STATES.map((state) => {
+                  const conf = EVIDENCE_CONFIG[state];
+                  const Icon = conf.icon;
+                  const active = note.evidenceState === state;
+                  return (
+                    <button
+                      key={state}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => changeState(state)}
+                      className={`flex flex-col items-start p-2 rounded-lg border text-left text-xs transition-all ${
+                        active
+                          ? `${conf.bg} ${conf.text} ${conf.border} ring-1 ring-accent font-semibold`
+                          : "bg-surface border-line text-ink hover:bg-surface-2"
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                        {conf.label}
+                      </span>
+                      <span
+                        className={`mt-0.5 text-[10px] font-normal leading-snug ${active ? "opacity-80" : "text-muted"}`}
+                      >
+                        {conf.desc}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {onAddReason && changedTo && (
+                <form onSubmit={saveReason} className="space-y-1.5 rounded-lg border border-line bg-surface-2 p-2">
+                  <label htmlFor="state-reason" className="block text-[11px] font-medium text-muted">
+                    Why is it {EVIDENCE_CONFIG[changedTo].label.toLowerCase()} now? (optional)
+                  </label>
+                  <div className="flex gap-1.5">
+                    <input
+                      id="state-reason"
+                      value={reason}
+                      maxLength={280}
+                      onChange={(e) => setReason(e.target.value)}
+                      placeholder="e.g. Day 30: $3.10 per start, above the pass mark"
+                      className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!reason.trim() || reasonStatus === "saving"}
+                      className="shrink-0 rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-surface disabled:opacity-50"
+                    >
+                      Save
+                    </button>
+                  </div>
+                  {reasonStatus === "error" && (
+                    <p className="text-[11px] text-rose-700">Couldn't save the reason. The note may have changed since.</p>
+                  )}
+                </form>
+              )}
+              {reasonStatus === "saved" && <p className="text-[11px] text-muted">Reason saved to history.</p>}
+            </>
           ) : (
             <p className="text-xs text-muted">
               Viewing in read-only mode. Sign in with editor permissions to change evidence status.

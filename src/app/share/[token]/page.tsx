@@ -8,6 +8,7 @@ import { useParams, usePathname, useRouter, useSearchParams } from "next/navigat
 import { CanvasBoard } from "../../../components/CanvasBoard";
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
 import { LaunchDayChip } from "../../../components/LaunchDayChip";
+import { EvidenceLegend } from "../../../components/EvidenceLegend";
 import { LaunchDateContext } from "../../../utils/testFields";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptionsView";
@@ -224,6 +225,7 @@ export default function PublicSharePage() {
               riskCount={publicStressTest?.riskiestAssumptions.length ?? 0}
               onChange={setView}
             />
+            {view === "canvas" && <EvidenceLegend />}
             {view === "risks" ? (
               <RiskiestAssumptionsView
                 blocks={template.blocks}

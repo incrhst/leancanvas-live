@@ -15,16 +15,16 @@ export function todayLocal(): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
-/** "2026-11-08" -> "8 Nov", adding the year when it isn't this year. */
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * "2026-11-08" -> "8 Nov", adding the year when it isn't this year. Fixed format rather than the
+ * browser's locale, so it reads the same for everyone and matches between server and client.
+ */
 export function formatCalendarDate(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
-  if (!y || !m || !d) return date;
-  const value = new Date(y, m - 1, d);
-  return value.toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-    ...(y !== new Date().getFullYear() ? { year: "numeric" } : {}),
-  });
+  if (!y || !m || !d || m > 12) return date;
+  return `${d} ${MONTHS[m - 1]}${y !== new Date().getFullYear() ? ` ${y}` : ""}`;
 }
 
 export function hasTest(note: NoteItem): boolean {

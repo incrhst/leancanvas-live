@@ -12,7 +12,6 @@ interface CanvasBlockProps {
   canEdit?: boolean;
   onSelect: (id: string) => void;
   onAdd?: (text: string) => void;
-  onCycleEvidence?: (noteId: string) => void;
   onDelete?: (noteId: string) => void;
 }
 
@@ -24,7 +23,6 @@ export function CanvasBlock({
   canEdit = true,
   onSelect,
   onAdd,
-  onCycleEvidence,
   onDelete,
 }: CanvasBlockProps) {
   const listClass =
@@ -69,7 +67,6 @@ export function CanvasBlock({
                 riskRank={riskRanks?.[note._id]}
                 canEdit={canEdit}
                 onSelect={() => onSelect(note._id)}
-                onCycleEvidence={() => onCycleEvidence && onCycleEvidence(note._id)}
                 onDelete={() => onDelete && onDelete(note._id)}
               />
             ))}

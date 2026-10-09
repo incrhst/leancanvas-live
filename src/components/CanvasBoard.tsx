@@ -13,7 +13,6 @@ interface CanvasBoardProps {
   canEdit?: boolean;
   onSelect: (id: string) => void;
   onAdd?: (blockId: BlockId, text: string) => void;
-  onCycleEvidence?: (noteId: string) => void;
   onDelete?: (noteId: string) => void;
 }
 
@@ -25,7 +24,6 @@ export function CanvasBoard({
   canEdit = true,
   onSelect,
   onAdd,
-  onCycleEvidence,
   onDelete,
 }: CanvasBoardProps) {
   return (
@@ -40,7 +38,6 @@ export function CanvasBoard({
         canEdit={canEdit}
         onSelect={onSelect}
         onAdd={onAdd}
-        onCycleEvidence={onCycleEvidence}
         onDelete={onDelete}
       />
     </div>
@@ -56,7 +53,6 @@ export function CanvasBoard({
             canEdit={canEdit}
             onSelect={onSelect}
             onAdd={onAdd ? (text) => onAdd(block.id, text) : undefined}
-            onCycleEvidence={onCycleEvidence}
             onDelete={onDelete}
           />
         ))}

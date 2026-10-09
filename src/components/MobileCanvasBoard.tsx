@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { StickyNote } from "./StickyNote";
+import { EVIDENCE_CONFIG } from "./EvidenceBadge";
 import { AddNoteInput } from "./AddNoteInput";
 import type { BlockDef, BlockId, EvidenceState, NoteItem } from "../types/canvas";
 
@@ -13,7 +14,6 @@ interface MobileCanvasBoardProps {
   canEdit?: boolean;
   onSelect: (id: string) => void;
   onAdd?: (blockId: BlockId, text: string) => void;
-  onCycleEvidence?: (noteId: string) => void;
   onDelete?: (noteId: string) => void;
 }
 
@@ -22,14 +22,6 @@ const MAX_PIPS = 8;
 /** Horizontal travel (px) that counts as a swipe to the next or previous block. */
 const SWIPE_THRESHOLD = 50;
 
-const EVIDENCE_BAR: Record<EvidenceState, string> = {
-  unknown: "bg-stone-300",
-  assumption: "bg-amber-400",
-  observed: "bg-blue-500",
-  supported: "bg-emerald-500",
-  contradicted: "bg-rose-500",
-  decision: "bg-purple-500",
-};
 
 /**
  * Reads the desktop grid placement out of a block's `lg:` classes so the minimap
@@ -57,7 +49,6 @@ export function MobileCanvasBoard({
   canEdit = true,
   onSelect,
   onAdd,
-  onCycleEvidence,
   onDelete,
 }: MobileCanvasBoardProps) {
   // Navigate in reading order (the number in each block's title), not grid order.
@@ -215,7 +206,6 @@ export function MobileCanvasBoard({
                 riskRank={riskRanks?.[note._id]}
                 canEdit={canEdit}
                 onSelect={() => onSelect(note._id)}
-                onCycleEvidence={() => onCycleEvidence && onCycleEvidence(note._id)}
                 onDelete={() => onDelete && onDelete(note._id)}
               />
             ))}
@@ -261,7 +251,7 @@ export function MobileCanvasBoard({
             {peekNotes.length > 0 && (
               <div className="mt-1 flex h-1 gap-0.5 overflow-hidden rounded-full">
                 {(Object.keys(peekTally) as EvidenceState[]).map((state) => (
-                  <span key={state} className={EVIDENCE_BAR[state]} style={{ flexGrow: peekTally[state] }} />
+                  <span key={state} className={EVIDENCE_CONFIG[state].bar} style={{ flexGrow: peekTally[state] }} />
                 ))}
               </div>
             )}

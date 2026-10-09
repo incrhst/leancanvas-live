@@ -105,6 +105,30 @@ export async function recordNoteHistory(
   });
 }
 
+// How long after a change its author can still add a reason to it
+const ANNOTATE_WINDOW_MS = 10 * 60 * 1000;
+
+/**
+ * Adds a reason to the actor's most recent change to a note, so a change made with one click
+ * can still be explained. Fails if someone else has changed the note since.
+ */
+export async function annotateLatestChange(
+  ctx: MutationCtx,
+  actor: Actor,
+  noteId: Id<"notes">,
+  reason: string
+) {
+  const last = await ctx.db
+    .query("noteHistory")
+    .withIndex("by_note", (q) => q.eq("noteId", noteId))
+    .order("desc")
+    .first();
+  if (!last || last.userId !== actor.userId || last.kind === "deleted" || Date.now() - last.at > ANNOTATE_WINDOW_MS) {
+    throw new Error("There's no recent change of yours on this note to add a reason to.");
+  }
+  await ctx.db.patch(last._id, { reason: reason.trim() || undefined });
+}
+
 /** A note's history, newest first, with each author's display name. */
 export async function listNoteHistory(ctx: QueryCtx, noteId: Id<"notes">) {
   const rows = await ctx.db

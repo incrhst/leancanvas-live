@@ -1,8 +1,8 @@
 import React, { useContext } from "react";
 import { motion } from "framer-motion";
 import { FlaskConicalIcon, ShieldAlertIcon } from "lucide-react";
-import { EvidenceBadge } from "./EvidenceBadge";
-import { NoteItem, EvidenceState } from "../types/canvas";
+import { EVIDENCE_CONFIG, EvidenceBadge } from "./EvidenceBadge";
+import { NoteItem } from "../types/canvas";
 import { LaunchDateContext, VERDICT_CONFIG, formatPlanDate, hasTest, isReviewOverdue } from "../utils/testFields";
 
 interface StickyNoteProps {
@@ -12,18 +12,28 @@ interface StickyNoteProps {
   riskRank?: number;
   canEdit?: boolean;
   onSelect?: () => void;
-  onCycleEvidence?: () => void;
   onDelete?: () => void;
 }
 
-const EVIDENCE_ORDER: EvidenceState[] = [
-  "unknown",
-  "assumption",
-  "observed",
-  "supported",
-  "contradicted",
-  "decision",
-];
+/** A note card's look for its evidence state: tinted background and a full border in the state's colour. */
+export function noteCardClass(note: NoteItem) {
+  return `rounded-lg border ${EVIDENCE_CONFIG[note.evidenceState || "assumption"].card}`;
+}
+
+/**
+ * Marks a note the latest stress test flagged. Dark rather than red, so it never reads as "contradicted".
+ */
+export function RiskTag({ rank }: { rank: number }) {
+  return (
+    <div
+      className="mb-1.5 inline-flex items-center gap-1 rounded bg-ink px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-surface"
+      title="Flagged by the latest stress test as one of the riskiest assumptions"
+    >
+      <ShieldAlertIcon className="h-3 w-3" aria-hidden="true" />
+      Risk #{rank}
+    </div>
+  );
+}
 
 /** One line under the note text: the latest verdict and when it's next reviewed. Full detail is in the note panel. */
 function TestSummary({ note }: { note: NoteItem }) {
@@ -83,15 +93,8 @@ export function StickyNote({
   riskRank,
   canEdit = true,
   onSelect,
-  onCycleEvidence,
   onDelete,
 }: StickyNoteProps) {
-  const handleCycle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!canEdit || !onCycleEvidence) return;
-    onCycleEvidence();
-  };
-
   return (
     <motion.article
       layout="position"
@@ -99,21 +102,11 @@ export function StickyNote({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-      className={`group relative rounded-lg border p-2.5 transition-all duration-150 hover:shadow-sm ${
-        riskRank
-          ? "bg-rose-50 border-rose-300"
-          : "bg-amber-50/70 border-amber-200/80"
-      } ${selected ? "ring-2 ring-accent ring-offset-1 ring-offset-surface" : ""}`}
+      className={`group relative p-2.5 transition-all duration-150 hover:shadow-sm ${noteCardClass(note)} ${
+        selected ? "ring-2 ring-accent ring-offset-1 ring-offset-surface" : ""
+      }`}
     >
-      {riskRank && (
-        <div
-          className="mb-1.5 inline-flex items-center gap-1 rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-800"
-          title="Flagged by the latest stress test as one of the riskiest assumptions"
-        >
-          <ShieldAlertIcon className="h-3 w-3" aria-hidden="true" />
-          Risk #{riskRank}
-        </div>
-      )}
+      {riskRank && <RiskTag rank={riskRank} />}
       <div
         onClick={onSelect}
         role={onSelect ? "button" : undefined}
@@ -125,15 +118,15 @@ export function StickyNote({
         {hasTest(note) && <TestSummary note={note} />}
       </div>
 
-      <div
-        className={`mt-2.5 flex items-center justify-between pt-1 border-t ${
-          riskRank ? "border-rose-200/60" : "border-amber-200/40"
-        }`}
-      >
+      <div className="mt-2.5 flex items-center justify-between pt-1 border-t border-black/5">
+        {/* Opens the note, where the state is changed (with an optional reason) */}
         <EvidenceBadge
           state={note.evidenceState || "assumption"}
-          interactive={canEdit}
-          onClick={handleCycle}
+          interactive={!!onSelect}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect?.();
+          }}
         />
 
         {canEdit && onDelete && (
