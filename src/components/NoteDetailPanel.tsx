@@ -93,6 +93,33 @@ export function NoteDetailPanel({
     setReasonStatus("idle");
   };
 
+  // Power-user shortcuts, off while typing in a field or holding a modifier
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (!canEdit) return;
+      const index = Number(e.key) - 1;
+      if (Number.isInteger(index) && index >= 0 && index < EVIDENCE_STATES.length) {
+        changeState(EVIDENCE_STATES[index]);
+      } else if (e.key === "t" && testPrompt) {
+        setShowTest(true);
+      } else if (e.key === "o") {
+        setShowMore(!moreOpen);
+      } else {
+        return;
+      }
+      e.preventDefault();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  });
+
   const saveReason = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!onAddReason || !reason.trim()) return;
@@ -156,7 +183,7 @@ export function NoteDetailPanel({
           {canEdit ? (
             <>
               <div className="grid grid-cols-3 gap-2">
-                {EVIDENCE_STATES.map((state) => {
+                {EVIDENCE_STATES.map((state, i) => {
                   const conf = EVIDENCE_CONFIG[state];
                   const Icon = conf.icon;
                   const active = note.evidenceState === state;
@@ -165,6 +192,7 @@ export function NoteDetailPanel({
                       key={state}
                       type="button"
                       aria-pressed={active}
+                      aria-keyshortcuts={String(i + 1)}
                       onClick={() => changeState(state)}
                       className={`flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2 text-xs transition-colors ${
                         active
@@ -174,12 +202,18 @@ export function NoteDetailPanel({
                     >
                       <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                       {conf.label}
+                      <kbd aria-hidden="true" className="hidden rounded border border-line bg-surface px-1 text-[10px] font-normal text-muted md:inline">
+                        {i + 1}
+                      </kbd>
                     </button>
                   );
                 })}
               </div>
               <p className="text-xs text-muted" aria-live="polite">
                 {EVIDENCE_CONFIG[note.evidenceState].desc}.
+              </p>
+              <p className="hidden text-[11px] text-muted md:block">
+                Keys: 1–6 set the state{testPrompt && !testVisible ? ", T adds a test" : ""}, O owner and markets, Esc closes.
               </p>
 
               {onAddReason && changedTo && (
