@@ -4,6 +4,7 @@ import { Doc, Id } from "./_generated/dataModel";
 import { requireEditor, getCanvasRole, getCurrentUser } from "./lib/auth";
 import { assertBlockForTemplate, blockValidator, templateOf } from "./lib/canvasTemplates";
 import { Actor, diffFields, listNoteHistory, recordNoteHistory, trackedFields } from "./lib/history";
+import { TestFieldsUpdate, testFieldsPatch, testFieldsUpdateArgs } from "./lib/testFields";
 
 type EvidenceState = Doc<"notes">["evidenceState"];
 type Block = Doc<"notes">["block"];
@@ -26,7 +27,13 @@ async function nextOrderInBlock(ctx: MutationCtx, canvasId: Id<"canvases">, bloc
 export async function addNoteForUser(
   ctx: MutationCtx,
   actor: Actor,
-  args: { canvasId: Id<"canvases">; block: Block; content: string; evidenceState?: EvidenceState; reason?: string }
+  args: {
+    canvasId: Id<"canvases">;
+    block: Block;
+    content: string;
+    evidenceState?: EvidenceState;
+    reason?: string;
+  } & TestFieldsUpdate
 ): Promise<Id<"notes">> {
   const canvas = await ctx.db.get(args.canvasId);
   if (!canvas) throw new Error("Canvas not found");
@@ -38,6 +45,7 @@ export async function addNoteForUser(
     block: args.block,
     content: args.content,
     evidenceState: args.evidenceState || "assumption",
+    ...testFieldsPatch(args),
   };
 
   const noteId = await ctx.db.insert("notes", {
@@ -79,11 +87,17 @@ export async function updateNoteForUser(
   ctx: MutationCtx,
   actor: Actor,
   note: Doc<"notes">,
-  args: { content?: string; block?: Block; evidenceState?: EvidenceState; reason?: string; link?: string }
+  args: {
+    content?: string;
+    block?: Block;
+    evidenceState?: EvidenceState;
+    reason?: string;
+    link?: string;
+  } & TestFieldsUpdate
 ) {
   const now = Date.now();
 
-  const patch: Partial<Doc<"notes">> = { updatedAt: now };
+  const patch: Partial<Doc<"notes">> = { updatedAt: now, ...testFieldsPatch(args) };
   if (args.content !== undefined) patch.content = args.content;
   if (args.evidenceState !== undefined) patch.evidenceState = args.evidenceState;
   if (args.block !== undefined && args.block !== note.block) {
@@ -173,6 +187,7 @@ export const updateNote = mutation({
   args: {
     noteId: v.id("notes"),
     content: v.optional(v.string()),
+    ...testFieldsUpdateArgs,
     evidenceState: v.optional(
       v.union(
         v.literal("unknown"),

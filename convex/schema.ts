@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 import { blockValidator, canvasTemplateValidator } from "./lib/canvasTemplates";
+import { testFieldsSchema } from "./lib/testFields";
 
 export default defineSchema({
   ...authTables,
@@ -78,6 +79,8 @@ export default defineSchema({
     description: v.optional(v.string()),
     // Which block set this canvas uses. Unset on canvases created before templates (= lean). Fixed at creation.
     template: v.optional(canvasTemplateValidator),
+    // Day 0 of the plan ("YYYY-MM-DD"), so review dates can read as "day 30"
+    launchDate: v.optional(v.string()),
     status: v.union(v.literal("draft"), v.literal("active"), v.literal("archived")),
     // Public read-only link token (null = private)
     publicViewToken: v.optional(v.string()),
@@ -118,6 +121,8 @@ export default defineSchema({
       v.literal("contradicted"),
       v.literal("decision")
     ),
+    // Optional test: measure, passMark, reviewDate, latestResult
+    ...testFieldsSchema,
     createdBy: v.id("users"),
     updatedAt: v.number(),
   }).index("by_canvas_block", ["canvasId", "block"]),

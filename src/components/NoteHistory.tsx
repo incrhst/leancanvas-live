@@ -4,8 +4,9 @@ import { HistoryIcon } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { EVIDENCE_CONFIG } from "./EvidenceBadge";
-import { EvidenceState } from "../types/canvas";
+import { EvidenceState, Verdict } from "../types/canvas";
 import { formatRelative, truncate } from "../utils/time";
+import { VERDICT_CONFIG, formatCalendarDate } from "../utils/testFields";
 
 interface NoteHistoryProps {
   noteId: string;
@@ -18,14 +19,42 @@ function stateLabel(state?: string) {
   return state ? EVIDENCE_CONFIG[state as EvidenceState]?.label ?? state : "none";
 }
 
+const TEXT_FIELD_LABELS: Record<string, string> = {
+  content: "Text",
+  measure: "Measure",
+  passMark: "Pass mark",
+  "latestResult.text": "Result",
+};
+
+const DATE_FIELD_LABELS: Record<string, string> = {
+  reviewDate: "Review date",
+  "latestResult.date": "Result date",
+};
+
+function fromTo(label: string, from: string | undefined, to: string | undefined) {
+  if (from === undefined) return `${label} set: ${to}`;
+  if (to === undefined) return `${label} cleared (was ${from})`;
+  return `${label}: ${from} → ${to}`;
+}
+
 function describeChange(change: Change, blockTitleOf: (blockId: string) => string) {
+  const quote = (value?: string) => (value === undefined ? undefined : `“${truncate(value, 60)}”`);
+  if (TEXT_FIELD_LABELS[change.field]) {
+    return fromTo(TEXT_FIELD_LABELS[change.field], quote(change.from), quote(change.to));
+  }
+  if (DATE_FIELD_LABELS[change.field]) {
+    const date = (value?: string) => (value === undefined ? undefined : formatCalendarDate(value));
+    return fromTo(DATE_FIELD_LABELS[change.field], date(change.from), date(change.to));
+  }
   switch (change.field) {
+    case "latestResult.verdict": {
+      const verdict = (value?: string) => (value === undefined ? undefined : VERDICT_CONFIG[value as Verdict]?.label ?? value);
+      return fromTo("Verdict", verdict(change.from), verdict(change.to));
+    }
     case "evidenceState":
       return `State: ${stateLabel(change.from)} → ${stateLabel(change.to)}`;
     case "block":
       return `Moved: ${change.from ? blockTitleOf(change.from) : "?"} → ${change.to ? blockTitleOf(change.to) : "?"}`;
-    case "content":
-      return `Text: “${truncate(change.from ?? "", 60)}” → “${truncate(change.to ?? "", 60)}”`;
     default:
       return `${change.field}: ${change.from ?? "none"} → ${change.to ?? "none"}`;
   }
@@ -35,7 +64,11 @@ function describeEntry(kind: string, changes: Change[], blockTitleOf: (blockId: 
   if (kind === "created") {
     const block = changes.find((c) => c.field === "block")?.to;
     const state = changes.find((c) => c.field === "evidenceState")?.to;
-    return [`Added to ${block ? blockTitleOf(block) : "the canvas"} as ${stateLabel(state)}`];
+    const extras = changes.filter((c) => !["block", "evidenceState", "content"].includes(c.field));
+    return [
+      `Added to ${block ? blockTitleOf(block) : "the canvas"} as ${stateLabel(state)}`,
+      ...extras.map((c) => describeChange(c, blockTitleOf)),
+    ];
   }
   if (kind === "deleted") return ["Deleted"];
   return changes.map((c) => describeChange(c, blockTitleOf));

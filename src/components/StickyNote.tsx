@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useContext } from "react";
 import { motion } from "framer-motion";
-import { ShieldAlertIcon } from "lucide-react";
+import { FlaskConicalIcon, ShieldAlertIcon } from "lucide-react";
 import { EvidenceBadge } from "./EvidenceBadge";
 import { NoteItem, EvidenceState } from "../types/canvas";
+import { LaunchDateContext, VERDICT_CONFIG, formatPlanDate, hasTest, isReviewOverdue } from "../utils/testFields";
 
 interface StickyNoteProps {
   note: NoteItem;
@@ -23,6 +24,58 @@ const EVIDENCE_ORDER: EvidenceState[] = [
   "contradicted",
   "decision",
 ];
+
+/** One line under the note text: the latest verdict and when it's next reviewed. Full detail is in the note panel. */
+function TestSummary({ note }: { note: NoteItem }) {
+  const launchDate = useContext(LaunchDateContext);
+  const verdict = note.latestResult?.verdict ? VERDICT_CONFIG[note.latestResult.verdict] : null;
+  const overdue = isReviewOverdue(note);
+
+  const parts: React.ReactNode[] = [];
+  if (verdict) {
+    parts.push(
+      <span key="verdict" className={`inline-flex items-center gap-1 font-semibold ${verdict.text}`}>
+        <span className={`h-1.5 w-1.5 rounded-full ${verdict.dot}`} />
+        {verdict.label}
+      </span>
+    );
+  } else if (note.latestResult) {
+    parts.push(<span key="result">Result in</span>);
+  }
+  if (note.reviewDate) {
+    parts.push(
+      overdue ? (
+        <span key="review" className="font-semibold text-rose-700">
+          Review overdue
+        </span>
+      ) : (
+        <span key="review">Review {formatPlanDate(launchDate, note.reviewDate).replace(/^Day/, "day")}</span>
+      )
+    );
+  }
+  if (parts.length === 0) parts.push(<span key="set">Test set</span>);
+
+  const detail = [
+    note.measure && `Measure: ${note.measure}`,
+    note.passMark && `Pass: ${note.passMark}`,
+    note.reviewDate && `Review: ${note.reviewDate}${launchDate ? ` (${formatPlanDate(launchDate, note.reviewDate)})` : ""}`,
+    note.latestResult && `Latest (${note.latestResult.date}): ${note.latestResult.text}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return (
+    <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted" title={detail}>
+      <FlaskConicalIcon className="h-3 w-3 shrink-0" aria-label="Test" />
+      {parts.map((part, i) => (
+        <React.Fragment key={i}>
+          {i > 0 && <span aria-hidden="true">·</span>}
+          {part}
+        </React.Fragment>
+      ))}
+    </p>
+  );
+}
 
 export function StickyNote({
   note,
@@ -69,6 +122,7 @@ export function StickyNote({
         <p className="text-[13px] leading-snug text-ink font-normal pr-4">
           {note.content}
         </p>
+        {hasTest(note) && <TestSummary note={note} />}
       </div>
 
       <div

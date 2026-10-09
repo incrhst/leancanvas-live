@@ -9,6 +9,8 @@ import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { TopBar } from "../../../components/TopBar";
 import { CanvasBoard } from "../../../components/CanvasBoard";
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
+import { LaunchDayChip } from "../../../components/LaunchDayChip";
+import { LaunchDateContext } from "../../../utils/testFields";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { ShareModal } from "../../../components/ShareModal";
 import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptionsView";
@@ -55,6 +57,7 @@ export default function CanvasEditorPage() {
   const updateNote = useMutation(api.notes.updateNote);
   const deleteNote = useMutation(api.notes.deleteNote);
   const setPublicView = useMutation(api.canvases.setPublicView);
+  const updateCanvasMeta = useMutation(api.canvases.updateCanvasMeta);
   const setPublicViewPassword = useMutation(api.canvases.setPublicViewPassword);
   const createInvite = useMutation(api.invites.createInvite);
   const runStressTest = useAction(api.stressTests.runStressTest);
@@ -161,6 +164,12 @@ export default function CanvasEditorPage() {
         title={canvas.title}
         role={user ? role : "anonymous"}
         isPublicViewEnabled={canvas.isPublicViewEnabled}
+        status={
+          <LaunchDayChip
+            launchDate={canvas.launchDate}
+            onChange={canEdit ? (launchDate) => void updateCanvasMeta({ canvasId, launchDate }) : undefined}
+          />
+        }
         onOpenShare={() => setIsShareModalOpen(true)}
         onOpenStressTest={() => setActivePanel((curr) => (curr === "stressTest" ? null : "stressTest"))}
         onExportMarkdown={handleExportMarkdown}
@@ -178,91 +187,94 @@ export default function CanvasEditorPage() {
         }
       />
 
-      <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
-        {/* Board */}
-        <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3">
-          <CanvasViewToggle
-            view={view}
-            riskCount={stressResult?.riskiestAssumptions.length ?? 0}
-            onChange={setView}
-          />
-          {view === "risks" ? (
-            <RiskiestAssumptionsView
-              blocks={template.blocks}
-              result={stressResult}
-              notes={notes}
-              canEdit={canEdit}
-              canRun={canEdit}
-              isRunning={isTesting}
-              onRunTest={handleRunStressTest}
-              onUpdateEvidence={handleUpdateEvidence}
-              onOpenNote={(noteId) => {
-                setView("canvas");
-                setSelectedId(noteId);
-                setActivePanel("detail");
-              }}
+      <LaunchDateContext.Provider value={canvas.launchDate}>
+        <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
+          {/* Board */}
+          <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3">
+            <CanvasViewToggle
+              view={view}
+              riskCount={stressResult?.riskiestAssumptions.length ?? 0}
+              onChange={setView}
             />
-          ) : (
-          <CanvasBoard
-            blocks={template.blocks}
-            riskRanks={riskRanks}
-            notes={notes}
-            selectedId={selectedId}
-            canEdit={canEdit}
-            onSelect={(id) => {
-              if (selectedId === id) {
-                setSelectedId(null);
-                setActivePanel(null);
-              } else {
-                setSelectedId(id);
-                setActivePanel("detail");
-              }
-            }}
-            onAdd={canEdit ? handleAddNote : undefined}
-            onCycleEvidence={canEdit ? handleCycleEvidence : undefined}
-            onDelete={canEdit ? handleDeleteNote : undefined}
-          />
-          )}
-        </div>
-
-        {/* Side Panel (Note Detail or Stress Test) */}
-        {activePanel && (
-          <aside className="w-full shrink-0 border-t border-line bg-surface lg:h-full lg:w-[360px] lg:border-l lg:border-t-0 shadow-sm z-10 flex flex-col">
-            {activePanel === "detail" && selectedNote && (
-              <NoteDetailPanel
-                note={selectedNote}
-                blockTitle={
-                  template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block
-                }
+            {view === "risks" ? (
+              <RiskiestAssumptionsView
+                blocks={template.blocks}
+                result={stressResult}
+                notes={notes}
                 canEdit={canEdit}
-                onClose={() => {
+                canRun={canEdit}
+                isRunning={isTesting}
+                onRunTest={handleRunStressTest}
+                onUpdateEvidence={handleUpdateEvidence}
+                onOpenNote={(noteId) => {
+                  setView("canvas");
+                  setSelectedId(noteId);
+                  setActivePanel("detail");
+                }}
+              />
+            ) : (
+            <CanvasBoard
+              blocks={template.blocks}
+              riskRanks={riskRanks}
+              notes={notes}
+              selectedId={selectedId}
+              canEdit={canEdit}
+              onSelect={(id) => {
+                if (selectedId === id) {
                   setSelectedId(null);
                   setActivePanel(null);
-                }}
-                onUpdate={(content) => handleUpdateNote(selectedNote._id, content)}
-                onUpdateEvidence={(state) => handleUpdateEvidence(selectedNote._id, state)}
-                onDelete={() => handleDeleteNote(selectedNote._id)}
-                blockTitleOf={(blockId) => template.blocks.find((b) => b.id === blockId)?.title || blockId}
-              />
+                } else {
+                  setSelectedId(id);
+                  setActivePanel("detail");
+                }
+              }}
+              onAdd={canEdit ? handleAddNote : undefined}
+              onCycleEvidence={canEdit ? handleCycleEvidence : undefined}
+              onDelete={canEdit ? handleDeleteNote : undefined}
+            />
             )}
+          </div>
 
-            {activePanel === "stressTest" && (
-              <StressTestPanel
-                template={template}
-                result={stressResult}
-                isRunning={isTesting}
-                canRun={canEdit}
-                onRunTest={handleRunStressTest}
-                onClose={() => setActivePanel(null)}
-                onViewRisks={() => {
-                  setView("risks");
-                  setActivePanel(null);
-                }}
-              />
-            )}
-          </aside>
-        )}
-      </main>
+          {/* Side Panel (Note Detail or Stress Test) */}
+          {activePanel && (
+            <aside className="w-full shrink-0 border-t border-line bg-surface lg:h-full lg:w-[360px] lg:border-l lg:border-t-0 shadow-sm z-10 flex flex-col">
+              {activePanel === "detail" && selectedNote && (
+                <NoteDetailPanel
+                  note={selectedNote}
+                  blockTitle={
+                    template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block
+                  }
+                  canEdit={canEdit}
+                  onClose={() => {
+                    setSelectedId(null);
+                    setActivePanel(null);
+                  }}
+                  onUpdate={(content) => handleUpdateNote(selectedNote._id, content)}
+                  onUpdateEvidence={(state) => handleUpdateEvidence(selectedNote._id, state)}
+                  onUpdateTest={(patch) => void updateNote({ noteId: selectedNote._id as Id<"notes">, ...patch })}
+                  onDelete={() => handleDeleteNote(selectedNote._id)}
+                  blockTitleOf={(blockId) => template.blocks.find((b) => b.id === blockId)?.title || blockId}
+                />
+              )}
+
+              {activePanel === "stressTest" && (
+                <StressTestPanel
+                  template={template}
+                  result={stressResult}
+                  isRunning={isTesting}
+                  canRun={canEdit}
+                  onRunTest={handleRunStressTest}
+                  onClose={() => setActivePanel(null)}
+                  onViewRisks={() => {
+                    setView("risks");
+                    setActivePanel(null);
+                  }}
+                />
+              )}
+            </aside>
+          )}
+        </main>
+      </LaunchDateContext.Provider>
 
       {/* Share Modal */}
       {isShareModalOpen && (

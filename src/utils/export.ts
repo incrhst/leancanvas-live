@@ -20,6 +20,13 @@ export function exportCanvasMarkdown(
     } else {
       for (const note of blockNotes) {
         md += `- [**${note.evidenceState.toUpperCase()}**] ${note.content}\n`;
+        if (note.measure) md += `  - Measure: ${note.measure}\n`;
+        if (note.passMark) md += `  - Pass mark: ${note.passMark}\n`;
+        if (note.reviewDate) md += `  - Review: ${note.reviewDate}\n`;
+        if (note.latestResult) {
+          const verdict = note.latestResult.verdict ? ` (${note.latestResult.verdict})` : "";
+          md += `  - Latest result, ${note.latestResult.date}${verdict}: ${note.latestResult.text}\n`;
+        }
       }
       md += `\n`;
     }

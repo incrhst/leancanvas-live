@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React from "react";
 import { motion } from "framer-motion";
 import { Trash2Icon, XIcon, CheckCircle2Icon } from "lucide-react";
 import { NoteItem, EvidenceState } from "../types/canvas";
 import { EvidenceBadge, EVIDENCE_CONFIG } from "./EvidenceBadge";
 import { NoteHistory } from "./NoteHistory";
+import { EditableField } from "./EditableField";
+import { NoteTestFields, TestFieldsPatch } from "./NoteTestFields";
 
 interface NoteDetailPanelProps {
   note: NoteItem;
@@ -12,6 +14,7 @@ interface NoteDetailPanelProps {
   onClose: () => void;
   onUpdate: (content: string) => void;
   onUpdateEvidence: (state: EvidenceState) => void;
+  onUpdateTest?: (patch: TestFieldsPatch) => void;
   onDelete: () => void;
   /** Set to show the note's change history (canvas members only, not the public link) */
   blockTitleOf?: (blockId: string) => string;
@@ -33,17 +36,10 @@ export function NoteDetailPanel({
   onClose,
   onUpdate,
   onUpdateEvidence,
+  onUpdateTest,
   onDelete,
   blockTitleOf,
 }: NoteDetailPanelProps) {
-  const [content, setContent] = useState(note.content);
-
-  const handleBlur = () => {
-    if (content.trim() && content !== note.content && canEdit) {
-      onUpdate(content.trim());
-    }
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, x: 8 }}
@@ -79,13 +75,14 @@ export function NoteDetailPanel({
         {/* Note Content */}
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-muted">Claim / Item Content</label>
-          <textarea
+          <EditableField
+            multiline
             rows={4}
+            required
             disabled={!canEdit}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            onBlur={handleBlur}
-            className="w-full resize-none rounded-lg border border-amber-200/80 bg-amber-50/50 p-3 text-sm leading-snug text-ink focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-85"
+            value={note.content}
+            onCommit={onUpdate}
+            className="!border-amber-200/80 !bg-amber-50/50 p-3"
           />
         </div>
 
@@ -129,6 +126,8 @@ export function NoteDetailPanel({
             </p>
           )}
         </div>
+
+        <NoteTestFields note={note} canEdit={canEdit} onUpdate={onUpdateTest} />
 
         {blockTitleOf && <NoteHistory noteId={note._id} blockTitleOf={blockTitleOf} />}
 

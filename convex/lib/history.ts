@@ -15,11 +15,19 @@ export type NoteChange = Doc<"noteHistory">["changes"][number];
 const COALESCE_WINDOW_MS = 2 * 60 * 1000;
 
 /** The fields a note's history tracks, as strings. */
-export function trackedFields(note: Pick<Doc<"notes">, "content" | "block" | "evidenceState">) {
+export function trackedFields(
+  note: Pick<Doc<"notes">, "content" | "block" | "evidenceState" | "measure" | "passMark" | "reviewDate" | "latestResult">
+) {
   return {
     content: note.content,
     block: note.block,
     evidenceState: note.evidenceState,
+    measure: note.measure,
+    passMark: note.passMark,
+    reviewDate: note.reviewDate,
+    "latestResult.text": note.latestResult?.text,
+    "latestResult.date": note.latestResult?.date,
+    "latestResult.verdict": note.latestResult?.verdict,
   } as Record<string, string | undefined>;
 }
 
