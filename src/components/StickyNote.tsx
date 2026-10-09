@@ -2,6 +2,7 @@ import React, { useContext } from "react";
 import { motion } from "framer-motion";
 import { FlaskConicalIcon, ShieldAlertIcon } from "lucide-react";
 import { EVIDENCE_CONFIG, EvidenceBadge } from "./EvidenceBadge";
+import { OwnerChip } from "./OwnerControls";
 import { NoteItem } from "../types/canvas";
 import { LaunchDateContext, VERDICT_CONFIG, formatPlanDate, hasTest, isReviewOverdue } from "../utils/testFields";
 
@@ -129,19 +130,22 @@ export function StickyNote({
           }}
         />
 
-        {canEdit && onDelete && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            title="Delete note"
-            className="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-rose-600 text-xs px-1 rounded transition-opacity"
-          >
-            ×
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          <OwnerChip ownerId={note.ownerId} />
+          {canEdit && onDelete && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              title="Delete note"
+              className="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-rose-600 text-xs px-1 rounded transition-opacity"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
     </motion.article>
   );

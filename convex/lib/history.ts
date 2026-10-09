@@ -1,5 +1,6 @@
 import { MutationCtx, QueryCtx } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
+import { displayName } from "./members";
 
 /** Who made a change, and through which surface. */
 export type Actor = {
@@ -16,7 +17,10 @@ const COALESCE_WINDOW_MS = 2 * 60 * 1000;
 
 /** The fields a note's history tracks, as strings. */
 export function trackedFields(
-  note: Pick<Doc<"notes">, "content" | "block" | "evidenceState" | "measure" | "passMark" | "reviewDate" | "latestResult">
+  note: Pick<
+    Doc<"notes">,
+    "content" | "block" | "evidenceState" | "measure" | "passMark" | "reviewDate" | "latestResult" | "ownerId"
+  >
 ) {
   return {
     content: note.content,
@@ -28,6 +32,7 @@ export function trackedFields(
     "latestResult.text": note.latestResult?.text,
     "latestResult.date": note.latestResult?.date,
     "latestResult.verdict": note.latestResult?.verdict,
+    ownerId: note.ownerId,
   } as Record<string, string | undefined>;
 }
 
@@ -129,7 +134,10 @@ export async function annotateLatestChange(
   await ctx.db.patch(last._id, { reason: reason.trim() || undefined });
 }
 
-/** A note's history, newest first, with each author's display name. */
+/**
+ * A note's history, newest first, with each author's display name. Owner changes are stored
+ * as user ids and returned as names.
+ */
 export async function listNoteHistory(ctx: QueryCtx, noteId: Id<"notes">) {
   const rows = await ctx.db
     .query("noteHistory")
@@ -137,12 +145,30 @@ export async function listNoteHistory(ctx: QueryCtx, noteId: Id<"notes">) {
     .order("desc")
     .collect();
 
-  const names = new Map<Id<"users">, string>();
-  for (const row of rows) {
-    if (names.has(row.userId)) continue;
-    const user = await ctx.db.get(row.userId);
-    names.set(row.userId, user?.name || user?.email || "Unknown user");
-  }
+  const names = new Map<string, string>();
+  const nameOf = async (userId: string) => {
+    if (!names.has(userId)) {
+      const id = ctx.db.normalizeId("users", userId);
+      names.set(userId, displayName(id ? await ctx.db.get(id) : null));
+    }
+    return names.get(userId)!;
+  };
 
-  return rows.map((row) => ({ ...row, userName: names.get(row.userId)! }));
+  return await Promise.all(
+    rows.map(async (row) => ({
+      ...row,
+      userName: await nameOf(row.userId),
+      changes: await Promise.all(
+        row.changes.map(async (c) =>
+          c.field === "ownerId"
+            ? {
+                field: "owner",
+                from: c.from === undefined ? undefined : await nameOf(c.from),
+                to: c.to === undefined ? undefined : await nameOf(c.to),
+              }
+            : c
+        )
+      ),
+    }))
+  );
 }

@@ -47,6 +47,8 @@ function describeChange(change: Change, blockTitleOf: (blockId: string) => strin
     return fromTo(DATE_FIELD_LABELS[change.field], date(change.from), date(change.to));
   }
   switch (change.field) {
+    case "owner":
+      return fromTo("Owner", change.from, change.to);
     case "latestResult.verdict": {
       const verdict = (value?: string) => (value === undefined ? undefined : VERDICT_CONFIG[value as Verdict]?.label ?? value);
       return fromTo("Verdict", verdict(change.from), verdict(change.to));

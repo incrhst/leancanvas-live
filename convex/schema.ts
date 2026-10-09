@@ -123,6 +123,8 @@ export default defineSchema({
     ),
     // Optional test: measure, passMark, reviewDate, latestResult
     ...testFieldsSchema,
+    // The one person responsible for this note; any canvas member, viewers included
+    ownerId: v.optional(v.id("users")),
     createdBy: v.id("users"),
     updatedAt: v.number(),
   }).index("by_canvas_block", ["canvasId", "block"]),

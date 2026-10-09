@@ -100,6 +100,7 @@ export interface NoteItem {
   /** YYYY-MM-DD */
   reviewDate?: string;
   latestResult?: LatestResult;
+  ownerId?: string;
   createdBy?: string;
   updatedAt: number;
 }

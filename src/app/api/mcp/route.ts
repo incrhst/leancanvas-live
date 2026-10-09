@@ -54,6 +54,12 @@ const LAUNCH_DATE_PROPERTY = {
     "Day 0 of the plan, as YYYY-MM-DD. Review dates then also read as days of the plan (reviewDay), e.g. day 30.",
 };
 
+const OWNER_PROPERTY = {
+  type: ["string", "null"],
+  description:
+    "The one person responsible for the note: a userId from list_canvas_members (viewers can own notes too). null clears it.",
+};
+
 const REASON_PROPERTY = {
   type: "string",
   description: "Optional one line on why, kept in the note's history",
@@ -132,7 +138,7 @@ const TOOLS_MANIFEST = [
   {
     name: "get_canvas",
     description:
-      "Fetch a canvas (Lean or GTM) with all of its blocks and sticky notes, including each note's evidence state and, where set, its test (measure, passMark, reviewDate, latestResult). If the canvas has a launchDate, it also returns currentDay and each note's reviewDay (days since launch).",
+      "Fetch a canvas (Lean or GTM) with all of its blocks and sticky notes, including each note's evidence state and, where set, its test (measure, passMark, reviewDate, latestResult). Each note shows its owner if it has one; pass ownerUserId to see one person's notes. If the canvas has a launchDate, it also returns currentDay and each note's reviewDay (days since launch).",
     inputSchema: {
       type: "object",
       properties: {
@@ -140,6 +146,22 @@ const TOOLS_MANIFEST = [
           type: "string",
           description: "The canvasId returned by list_canvases or create_canvas",
         },
+        ownerUserId: {
+          type: "string",
+          description: "Only return notes owned by this userId, or 'unassigned' for notes with no owner",
+        },
+      },
+      required: ["canvasId"],
+    },
+  },
+  {
+    name: "list_canvas_members",
+    description:
+      "List everyone with access to a canvas (userId, name, email, role). Use a userId as a note's owner in add_note or update_note, or to filter get_canvas.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        canvasId: { type: "string" },
       },
       required: ["canvasId"],
     },
@@ -159,6 +181,7 @@ const TOOLS_MANIFEST = [
         },
         content: { type: "string" },
         evidenceState: { ...EVIDENCE_STATE_PROPERTY, default: "assumption" },
+        ownerUserId: OWNER_PROPERTY,
         ...TEST_FIELD_PROPERTIES,
         reason: REASON_PROPERTY,
       },
@@ -168,7 +191,7 @@ const TOOLS_MANIFEST = [
   {
     name: "update_note",
     description:
-      "Reword a note, move it to another block of the same canvas, change its evidence state, or set its test " +
+      "Reword a note, move it to another block of the same canvas, change its evidence state or owner, or set its test " +
       "(measure, passMark, reviewDate, latestResult). Pass only what changes; null clears a test field. " +
       "Use this instead of adding a second note when refining one. Every change is kept in the note's history.",
     inputSchema: {
@@ -182,6 +205,7 @@ const TOOLS_MANIFEST = [
           description: "Move the note to this block (it goes to the end). Must belong to the canvas's template.",
         },
         evidenceState: EVIDENCE_STATE_PROPERTY,
+        ownerUserId: OWNER_PROPERTY,
         ...TEST_FIELD_PROPERTIES,
         reason: REASON_PROPERTY,
         link: { type: "string", description: "Optional link backing the change, kept in the note's history" },
@@ -322,7 +346,13 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
     case "list_canvases":
       return await fetchQuery(api.mcp.listCanvases, { accessToken });
     case "get_canvas":
-      return await fetchQuery(api.mcp.getCanvas, { accessToken, canvasId: str(args.canvasId) });
+      return await fetchQuery(api.mcp.getCanvas, {
+        accessToken,
+        canvasId: str(args.canvasId),
+        ownerUserId: optStr(args.ownerUserId),
+      });
+    case "list_canvas_members":
+      return await fetchQuery(api.mcp.listMembers, { accessToken, canvasId: str(args.canvasId) });
     case "create_canvas": {
       const result = await fetchMutation(api.mcp.createCanvas, {
         accessToken,
@@ -355,6 +385,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         content: str(args.content),
         evidenceState: (args.evidenceState as any) || undefined,
         reason: optStr(args.reason),
+        ownerUserId: nullableStr(args.ownerUserId),
         ...testFieldArgs(args),
       });
     case "update_note":
@@ -366,6 +397,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         evidenceState: optStr(args.evidenceState) as any, // validated by Convex
         reason: optStr(args.reason),
         link: optStr(args.link),
+        ownerUserId: nullableStr(args.ownerUserId),
         ...testFieldArgs(args),
       });
     case "delete_note":

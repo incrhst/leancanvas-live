@@ -6,6 +6,7 @@ import { EvidenceBadge, EVIDENCE_CONFIG, EVIDENCE_STATES } from "./EvidenceBadge
 import { NoteHistory } from "./NoteHistory";
 import { EditableField } from "./EditableField";
 import { NoteTestFields, TestFieldsPatch } from "./NoteTestFields";
+import { NoteOwnerField } from "./OwnerControls";
 
 interface NoteDetailPanelProps {
   note: NoteItem;
@@ -15,6 +16,7 @@ interface NoteDetailPanelProps {
   onUpdate: (content: string) => void;
   onUpdateEvidence: (state: EvidenceState) => void;
   onUpdateTest?: (patch: TestFieldsPatch) => void;
+  onUpdateOwner?: (ownerId: string | null) => void;
   /** Adds a reason to the current user's latest change to this note */
   onAddReason?: (reason: string) => Promise<void>;
   onDelete: () => void;
@@ -30,6 +32,7 @@ export function NoteDetailPanel({
   onUpdate,
   onUpdateEvidence,
   onUpdateTest,
+  onUpdateOwner,
   onAddReason,
   onDelete,
   blockTitleOf,
@@ -187,6 +190,8 @@ export function NoteDetailPanel({
             </p>
           )}
         </div>
+
+        <NoteOwnerField note={note} canEdit={canEdit} onChange={onUpdateOwner} />
 
         <NoteTestFields note={note} canEdit={canEdit} onUpdate={onUpdateTest} />
 

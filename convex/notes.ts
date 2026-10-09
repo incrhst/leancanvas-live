@@ -1,5 +1,5 @@
 import { mutation, query, MutationCtx } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
 import { requireEditor, getCanvasRole, getCurrentUser } from "./lib/auth";
 import { assertBlockForTemplate, blockValidator, templateOf } from "./lib/canvasTemplates";
@@ -18,6 +18,15 @@ type Block = Doc<"notes">["block"];
 
 function uiActor(userId: Id<"users">): Actor {
   return { userId, via: "ui" };
+}
+
+/** A note's owner must be able to see the canvas. null clears the owner. */
+async function checkOwner(ctx: MutationCtx, canvasId: Id<"canvases">, ownerId: Id<"users"> | null | undefined) {
+  if (!ownerId) return undefined;
+  if (!(await getCanvasRole(ctx, canvasId, ownerId))) {
+    throw new ConvexError("A note's owner must be a member of its canvas");
+  }
+  return ownerId;
 }
 
 async function nextOrderInBlock(ctx: MutationCtx, canvasId: Id<"canvases">, block: Block) {
@@ -39,6 +48,7 @@ export async function addNoteForUser(
     block: Block;
     content: string;
     evidenceState?: EvidenceState;
+    ownerId?: Id<"users"> | null;
     reason?: string;
   } & TestFieldsUpdate
 ): Promise<Id<"notes">> {
@@ -53,6 +63,7 @@ export async function addNoteForUser(
     content: args.content,
     evidenceState: args.evidenceState || "assumption",
     ...testFieldsPatch(args),
+    ownerId: await checkOwner(ctx, args.canvasId, args.ownerId),
   };
 
   const noteId = await ctx.db.insert("notes", {
@@ -98,6 +109,7 @@ export async function updateNoteForUser(
     content?: string;
     block?: Block;
     evidenceState?: EvidenceState;
+    ownerId?: Id<"users"> | null;
     reason?: string;
     link?: string;
   } & TestFieldsUpdate
@@ -107,6 +119,7 @@ export async function updateNoteForUser(
   const patch: Partial<Doc<"notes">> = { updatedAt: now, ...testFieldsPatch(args) };
   if (args.content !== undefined) patch.content = args.content;
   if (args.evidenceState !== undefined) patch.evidenceState = args.evidenceState;
+  if (args.ownerId !== undefined) patch.ownerId = await checkOwner(ctx, note.canvasId, args.ownerId);
   if (args.block !== undefined && args.block !== note.block) {
     const canvas = await ctx.db.get(note.canvasId);
     if (!canvas) throw new Error("Canvas not found");
@@ -183,6 +196,7 @@ export const addNote = mutation({
         v.literal("decision")
       )
     ),
+    ownerId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     const { user } = await requireEditor(ctx, args.canvasId);
@@ -194,6 +208,8 @@ export const updateNote = mutation({
   args: {
     noteId: v.id("notes"),
     content: v.optional(v.string()),
+    // null clears the owner
+    ownerId: v.optional(v.union(v.id("users"), v.null())),
     ...testFieldsUpdateArgs,
     evidenceState: v.optional(
       v.union(
