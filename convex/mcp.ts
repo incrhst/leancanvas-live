@@ -9,6 +9,7 @@ import { Doc, Id } from "./_generated/dataModel";
 import { getCanvasRole, getUserFromAccessToken, requireTokenActor, requireTokenUser } from "./lib/auth";
 import { listNoteHistory } from "./lib/history";
 import { listCanvasMembers } from "./lib/members";
+import { compareSnapshots, createSnapshotForUser, listSnapshots } from "./lib/snapshots";
 import {
   answerDecisionForUser,
   decisionAnswerValidator,
@@ -506,6 +507,50 @@ export const listDecisions = query({
         .filter((n) => n.decision)
         .sort((a, b) => a.decision!.dueDate.localeCompare(b.decision!.dueDate))
         .map((n) => noteForAgent(n, context)),
+    };
+  },
+});
+
+export const createSnapshot = mutation({
+  args: { accessToken: v.string(), canvasId: v.string(), label: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { canvas } = await resolveCanvas(ctx, user, args.canvasId, true);
+    const snapshotId = await createSnapshotForUser(ctx, user._id, canvas, args.label);
+    const snapshot = (await ctx.db.get(snapshotId))!;
+    return { snapshotId, label: snapshot.label, noteCount: snapshot.noteCount };
+  },
+});
+
+export const listCanvasSnapshots = query({
+  args: { accessToken: v.string(), canvasId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { canvas } = await resolveCanvas(ctx, user, args.canvasId, false);
+    const snapshots = await listSnapshots(ctx, canvas);
+    return {
+      canvasId: canvas._id,
+      snapshots: snapshots.map((s) => ({ ...s, takenAt: new Date(s.takenAt).toISOString() })),
+    };
+  },
+});
+
+export const compareCanvasSnapshots = query({
+  args: { accessToken: v.string(), canvasId: v.string(), from: v.string(), to: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { canvas } = await resolveCanvas(ctx, user, args.canvasId, false);
+    const side = (raw: string) => {
+      if (raw === "current") return "current" as const;
+      const id = ctx.db.normalizeId("canvasSnapshots", raw);
+      if (!id) throw new ConvexError(`Snapshot not found: ${raw}. Use a snapshotId from list_snapshots, or "current".`);
+      return id;
+    };
+    const result = await compareSnapshots(ctx, canvas, side(args.from), side(args.to ?? "current"));
+    return {
+      ...result,
+      from: { ...result.from, takenAt: new Date(result.from.takenAt).toISOString() },
+      to: { ...result.to, takenAt: new Date(result.to.takenAt).toISOString() },
     };
   },
 });

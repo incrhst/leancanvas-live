@@ -57,6 +57,9 @@ When configured, Claude has access to:
 - `answer_decision({ noteId, answer, comment })`: The named decider answers `approve`, `reject` (both make the note a `decision`) or `change` (needs a comment; sends it back with the note unchanged).
 - `withdraw_decision({ noteId, reason })`: Cancels an open request.
 - `list_decisions({ canvasId })`: Decision requests on a canvas, or, without `canvasId`, the open ones waiting on you.
+- `create_snapshot({ canvasId, label })`: Freezes the canvas under a label, e.g. `Day 30`.
+- `list_snapshots({ canvasId })`: The canvas's snapshots, newest first.
+- `compare_snapshots({ canvasId, from, to })`: Notes added, removed or changed between two snapshots; `to` defaults to `current` (the canvas now).
 - `update_evidence_state({ noteId, evidenceState, reason })`: Updates state (`unknown`, `assumption`, `observed`, `supported`, `contradicted`, `decision`).
 - `run_stress_test({ canvasId })`: Triggers the 7-dimension diagnostic (Ash Maurya for Lean, go-to-market criteria for GTM) and extracts top riskiest assumptions.
 - `export_canvas({ canvasId, view, format })`: Returns a link that downloads the canvas (`view: "canvas"`) or its riskiest assumptions (`view: "riskiest_assumptions"`, needs a stress test first) as a PDF or PNG (`format`). The file is rendered in the browser, so open the link while signed in.

@@ -3,7 +3,16 @@ import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 import { blockValidator, canvasTemplateValidator } from "./lib/canvasTemplates";
 import { testFieldsSchema } from "./lib/testFields";
-import { decisionRequestValidator } from "./lib/decisions";
+import { decisionRequestValidator, decisionStatusValidator } from "./lib/decisions";
+
+const evidenceStateValidator = v.union(
+  v.literal("unknown"),
+  v.literal("assumption"),
+  v.literal("observed"),
+  v.literal("supported"),
+  v.literal("contradicted"),
+  v.literal("decision")
+);
 
 export default defineSchema({
   ...authTables,
@@ -114,14 +123,7 @@ export default defineSchema({
     block: blockValidator,
     content: v.string(),
     order: v.number(),
-    evidenceState: v.union(
-      v.literal("unknown"),
-      v.literal("assumption"),
-      v.literal("observed"),
-      v.literal("supported"),
-      v.literal("contradicted"),
-      v.literal("decision")
-    ),
+    evidenceState: evidenceStateValidator,
     // Optional test: measure, passMark, reviewDate, latestResult
     ...testFieldsSchema,
     // The one person responsible for this note; any canvas member, viewers included
@@ -164,6 +166,28 @@ export default defineSchema({
   })
     .index("by_note", ["noteId"])
     .index("by_canvas", ["canvasId"]),
+
+  // A frozen copy of a canvas at a moment (e.g. "Day 30"), for comparing later
+  canvasSnapshots: defineTable({
+    canvasId: v.id("canvases"),
+    label: v.string(),
+    takenBy: v.id("users"),
+    takenAt: v.number(),
+    noteCount: v.number(),
+  }).index("by_canvas", ["canvasId"]),
+
+  // The notes in a snapshot, one row each (a canvas's notes could outgrow one document)
+  snapshotNotes: defineTable({
+    snapshotId: v.id("canvasSnapshots"),
+    noteId: v.id("notes"),
+    block: blockValidator,
+    content: v.string(),
+    order: v.number(),
+    evidenceState: evidenceStateValidator,
+    ...testFieldsSchema,
+    ownerId: v.optional(v.id("users")),
+    decisionStatus: v.optional(decisionStatusValidator),
+  }).index("by_snapshot", ["snapshotId"]),
 
   evidence: defineTable({
     noteId: v.id("notes"),

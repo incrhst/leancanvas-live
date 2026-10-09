@@ -37,7 +37,15 @@ function fromTo(label: string, from: string | undefined, to: string | undefined)
   return `${label}: ${from} → ${to}`;
 }
 
-function describeChange(change: Change, blockTitleOf: (blockId: string) => string) {
+const DECISION_STATUS_LABELS: Record<string, string> = {
+  open: "Open",
+  approved: "Approved",
+  rejected: "Rejected",
+  changes_requested: "Changes requested",
+};
+
+/** One readable line for a field change. Shared with the snapshot comparison. */
+export function describeChange(change: Change, blockTitleOf: (blockId: string) => string) {
   const quote = (value?: string) => (value === undefined ? undefined : `“${truncate(value, 60)}”`);
   if (TEXT_FIELD_LABELS[change.field]) {
     return fromTo(TEXT_FIELD_LABELS[change.field], quote(change.from), quote(change.to));
@@ -49,6 +57,10 @@ function describeChange(change: Change, blockTitleOf: (blockId: string) => strin
   switch (change.field) {
     case "owner":
       return fromTo("Owner", change.from, change.to);
+    case "decision.status": {
+      const status = (value?: string) => (value === undefined ? undefined : DECISION_STATUS_LABELS[value] ?? value);
+      return fromTo("Decision", status(change.from), status(change.to));
+    }
     case "latestResult.verdict": {
       const verdict = (value?: string) => (value === undefined ? undefined : VERDICT_CONFIG[value as Verdict]?.label ?? value);
       return fromTo("Verdict", verdict(change.from), verdict(change.to));

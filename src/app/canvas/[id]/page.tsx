@@ -11,6 +11,7 @@ import { CanvasBoard } from "../../../components/CanvasBoard";
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
 import { LaunchDayChip } from "../../../components/LaunchDayChip";
 import { DecisionsWaitingChip } from "../../../components/NoteDecision";
+import { SnapshotsPanel } from "../../../components/SnapshotsPanel";
 import { EvidenceLegend } from "../../../components/EvidenceLegend";
 import { matchesOwnerFilter, OwnerFilter, OwnerFilterValue } from "../../../components/OwnerControls";
 import { CanvasMember, MembersContext } from "../../../utils/members";
@@ -59,7 +60,7 @@ export default function CanvasEditorPage() {
   const runStressTest = useAction(api.stressTests.runStressTest);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activePanel, setActivePanel] = useState<"detail" | "stressTest" | null>(null);
+  const [activePanel, setActivePanel] = useState<"detail" | "stressTest" | "snapshots" | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilterValue>("all");
@@ -171,6 +172,7 @@ export default function CanvasEditorPage() {
         }
         onOpenShare={() => setIsShareModalOpen(true)}
         onOpenStressTest={() => setActivePanel((curr) => (curr === "stressTest" ? null : "stressTest"))}
+        onOpenSnapshots={user ? () => setActivePanel((curr) => (curr === "snapshots" ? null : "snapshots")) : undefined}
         onExportMarkdown={handleExportMarkdown}
         onExportJson={handleExportJson}
         exportMenu={
@@ -257,14 +259,30 @@ export default function CanvasEditorPage() {
                     onUpdate={(content) => handleUpdateNote(selectedNote._id, content)}
                     onUpdateEvidence={(state) => handleUpdateEvidence(selectedNote._id, state)}
                     onUpdateTest={(patch) => void updateNote({ noteId: selectedNote._id as Id<"notes">, ...patch })}
-                  onUpdateOwner={(ownerId) =>
-                    void updateNote({ noteId: selectedNote._id as Id<"notes">, ownerId: ownerId as Id<"users"> | null })
-                  }
-                  onAddReason={(reason) =>
-                    addReasonToLatestChange({ noteId: selectedNote._id as Id<"notes">, reason })
-                  }
+                    onUpdateOwner={(ownerId) =>
+                      void updateNote({ noteId: selectedNote._id as Id<"notes">, ownerId: ownerId as Id<"users"> | null })
+                    }
+                    onAddReason={(reason) =>
+                      addReasonToLatestChange({ noteId: selectedNote._id as Id<"notes">, reason })
+                    }
                     onDelete={() => handleDeleteNote(selectedNote._id)}
                     blockTitleOf={(blockId) => template.blocks.find((b) => b.id === blockId)?.title || blockId}
+                  />
+                )}
+
+                {activePanel === "snapshots" && (
+                  <SnapshotsPanel
+                    canvasId={canvasId}
+                    canEdit={canEdit}
+                    isOwner={role === "owner"}
+                    launchDate={canvas.launchDate}
+                    blockTitleOf={(blockId) => template.blocks.find((b) => b.id === blockId)?.title || blockId}
+                    onClose={() => setActivePanel(null)}
+                    onOpenNote={(noteId) => {
+                      setView("canvas");
+                      setSelectedId(noteId);
+                      setActivePanel("detail");
+                    }}
                   />
                 )}
 
