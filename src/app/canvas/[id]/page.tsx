@@ -242,6 +242,7 @@ export default function CanvasEditorPage() {
                 onUpdate={(content) => handleUpdateNote(selectedNote._id, content)}
                 onUpdateEvidence={(state) => handleUpdateEvidence(selectedNote._id, state)}
                 onDelete={() => handleDeleteNote(selectedNote._id)}
+                blockTitleOf={(blockId) => template.blocks.find((b) => b.id === blockId)?.title || blockId}
               />
             )}
 

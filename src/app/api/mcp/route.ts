@@ -6,6 +6,12 @@ import { GTM_BLOCK_IDS, LEAN_BLOCK_IDS } from "../../../../convex/lib/canvasTemp
 import { getCanvasTemplate } from "../../../utils/canvasTemplates";
 
 const ALL_BLOCK_IDS = [...new Set([...LEAN_BLOCK_IDS, ...GTM_BLOCK_IDS])];
+const EVIDENCE_STATES = ["unknown", "assumption", "observed", "supported", "contradicted", "decision"];
+
+const REASON_PROPERTY = {
+  type: "string",
+  description: "Optional one line on why, kept in the note's history",
+};
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -89,11 +95,58 @@ const TOOLS_MANIFEST = [
         content: { type: "string" },
         evidenceState: {
           type: "string",
-          enum: ["unknown", "assumption", "observed", "supported", "contradicted", "decision"],
+          enum: EVIDENCE_STATES,
           default: "assumption",
         },
+        reason: REASON_PROPERTY,
       },
       required: ["canvasId", "block", "content"],
+    },
+  },
+  {
+    name: "update_note",
+    description:
+      "Reword a note, move it to another block of the same canvas, or change its evidence state. " +
+      "Pass only what changes. Use this instead of adding a second note when refining one. Every change is kept in the note's history.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        noteId: { type: "string", description: "The noteId from get_canvas" },
+        content: { type: "string", description: "New text for the note" },
+        block: {
+          type: "string",
+          enum: ALL_BLOCK_IDS,
+          description: "Move the note to this block (it goes to the end). Must belong to the canvas's template.",
+        },
+        evidenceState: { type: "string", enum: EVIDENCE_STATES },
+        reason: REASON_PROPERTY,
+        link: { type: "string", description: "Optional link backing the change, kept in the note's history" },
+      },
+      required: ["noteId"],
+    },
+  },
+  {
+    name: "delete_note",
+    description: "Remove a note from its canvas. Its history, including its last text, stays readable through get_note_history.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        noteId: { type: "string" },
+        reason: REASON_PROPERTY,
+      },
+      required: ["noteId"],
+    },
+  },
+  {
+    name: "get_note_history",
+    description:
+      "List every change to a note, newest first: who made it, when, whether it came from the app or an agent, what changed from and to, and the reason if one was given. Works for deleted notes too.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        noteId: { type: "string" },
+      },
+      required: ["noteId"],
     },
   },
   {
@@ -105,8 +158,9 @@ const TOOLS_MANIFEST = [
         noteId: { type: "string" },
         evidenceState: {
           type: "string",
-          enum: ["unknown", "assumption", "observed", "supported", "contradicted", "decision"],
+          enum: EVIDENCE_STATES,
         },
+        reason: REASON_PROPERTY,
       },
       required: ["noteId", "evidenceState"],
     },
@@ -173,6 +227,10 @@ function str(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+function optStr(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
 async function callTool(accessToken: string, toolName: string, args: Record<string, unknown>) {
   switch (toolName) {
     case "list_canvases":
@@ -201,12 +259,32 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         block: args.block as any, // validated by Convex
         content: str(args.content),
         evidenceState: (args.evidenceState as any) || undefined,
+        reason: optStr(args.reason),
       });
+    case "update_note":
+      return await fetchMutation(api.mcp.updateNote, {
+        accessToken,
+        noteId: str(args.noteId),
+        content: optStr(args.content),
+        block: optStr(args.block) as any, // validated by Convex
+        evidenceState: optStr(args.evidenceState) as any, // validated by Convex
+        reason: optStr(args.reason),
+        link: optStr(args.link),
+      });
+    case "delete_note":
+      return await fetchMutation(api.mcp.deleteNote, {
+        accessToken,
+        noteId: str(args.noteId),
+        reason: optStr(args.reason),
+      });
+    case "get_note_history":
+      return await fetchQuery(api.mcp.getNoteHistory, { accessToken, noteId: str(args.noteId) });
     case "update_evidence_state":
       return await fetchMutation(api.mcp.updateEvidenceState, {
         accessToken,
         noteId: str(args.noteId),
         evidenceState: args.evidenceState as any, // validated by Convex
+        reason: optStr(args.reason),
       });
     case "run_stress_test":
       return await fetchAction(api.mcp.runStressTest, { accessToken, canvasId: str(args.canvasId) });

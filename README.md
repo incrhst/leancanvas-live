@@ -42,29 +42,16 @@ For non-technical users, connecting LeanCanvas to Claude takes just one click:
 
 ---
 
-## Alternative: Local Claude Desktop Config (JSON)
-If you prefer adding it to your `claude_desktop_config.json`:
-```json
-{
-  "mcpServers": {
-    "leancanvas": {
-      "command": "npx",
-      "args": ["-y", "tsx", "mcp/server.ts"],
-      "env": {
-        "CONVEX_URL": "https://lean.incrementic.com"
-      }
-    }
-  }
-}
-```
-
-### 2. Available MCP Tools for Claude
+### Available MCP Tools for Claude
 When configured, Claude has access to:
 - `list_canvases()`: Lists your canvases with their `template`, role, and URL.
 - `create_canvas({ title, description, template, seedNotes })`: Initializes a new canvas (`template`: `lean` by default, or `gtm`) and returns the direct collaboration URL.
 - `get_canvas({ canvasId })`: Fetches full structured canvas, blocks, and current notes with evidence states.
-- `add_note({ canvasId, block, content, evidenceState })`: Inserts a note into a block of the canvas's template. A block from the other template is rejected.
-- `update_evidence_state({ noteId, evidenceState })`: Updates state (`unknown`, `assumption`, `observed`, `supported`, `contradicted`, `decision`).
+- `add_note({ canvasId, block, content, evidenceState, reason })`: Inserts a note into a block of the canvas's template. A block from the other template is rejected.
+- `update_note({ noteId, content, block, evidenceState, reason, link })`: Rewords a note, moves it to another block of the same template, or changes its state. Pass only what changes.
+- `delete_note({ noteId, reason })`: Removes a note. Its history stays readable.
+- `get_note_history({ noteId })`: Lists every change to a note, newest first: who, when, app or agent, from and to, and the reason. Works for deleted notes.
+- `update_evidence_state({ noteId, evidenceState, reason })`: Updates state (`unknown`, `assumption`, `observed`, `supported`, `contradicted`, `decision`).
 - `run_stress_test({ canvasId })`: Triggers the 7-dimension diagnostic (Ash Maurya for Lean, go-to-market criteria for GTM) and extracts top riskiest assumptions.
 - `export_canvas({ canvasId, view, format })`: Returns a link that downloads the canvas (`view: "canvas"`) or its riskiest assumptions (`view: "riskiest_assumptions"`, needs a stress test first) as a PDF or PNG (`format`). The file is rendered in the browser, so open the link while signed in.
 

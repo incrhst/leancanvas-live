@@ -28,13 +28,18 @@ export async function sha256Hex(input: string): Promise<string> {
  * Resolves the user behind an MCP bearer access token, or null if invalid/expired/revoked.
  */
 export async function getUserFromAccessToken(ctx: QueryCtx | MutationCtx, accessToken: string) {
+  const record = await getValidToken(ctx, accessToken);
+  return record ? await ctx.db.get(record.userId) : null;
+}
+
+async function getValidToken(ctx: QueryCtx | MutationCtx, accessToken: string) {
   const hash = await sha256Hex(accessToken);
   const record = await ctx.db
     .query("oauthTokens")
     .withIndex("by_access_hash", (q) => q.eq("accessTokenHash", hash))
     .unique();
   if (!record || record.revokedAt || record.accessExpiresAt < Date.now()) return null;
-  return await ctx.db.get(record.userId);
+  return record;
 }
 
 /**
@@ -44,6 +49,24 @@ export async function requireTokenUser(ctx: QueryCtx | MutationCtx, accessToken:
   const user = await getUserFromAccessToken(ctx, accessToken);
   if (!user) throw new ConvexError("INVALID_ACCESS_TOKEN");
   return user;
+}
+
+/**
+ * Like requireTokenUser, but also names the OAuth client (e.g. "Claude") so changes can be
+ * attributed to the agent as well as the user it acts for.
+ */
+export async function requireTokenActor(ctx: QueryCtx | MutationCtx, accessToken: string) {
+  const record = await getValidToken(ctx, accessToken);
+  const user = record ? await ctx.db.get(record.userId) : null;
+  if (!record || !user) throw new ConvexError("INVALID_ACCESS_TOKEN");
+  const client = await ctx.db
+    .query("oauthClients")
+    .withIndex("by_client_id", (q) => q.eq("clientId", record.clientId))
+    .unique();
+  return {
+    user,
+    actor: { userId: user._id, via: "mcp" as const, clientName: client?.clientName },
+  };
 }
 
 /**
