@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -11,6 +11,8 @@ import { CanvasBoard } from "../../../components/CanvasBoard";
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
 import { LaunchDayChip } from "../../../components/LaunchDayChip";
 import { EvidenceLegend } from "../../../components/EvidenceLegend";
+import { matchesOwnerFilter, OwnerFilter, OwnerFilterValue } from "../../../components/OwnerControls";
+import { CanvasMember, MembersContext } from "../../../utils/members";
 import { LaunchDateContext } from "../../../utils/testFields";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { ShareModal } from "../../../components/ShareModal";
@@ -59,6 +61,7 @@ export default function CanvasEditorPage() {
   const [activePanel, setActivePanel] = useState<"detail" | "stressTest" | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilterValue>("all");
 
   const notes: NoteItem[] = data?.notes ?? [];
   const role = data?.currentUserRole ?? "viewer";
@@ -66,6 +69,11 @@ export default function CanvasEditorPage() {
   const stressResult: StressTestResult | null = latestStressTest ?? null;
   const selectedNote = notes.find((n) => n._id === selectedId) || null;
   const riskRanks = riskRanksFor(stressResult?.riskiestAssumptions);
+  const members = useMemo(
+    () => new Map<string, CanvasMember>((data?.members ?? []).map((m) => [m.id, m])),
+    [data?.members]
+  );
+  const visibleNotes = notes.filter((n) => matchesOwnerFilter(n, ownerFilter, user?.id));
 
   if (isLoading || data === undefined) {
     return (
@@ -98,7 +106,9 @@ export default function CanvasEditorPage() {
 
   // Add Note
   const handleAddNote = (block: BlockId, text: string) => {
-    void addNote({ canvasId, block: block as NoteBlock, content: text });
+    // While showing one person's notes, new notes are theirs, so they don't vanish from view
+    const owner = ownerFilter === "mine" ? user?.id : ownerFilter === "all" || ownerFilter === "unassigned" ? undefined : ownerFilter;
+    void addNote({ canvasId, block: block as NoteBlock, content: text, ownerId: owner as Id<"users"> | undefined });
   };
 
   // Update Note Content
@@ -172,97 +182,107 @@ export default function CanvasEditorPage() {
         }
       />
 
-      <LaunchDateContext.Provider value={canvas.launchDate}>
-        <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
-          {/* Board */}
-          <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3">
-            <CanvasViewToggle
-              view={view}
-              riskCount={stressResult?.riskiestAssumptions.length ?? 0}
-              onChange={setView}
-            />
-            {view === "canvas" && <EvidenceLegend />}
-            {view === "risks" ? (
-              <RiskiestAssumptionsView
-                blocks={template.blocks}
-                result={stressResult}
-                notes={notes}
-                canEdit={canEdit}
-                canRun={canEdit}
-                isRunning={isTesting}
-                onRunTest={handleRunStressTest}
-                onUpdateEvidence={handleUpdateEvidence}
-                onOpenNote={(noteId) => {
-                  setView("canvas");
-                  setSelectedId(noteId);
-                  setActivePanel("detail");
-                }}
-              />
-            ) : (
-            <CanvasBoard
-              blocks={template.blocks}
-              riskRanks={riskRanks}
-              notes={notes}
-              selectedId={selectedId}
-              canEdit={canEdit}
-              onSelect={(id) => {
-                if (selectedId === id) {
-                  setSelectedId(null);
-                  setActivePanel(null);
-                } else {
-                  setSelectedId(id);
-                  setActivePanel("detail");
-                }
-              }}
-              onAdd={canEdit ? handleAddNote : undefined}
-              onDelete={canEdit ? handleDeleteNote : undefined}
-            />
-            )}
-          </div>
-
-          {/* Side Panel (Note Detail or Stress Test) */}
-          {activePanel && (
-            <aside className="w-full shrink-0 border-t border-line bg-surface lg:h-full lg:w-[360px] lg:border-l lg:border-t-0 shadow-sm z-10 flex flex-col">
-              {activePanel === "detail" && selectedNote && (
-                <NoteDetailPanel
-                  note={selectedNote}
-                  blockTitle={
-                    template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block
-                  }
+      <MembersContext.Provider value={members}>
+        <LaunchDateContext.Provider value={canvas.launchDate}>
+          <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
+            {/* Board */}
+            <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CanvasViewToggle
+                  view={view}
+                  riskCount={stressResult?.riskiestAssumptions.length ?? 0}
+                  onChange={setView}
+                />
+                {view === "canvas" && (
+                  <OwnerFilter value={ownerFilter} currentUserId={user?.id} onChange={setOwnerFilter} />
+                )}
+              </div>
+              {view === "canvas" && <EvidenceLegend />}
+              {view === "risks" ? (
+                <RiskiestAssumptionsView
+                  blocks={template.blocks}
+                  result={stressResult}
+                  notes={notes}
                   canEdit={canEdit}
-                  onClose={() => {
+                  canRun={canEdit}
+                  isRunning={isTesting}
+                  onRunTest={handleRunStressTest}
+                  onUpdateEvidence={handleUpdateEvidence}
+                  onOpenNote={(noteId) => {
+                    setView("canvas");
+                    setSelectedId(noteId);
+                    setActivePanel("detail");
+                  }}
+                />
+              ) : (
+              <CanvasBoard
+                blocks={template.blocks}
+                riskRanks={riskRanks}
+                notes={visibleNotes}
+                selectedId={selectedId}
+                canEdit={canEdit}
+                onSelect={(id) => {
+                  if (selectedId === id) {
                     setSelectedId(null);
                     setActivePanel(null);
-                  }}
-                  onUpdate={(content) => handleUpdateNote(selectedNote._id, content)}
-                  onUpdateEvidence={(state) => handleUpdateEvidence(selectedNote._id, state)}
-                  onUpdateTest={(patch) => void updateNote({ noteId: selectedNote._id as Id<"notes">, ...patch })}
-                onAddReason={(reason) =>
-                  addReasonToLatestChange({ noteId: selectedNote._id as Id<"notes">, reason })
-                }
-                  onDelete={() => handleDeleteNote(selectedNote._id)}
-                  blockTitleOf={(blockId) => template.blocks.find((b) => b.id === blockId)?.title || blockId}
-                />
+                  } else {
+                    setSelectedId(id);
+                    setActivePanel("detail");
+                  }
+                }}
+                onAdd={canEdit ? handleAddNote : undefined}
+                onDelete={canEdit ? handleDeleteNote : undefined}
+              />
               )}
+            </div>
 
-              {activePanel === "stressTest" && (
-                <StressTestPanel
-                  template={template}
-                  result={stressResult}
-                  isRunning={isTesting}
-                  canRun={canEdit}
-                  onRunTest={handleRunStressTest}
-                  onClose={() => setActivePanel(null)}
-                  onViewRisks={() => {
-                    setView("risks");
-                    setActivePanel(null);
-                  }}
-                />
-              )}
-            </aside>
-          )}
-        </main>
-      </LaunchDateContext.Provider>
+            {/* Side Panel (Note Detail or Stress Test) */}
+            {activePanel && (
+              <aside className="w-full shrink-0 border-t border-line bg-surface lg:h-full lg:w-[360px] lg:border-l lg:border-t-0 shadow-sm z-10 flex flex-col">
+                {activePanel === "detail" && selectedNote && (
+                  <NoteDetailPanel
+                    note={selectedNote}
+                    blockTitle={
+                      template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block
+                    }
+                    canEdit={canEdit}
+                    onClose={() => {
+                      setSelectedId(null);
+                      setActivePanel(null);
+                    }}
+                    onUpdate={(content) => handleUpdateNote(selectedNote._id, content)}
+                    onUpdateEvidence={(state) => handleUpdateEvidence(selectedNote._id, state)}
+                    onUpdateTest={(patch) => void updateNote({ noteId: selectedNote._id as Id<"notes">, ...patch })}
+                  onUpdateOwner={(ownerId) =>
+                    void updateNote({ noteId: selectedNote._id as Id<"notes">, ownerId: ownerId as Id<"users"> | null })
+                  }
+                  onAddReason={(reason) =>
+                    addReasonToLatestChange({ noteId: selectedNote._id as Id<"notes">, reason })
+                  }
+                    onDelete={() => handleDeleteNote(selectedNote._id)}
+                    blockTitleOf={(blockId) => template.blocks.find((b) => b.id === blockId)?.title || blockId}
+                  />
+                )}
+
+                {activePanel === "stressTest" && (
+                  <StressTestPanel
+                    template={template}
+                    result={stressResult}
+                    isRunning={isTesting}
+                    canRun={canEdit}
+                    onRunTest={handleRunStressTest}
+                    onClose={() => setActivePanel(null)}
+                    onViewRisks={() => {
+                      setView("risks");
+                      setActivePanel(null);
+                    }}
+                  />
+                )}
+              </aside>
+            )}
+          </main>
+        </LaunchDateContext.Provider>
+      </MembersContext.Provider>
 
       {/* Share Modal */}
       {isShareModalOpen && (

@@ -2,6 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { hashPassword, verifyPassword } from "./lib/password";
 import { checkDate } from "./lib/testFields";
+import { displayName } from "./lib/members";
 import { requireAuth, requireOwner, requireEditor, getCurrentUser, getCanvasRole, Role, sha256Hex } from "./lib/auth";
 import { Doc, Id } from "./_generated/dataModel";
 import { MutationCtx, QueryCtx } from "./_generated/server";
@@ -249,7 +250,7 @@ export const getCanvas = query({
         const u = await ctx.db.get(m.userId);
         return {
           id: m.userId,
-          name: u?.name || "Anonymous",
+          name: displayName(u),
           email: u?.email || "",
           imageUrl: u?.image,
           role: m.role,

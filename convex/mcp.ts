@@ -8,6 +8,7 @@ import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { getCanvasRole, getUserFromAccessToken, requireTokenActor, requireTokenUser } from "./lib/auth";
 import { listNoteHistory } from "./lib/history";
+import { listCanvasMembers } from "./lib/members";
 import { addDays, daysBetween, testFieldsUpdateArgs, todayUtc } from "./lib/testFields";
 import { createCanvasForUser, listCanvasesForUser, updateCanvasMetaForUser } from "./canvases";
 import { addNoteForUser, deleteNoteForUser, updateNoteForUser } from "./notes";
@@ -27,19 +28,41 @@ function canvasUrl(canvasId: Id<"canvases">) {
   return `${process.env.SITE_URL ?? "https://lean.incrementic.com"}/canvas/${canvasId}`;
 }
 
-/** A note as agents see it. Test fields appear only when set; reviewDay only when the canvas has a launch date. */
-function noteForAgent(n: Doc<"notes">, launchDate: string | undefined) {
+type CanvasContext = { launchDate?: string; memberNames: Map<Id<"users">, string> };
+
+async function canvasContext(ctx: QueryCtx, canvas: Doc<"canvases">): Promise<CanvasContext> {
+  const members = await listCanvasMembers(ctx, canvas);
+  return { launchDate: canvas.launchDate, memberNames: new Map(members.map((m) => [m.userId, m.name])) };
+}
+
+/**
+ * A note as agents see it. Test fields and owner appear only when set; reviewDay only when the
+ * canvas has a launch date.
+ */
+function noteForAgent(n: Doc<"notes">, { launchDate, memberNames }: CanvasContext) {
   return {
     noteId: n._id,
     block: n.block,
     text: n.content,
     evidenceState: n.evidenceState,
+    owner: n.ownerId
+      ? { userId: n.ownerId, name: memberNames.get(n.ownerId) ?? "Former member" }
+      : undefined,
     measure: n.measure,
     passMark: n.passMark,
     reviewDate: n.reviewDate,
     reviewDay: launchDate && n.reviewDate ? daysBetween(launchDate, n.reviewDate) : undefined,
     latestResult: n.latestResult,
   };
+}
+
+/** Agents pass owners as user id strings (from list_canvas_members); null clears the owner. */
+function resolveOwner(ctx: QueryCtx, raw: string | null | undefined): Id<"users"> | null | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === null) return null;
+  const id = ctx.db.normalizeId("users", raw);
+  if (!id) throw new ConvexError(`Unknown user: ${raw}. Use a userId from list_canvas_members.`);
+  return id;
 }
 
 /**
@@ -100,25 +123,34 @@ export const listCanvases = query({
 });
 
 export const getCanvas = query({
-  args: { accessToken: v.string(), canvasId: v.string() },
+  args: {
+    accessToken: v.string(),
+    canvasId: v.string(),
+    // Only notes owned by this user id, or "unassigned" for notes with no owner
+    ownerUserId: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const user = await requireTokenUser(ctx, args.accessToken);
     const { canvas, role } = await resolveCanvas(ctx, user, args.canvasId, false);
 
-    const notes = await ctx.db
-      .query("notes")
-      .withIndex("by_canvas_block", (q) => q.eq("canvasId", canvas._id))
-      .collect();
+    const owner = args.ownerUserId;
+    const notes = (
+      await ctx.db
+        .query("notes")
+        .withIndex("by_canvas_block", (q) => q.eq("canvasId", canvas._id))
+        .collect()
+    ).filter((n) => !owner || (owner === "unassigned" ? !n.ownerId : n.ownerId === owner));
 
     const template = templateOf(canvas);
+    const context = await canvasContext(ctx, canvas);
+    const launchDate = context.launchDate;
     const blocks: Record<string, Omit<ReturnType<typeof noteForAgent>, "block">[]> = {};
-    const launchDate = canvas.launchDate;
     for (const block of BLOCKS_BY_TEMPLATE[template]) {
       blocks[block] = notes
         .filter((n) => n.block === block)
         .sort((a, b) => a.order - b.order)
         .map((n) => {
-          const { block: _block, ...rest } = noteForAgent(n, launchDate);
+          const { block: _block, ...rest } = noteForAgent(n, context);
           return rest;
         });
     }
@@ -133,8 +165,21 @@ export const getCanvas = query({
       status: canvas.status,
       yourRole: role,
       url: canvasUrl(canvas._id),
+      ...(owner ? { filteredByOwner: owner } : {}),
       blocks,
     };
+  },
+});
+
+/**
+ * Everyone with access to a canvas, with the userId to use as a note's owner.
+ */
+export const listMembers = query({
+  args: { accessToken: v.string(), canvasId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { canvas } = await resolveCanvas(ctx, user, args.canvasId, false);
+    return { canvasId: canvas._id, members: await listCanvasMembers(ctx, canvas) };
   },
 });
 
@@ -245,14 +290,16 @@ export const addNote = mutation({
     reason: v.optional(v.string()),
     ...testFieldsUpdateArgs,
     reviewDay: v.optional(v.number()),
+    ownerUserId: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const { user, actor } = await requireTokenActor(ctx, args.accessToken);
     const { canvas } = await resolveCanvas(ctx, user, args.canvasId, true);
-    const { accessToken: _token, canvasId: _canvasId, reviewDay: _day, ...fields } = args;
+    const { accessToken: _token, canvasId: _canvasId, reviewDay: _day, ownerUserId: _owner, ...fields } = args;
     const noteId = await addNoteForUser(ctx, actor, {
       ...fields,
       reviewDate: resolveReviewDay(canvas, args),
+      ownerId: resolveOwner(ctx, args.ownerUserId),
       canvasId: canvas._id,
     });
     return { noteId };
@@ -270,22 +317,27 @@ export const updateNote = mutation({
     link: v.optional(v.string()),
     ...testFieldsUpdateArgs,
     reviewDay: v.optional(v.number()),
+    ownerUserId: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const { user, actor } = await requireTokenActor(ctx, args.accessToken);
     const note = await resolveNote(ctx, user, args.noteId, true);
     const canvas = (await ctx.db.get(note.canvasId))!;
-    const { accessToken: _token, noteId: _noteId, reason, link, reviewDay: _day, ...rest } = args;
-    const changes = { ...rest, reviewDate: resolveReviewDay(canvas, args) };
+    const { accessToken: _token, noteId: _noteId, reason, link, reviewDay: _day, ownerUserId: _owner, ...rest } = args;
+    const changes = {
+      ...rest,
+      reviewDate: resolveReviewDay(canvas, args),
+      ownerId: resolveOwner(ctx, args.ownerUserId),
+    };
     const content = args.content?.trim();
     if (args.content !== undefined && !content) throw new ConvexError("content cannot be empty");
     if (Object.values(changes).every((value) => value === undefined)) {
       throw new ConvexError(
-        "Nothing to change: pass content, block, evidenceState, measure, passMark, reviewDate or latestResult"
+        "Nothing to change: pass content, block, evidenceState, ownerUserId, measure, passMark, reviewDate or latestResult"
       );
     }
     await updateNoteForUser(ctx, actor, note, { ...changes, content, reason, link });
-    return noteForAgent((await ctx.db.get(note._id))!, canvas.launchDate);
+    return noteForAgent((await ctx.db.get(note._id))!, await canvasContext(ctx, canvas));
   },
 });
 
