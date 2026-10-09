@@ -8,6 +8,47 @@ import { getCanvasTemplate } from "../../../utils/canvasTemplates";
 const ALL_BLOCK_IDS = [...new Set([...LEAN_BLOCK_IDS, ...GTM_BLOCK_IDS])];
 const EVIDENCE_STATES = ["unknown", "assumption", "observed", "supported", "contradicted", "decision"];
 
+// Optional test fields, shared by add_note and update_note. On update_note, null clears a field.
+const TEST_FIELD_PROPERTIES = {
+  measure: {
+    type: ["string", "null"],
+    description: "What we watch to test this note, e.g. 'Cost per budget-tool start, by post'",
+  },
+  passMark: {
+    type: ["string", "null"],
+    description: "What counts as success, e.g. 'Below $2 per start'",
+  },
+  reviewDate: {
+    type: ["string", "null"],
+    description: "When the result is checked, as YYYY-MM-DD",
+  },
+  reviewDay: {
+    type: "integer",
+    description:
+      "Alternative to reviewDate: the day of the plan, counted from the canvas's launchDate (day 0), e.g. 30. Needs a launchDate.",
+  },
+  latestResult: {
+    type: ["object", "null"],
+    description: "The most recent result. Replaces the previous one, which stays in the note's history.",
+    properties: {
+      text: { type: "string", description: "What was seen, in a line or two" },
+      date: { type: "string", description: "YYYY-MM-DD; defaults to today (UTC)" },
+      verdict: {
+        type: "string",
+        enum: ["pass", "fail", "inconclusive"],
+        description: "How the result compares with the pass mark",
+      },
+    },
+    required: ["text"],
+  },
+};
+
+const LAUNCH_DATE_PROPERTY = {
+  type: "string",
+  description:
+    "Day 0 of the plan, as YYYY-MM-DD. Review dates then also read as days of the plan (reviewDay), e.g. day 30.",
+};
+
 const REASON_PROPERTY = {
   type: "string",
   description: "Optional one line on why, kept in the note's history",
@@ -61,13 +102,32 @@ const TOOLS_MANIFEST = [
           description: "Whether to initialize with standard starter notes (default: true)",
           default: true,
         },
+        launchDate: LAUNCH_DATE_PROPERTY,
       },
       required: ["title"],
     },
   },
   {
+    name: "update_canvas",
+    description: "Change a canvas's title, description or launch date. Pass only what changes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        canvasId: { type: "string" },
+        title: { type: "string" },
+        description: { type: "string" },
+        launchDate: {
+          type: ["string", "null"],
+          description: `${LAUNCH_DATE_PROPERTY.description} null clears it.`,
+        },
+      },
+      required: ["canvasId"],
+    },
+  },
+  {
     name: "get_canvas",
-    description: "Fetch a canvas (Lean or GTM) with all of its blocks and sticky notes",
+    description:
+      "Fetch a canvas (Lean or GTM) with all of its blocks and sticky notes, including each note's evidence state and, where set, its test (measure, passMark, reviewDate, latestResult). If the canvas has a launchDate, it also returns currentDay and each note's reviewDay (days since launch).",
     inputSchema: {
       type: "object",
       properties: {
@@ -98,6 +158,7 @@ const TOOLS_MANIFEST = [
           enum: EVIDENCE_STATES,
           default: "assumption",
         },
+        ...TEST_FIELD_PROPERTIES,
         reason: REASON_PROPERTY,
       },
       required: ["canvasId", "block", "content"],
@@ -106,8 +167,9 @@ const TOOLS_MANIFEST = [
   {
     name: "update_note",
     description:
-      "Reword a note, move it to another block of the same canvas, or change its evidence state. " +
-      "Pass only what changes. Use this instead of adding a second note when refining one. Every change is kept in the note's history.",
+      "Reword a note, move it to another block of the same canvas, change its evidence state, or set its test " +
+      "(measure, passMark, reviewDate, latestResult). Pass only what changes; null clears a test field. " +
+      "Use this instead of adding a second note when refining one. Every change is kept in the note's history.",
     inputSchema: {
       type: "object",
       properties: {
@@ -119,6 +181,7 @@ const TOOLS_MANIFEST = [
           description: "Move the note to this block (it goes to the end). Must belong to the canvas's template.",
         },
         evidenceState: { type: "string", enum: EVIDENCE_STATES },
+        ...TEST_FIELD_PROPERTIES,
         reason: REASON_PROPERTY,
         link: { type: "string", description: "Optional link backing the change, kept in the note's history" },
       },
@@ -231,6 +294,31 @@ function optStr(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+/** A string sets a field, null clears it, anything else leaves it alone. */
+function nullableStr(value: unknown): string | null | undefined {
+  return value === null ? null : optStr(value);
+}
+
+function testFieldArgs(args: Record<string, unknown>) {
+  const result = args.latestResult as Record<string, unknown> | null | undefined;
+  return {
+    measure: nullableStr(args.measure),
+    passMark: nullableStr(args.passMark),
+    reviewDate: nullableStr(args.reviewDate),
+    reviewDay: typeof args.reviewDay === "number" ? args.reviewDay : undefined,
+    latestResult:
+      result === null
+        ? null
+        : result && typeof result === "object"
+          ? {
+              text: str(result.text),
+              date: optStr(result.date),
+              verdict: optStr(result.verdict) as any, // validated by Convex
+            }
+          : undefined,
+  };
+}
+
 async function callTool(accessToken: string, toolName: string, args: Record<string, unknown>) {
   switch (toolName) {
     case "list_canvases":
@@ -244,6 +332,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         description: str(args.description) || undefined,
         seedNotes: typeof args.seedNotes === "boolean" ? args.seedNotes : undefined,
         template: (str(args.template) || undefined) as any, // validated by Convex
+        launchDate: optStr(args.launchDate),
       });
       const label = getCanvasTemplate(str(args.template)).label;
       return {
@@ -252,6 +341,14 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         message: `Created new ${label}. View and collaborate in realtime at ${result.url}`,
       };
     }
+    case "update_canvas":
+      return await fetchMutation(api.mcp.updateCanvas, {
+        accessToken,
+        canvasId: str(args.canvasId),
+        title: optStr(args.title),
+        description: optStr(args.description),
+        launchDate: nullableStr(args.launchDate),
+      });
     case "add_note":
       return await fetchMutation(api.mcp.addNote, {
         accessToken,
@@ -260,6 +357,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         content: str(args.content),
         evidenceState: (args.evidenceState as any) || undefined,
         reason: optStr(args.reason),
+        ...testFieldArgs(args),
       });
     case "update_note":
       return await fetchMutation(api.mcp.updateNote, {
@@ -270,6 +368,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         evidenceState: optStr(args.evidenceState) as any, // validated by Convex
         reason: optStr(args.reason),
         link: optStr(args.link),
+        ...testFieldArgs(args),
       });
     case "delete_note":
       return await fetchMutation(api.mcp.deleteNote, {

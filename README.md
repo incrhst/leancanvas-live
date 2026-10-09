@@ -45,10 +45,11 @@ For non-technical users, connecting LeanCanvas to Claude takes just one click:
 ### Available MCP Tools for Claude
 When configured, Claude has access to:
 - `list_canvases()`: Lists your canvases with their `template`, role, and URL.
-- `create_canvas({ title, description, template, seedNotes })`: Initializes a new canvas (`template`: `lean` by default, or `gtm`) and returns the direct collaboration URL.
-- `get_canvas({ canvasId })`: Fetches full structured canvas, blocks, and current notes with evidence states.
-- `add_note({ canvasId, block, content, evidenceState, reason })`: Inserts a note into a block of the canvas's template. A block from the other template is rejected.
-- `update_note({ noteId, content, block, evidenceState, reason, link })`: Rewords a note, moves it to another block of the same template, or changes its state. Pass only what changes.
+- `create_canvas({ title, description, template, seedNotes, launchDate })`: Initializes a new canvas (`template`: `lean` by default, or `gtm`) and returns the direct collaboration URL.
+- `update_canvas({ canvasId, title, description, launchDate })`: Changes a canvas's title, description or launch date. The launch date (`YYYY-MM-DD`) is day 0 of the plan; `null` clears it.
+- `get_canvas({ canvasId })`: Fetches full structured canvas, blocks, and current notes with evidence states and tests (`measure`, `passMark`, `reviewDate`, `latestResult`). With a launch date it also returns `currentDay` and each note's `reviewDay`.
+- `add_note({ canvasId, block, content, evidenceState, measure, passMark, reviewDate, reviewDay, latestResult, reason })`: Inserts a note into a block of the canvas's template. A block from the other template is rejected.
+- `update_note({ noteId, content, block, evidenceState, measure, passMark, reviewDate, reviewDay, latestResult, reason, link })`: Rewords a note, moves it to another block of the same template, changes its state, or sets its test. Pass only what changes; `null` clears a test field. Dates are `YYYY-MM-DD`, or give `reviewDay` (e.g. `30`) on a canvas with a launch date; `latestResult` is `{ text, date?, verdict? }` with verdict `pass`, `fail` or `inconclusive`.
 - `delete_note({ noteId, reason })`: Removes a note. Its history stays readable.
 - `get_note_history({ noteId })`: Lists every change to a note, newest first: who, when, app or agent, from and to, and the reason. Works for deleted notes.
 - `update_evidence_state({ noteId, evidenceState, reason })`: Updates state (`unknown`, `assumption`, `observed`, `supported`, `contradicted`, `decision`).

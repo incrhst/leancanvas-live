@@ -8,7 +8,8 @@ import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { getCanvasRole, getUserFromAccessToken, requireTokenActor, requireTokenUser } from "./lib/auth";
 import { listNoteHistory } from "./lib/history";
-import { createCanvasForUser, listCanvasesForUser } from "./canvases";
+import { addDays, daysBetween, testFieldsUpdateArgs, todayUtc } from "./lib/testFields";
+import { createCanvasForUser, listCanvasesForUser, updateCanvasMetaForUser } from "./canvases";
 import { addNoteForUser, deleteNoteForUser, updateNoteForUser } from "./notes";
 import { runStressTestForUser } from "./stressTests";
 import { BLOCKS_BY_TEMPLATE, blockValidator, canvasTemplateValidator, templateOf } from "./lib/canvasTemplates";
@@ -24,6 +25,37 @@ const evidenceValidator = v.union(
 
 function canvasUrl(canvasId: Id<"canvases">) {
   return `${process.env.SITE_URL ?? "https://lean.incrementic.com"}/canvas/${canvasId}`;
+}
+
+/** A note as agents see it. Test fields appear only when set; reviewDay only when the canvas has a launch date. */
+function noteForAgent(n: Doc<"notes">, launchDate: string | undefined) {
+  return {
+    noteId: n._id,
+    block: n.block,
+    text: n.content,
+    evidenceState: n.evidenceState,
+    measure: n.measure,
+    passMark: n.passMark,
+    reviewDate: n.reviewDate,
+    reviewDay: launchDate && n.reviewDate ? daysBetween(launchDate, n.reviewDate) : undefined,
+    latestResult: n.latestResult,
+  };
+}
+
+/**
+ * Lets agents give a review date as a day of the plan ("day 30") instead of a calendar date.
+ */
+function resolveReviewDay(
+  canvas: Doc<"canvases">,
+  args: { reviewDate?: string | null; reviewDay?: number }
+): string | null | undefined {
+  if (args.reviewDay === undefined) return args.reviewDate;
+  if (args.reviewDate !== undefined) throw new ConvexError("Pass reviewDate or reviewDay, not both");
+  if (!Number.isInteger(args.reviewDay)) throw new ConvexError("reviewDay must be a whole number of days");
+  if (!canvas.launchDate) {
+    throw new ConvexError("This canvas has no launch date, so reviewDay can't be used. Set one with update_canvas, or pass reviewDate.");
+  }
+  return addDays(canvas.launchDate, args.reviewDay);
 }
 
 async function resolveNote(ctx: QueryCtx, user: Doc<"users">, rawNoteId: string, needEdit: boolean) {
@@ -79,12 +111,16 @@ export const getCanvas = query({
       .collect();
 
     const template = templateOf(canvas);
-    const blocks: Record<string, { noteId: Id<"notes">; text: string; evidenceState: string }[]> = {};
+    const blocks: Record<string, Omit<ReturnType<typeof noteForAgent>, "block">[]> = {};
+    const launchDate = canvas.launchDate;
     for (const block of BLOCKS_BY_TEMPLATE[template]) {
       blocks[block] = notes
         .filter((n) => n.block === block)
         .sort((a, b) => a.order - b.order)
-        .map((n) => ({ noteId: n._id, text: n.content, evidenceState: n.evidenceState }));
+        .map((n) => {
+          const { block: _block, ...rest } = noteForAgent(n, launchDate);
+          return rest;
+        });
     }
 
     return {
@@ -92,6 +128,8 @@ export const getCanvas = query({
       title: canvas.title,
       description: canvas.description ?? "",
       template,
+      launchDate,
+      currentDay: launchDate ? daysBetween(launchDate, todayUtc()) : undefined,
       status: canvas.status,
       yourRole: role,
       url: canvasUrl(canvas._id),
@@ -150,6 +188,7 @@ export const createCanvas = mutation({
     description: v.optional(v.string()),
     seedNotes: v.optional(v.boolean()),
     template: v.optional(canvasTemplateValidator),
+    launchDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requireTokenUser(ctx, args.accessToken);
@@ -158,8 +197,41 @@ export const createCanvas = mutation({
       description: args.description,
       seedNotes: args.seedNotes,
       template: args.template,
+      launchDate: args.launchDate,
     });
     return { canvasId, url: canvasUrl(canvasId) };
+  },
+});
+
+export const updateCanvas = mutation({
+  args: {
+    accessToken: v.string(),
+    canvasId: v.string(),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    launchDate: v.optional(v.union(v.string(), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { canvas } = await resolveCanvas(ctx, user, args.canvasId, true);
+    const title = args.title?.trim();
+    if (args.title !== undefined && !title) throw new ConvexError("title cannot be empty");
+    if (title === undefined && args.description === undefined && args.launchDate === undefined) {
+      throw new ConvexError("Nothing to change: pass title, description or launchDate");
+    }
+    await updateCanvasMetaForUser(ctx, user._id, canvas._id, {
+      title,
+      description: args.description?.trim(),
+      launchDate: args.launchDate,
+    });
+    const updated = (await ctx.db.get(canvas._id))!;
+    return {
+      canvasId: updated._id,
+      title: updated.title,
+      description: updated.description ?? "",
+      launchDate: updated.launchDate,
+      url: canvasUrl(updated._id),
+    };
   },
 });
 
@@ -171,16 +243,17 @@ export const addNote = mutation({
     content: v.string(),
     evidenceState: v.optional(evidenceValidator),
     reason: v.optional(v.string()),
+    ...testFieldsUpdateArgs,
+    reviewDay: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { user, actor } = await requireTokenActor(ctx, args.accessToken);
     const { canvas } = await resolveCanvas(ctx, user, args.canvasId, true);
+    const { accessToken: _token, canvasId: _canvasId, reviewDay: _day, ...fields } = args;
     const noteId = await addNoteForUser(ctx, actor, {
+      ...fields,
+      reviewDate: resolveReviewDay(canvas, args),
       canvasId: canvas._id,
-      block: args.block,
-      content: args.content,
-      evidenceState: args.evidenceState,
-      reason: args.reason,
     });
     return { noteId };
   },
@@ -195,29 +268,24 @@ export const updateNote = mutation({
     evidenceState: v.optional(evidenceValidator),
     reason: v.optional(v.string()),
     link: v.optional(v.string()),
+    ...testFieldsUpdateArgs,
+    reviewDay: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { user, actor } = await requireTokenActor(ctx, args.accessToken);
     const note = await resolveNote(ctx, user, args.noteId, true);
+    const canvas = (await ctx.db.get(note.canvasId))!;
+    const { accessToken: _token, noteId: _noteId, reason, link, reviewDay: _day, ...rest } = args;
+    const changes = { ...rest, reviewDate: resolveReviewDay(canvas, args) };
     const content = args.content?.trim();
     if (args.content !== undefined && !content) throw new ConvexError("content cannot be empty");
-    if (content === undefined && args.block === undefined && args.evidenceState === undefined) {
-      throw new ConvexError("Nothing to change: pass content, block or evidenceState");
+    if (Object.values(changes).every((value) => value === undefined)) {
+      throw new ConvexError(
+        "Nothing to change: pass content, block, evidenceState, measure, passMark, reviewDate or latestResult"
+      );
     }
-    await updateNoteForUser(ctx, actor, note, {
-      content,
-      block: args.block,
-      evidenceState: args.evidenceState,
-      reason: args.reason,
-      link: args.link,
-    });
-    const updated = (await ctx.db.get(note._id))!;
-    return {
-      noteId: updated._id,
-      block: updated.block,
-      text: updated.content,
-      evidenceState: updated.evidenceState,
-    };
+    await updateNoteForUser(ctx, actor, note, { ...changes, content, reason, link });
+    return noteForAgent((await ctx.db.get(note._id))!, canvas.launchDate);
   },
 });
 

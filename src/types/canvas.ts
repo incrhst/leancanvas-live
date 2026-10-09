@@ -79,6 +79,15 @@ export interface BlockDef {
   emphasis?: boolean;
 }
 
+export type Verdict = "pass" | "fail" | "inconclusive";
+
+export interface LatestResult {
+  text: string;
+  /** YYYY-MM-DD */
+  date: string;
+  verdict?: Verdict;
+}
+
 export interface NoteItem {
   _id: string;
   canvasId?: string;
@@ -86,6 +95,11 @@ export interface NoteItem {
   content: string;
   order: number;
   evidenceState: EvidenceState;
+  measure?: string;
+  passMark?: string;
+  /** YYYY-MM-DD */
+  reviewDate?: string;
+  latestResult?: LatestResult;
   createdBy?: string;
   updatedAt: number;
 }

@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { hashPassword, verifyPassword } from "./lib/password";
+import { checkDate } from "./lib/testFields";
 import { requireAuth, requireOwner, requireEditor, getCurrentUser, getCanvasRole, Role, sha256Hex } from "./lib/auth";
 import { Doc, Id } from "./_generated/dataModel";
 import { MutationCtx, QueryCtx } from "./_generated/server";
@@ -82,7 +83,7 @@ const SEED_NOTES: Record<CanvasTemplate, SeedNote[]> = {
 export async function createCanvasForUser(
   ctx: MutationCtx,
   user: Doc<"users">,
-  args: { title: string; description?: string; seedNotes?: boolean; template?: CanvasTemplate }
+  args: { title: string; description?: string; seedNotes?: boolean; template?: CanvasTemplate; launchDate?: string }
 ): Promise<Id<"canvases">> {
   const template = args.template ?? "lean";
 
@@ -110,6 +111,7 @@ export async function createCanvasForUser(
     title,
     description: args.description?.trim() || undefined,
     template,
+    launchDate: args.launchDate?.trim() ? checkDate(args.launchDate.trim(), "launchDate") : undefined,
     status: "active",
     publicViewToken: crypto.randomUUID(),
     isPublicViewEnabled: false,
@@ -451,6 +453,7 @@ export const getCanvasByPublicToken = query({
         title: canvas.title,
         description: canvas.description,
         template: templateOf(canvas),
+        launchDate: canvas.launchDate,
         status: canvas.status,
         updatedAt: canvas.updatedAt,
       },
@@ -461,6 +464,10 @@ export const getCanvasByPublicToken = query({
           content: n.content,
           order: n.order,
           evidenceState: n.evidenceState,
+          measure: n.measure,
+          passMark: n.passMark,
+          reviewDate: n.reviewDate,
+          latestResult: n.latestResult,
           updatedAt: n.updatedAt,
         }))
         .sort((a, b) => a.order - b.order),
@@ -487,30 +494,59 @@ export const updateCanvasMeta = mutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     status: v.optional(v.union(v.literal("draft"), v.literal("active"), v.literal("archived"))),
+    // null clears it
+    launchDate: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const { user } = await requireEditor(ctx, args.canvasId);
-    const canvas = await ctx.db.get(args.canvasId);
-    if (!canvas) throw new Error("Canvas not found");
-
-    const updates: Partial<typeof canvas> = {
-      updatedAt: Date.now(),
-    };
-    if (args.title !== undefined) updates.title = args.title;
-    if (args.description !== undefined) updates.description = args.description;
-    if (args.status !== undefined) updates.status = args.status;
-
-    await ctx.db.patch(args.canvasId, updates);
-
-    await ctx.db.insert("activity", {
-      canvasId: args.canvasId,
-      userId: user._id,
-      type: "canvas_updated",
-      message: `updated canvas metadata`,
-      createdAt: Date.now(),
-    });
+    const { canvasId, ...changes } = args;
+    await updateCanvasMetaForUser(ctx, user._id, canvasId, changes);
   },
 });
+
+/**
+ * Shared implementation for updating a canvas's title, description, status or launch date
+ * (caller must have verified editor access).
+ */
+export async function updateCanvasMetaForUser(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  canvasId: Id<"canvases">,
+  args: {
+    title?: string;
+    description?: string;
+    status?: Doc<"canvases">["status"];
+    launchDate?: string | null;
+  }
+) {
+  const canvas = await ctx.db.get(canvasId);
+  if (!canvas) throw new Error("Canvas not found");
+
+  const updates: Partial<typeof canvas> = {
+    updatedAt: Date.now(),
+  };
+  if (args.title !== undefined) updates.title = args.title;
+  if (args.description !== undefined) updates.description = args.description;
+  if (args.status !== undefined) updates.status = args.status;
+  if (args.launchDate !== undefined) {
+    updates.launchDate = args.launchDate?.trim() ? checkDate(args.launchDate.trim(), "launchDate") : undefined;
+  }
+
+  await ctx.db.patch(canvasId, updates);
+
+  await ctx.db.insert("activity", {
+    canvasId,
+    userId,
+    type: "canvas_updated",
+    message:
+      args.launchDate !== undefined
+        ? updates.launchDate
+          ? `set the launch date to ${updates.launchDate}`
+          : "cleared the launch date"
+        : `updated canvas metadata`,
+    createdAt: Date.now(),
+  });
+}
 
 /**
  * Toggles public view or regenerates public token (Owner only).

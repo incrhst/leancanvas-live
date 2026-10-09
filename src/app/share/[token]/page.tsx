@@ -7,6 +7,8 @@ import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CanvasBoard } from "../../../components/CanvasBoard";
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
+import { LaunchDayChip } from "../../../components/LaunchDayChip";
+import { LaunchDateContext } from "../../../utils/testFields";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptionsView";
 import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/CanvasViewToggle";
@@ -181,6 +183,7 @@ export default function PublicSharePage() {
           <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-stone-100 text-stone-700 border border-stone-300">
             VIEWER (READ-ONLY)
           </span>
+          <LaunchDayChip launchDate={data.canvas.launchDate} />
         </div>
 
         <div className="flex items-center gap-2">
@@ -213,67 +216,69 @@ export default function PublicSharePage() {
       </header>
 
       {/* Main Board (canEdit = false) */}
-      <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3">
-          <CanvasViewToggle
-            view={view}
-            riskCount={publicStressTest?.riskiestAssumptions.length ?? 0}
-            onChange={setView}
-          />
-          {view === "risks" ? (
-            <RiskiestAssumptionsView
-              blocks={template.blocks}
-              result={publicStressTest}
-              notes={notes}
-              onOpenNote={(noteId) => {
-                setView("canvas");
-                setSelectedId(noteId);
-              }}
+      <LaunchDateContext.Provider value={data.canvas.launchDate}>
+        <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3">
+            <CanvasViewToggle
+              view={view}
+              riskCount={publicStressTest?.riskiestAssumptions.length ?? 0}
+              onChange={setView}
             />
-          ) : (
-          <CanvasBoard
-            blocks={template.blocks}
-            riskRanks={riskRanksFor(publicStressTest?.riskiestAssumptions)}
-            notes={notes}
-            selectedId={selectedId}
-            canEdit={false} // Strictly read-only for anonymous users
-            onSelect={(id) => setSelectedId((curr) => (curr === id ? null : id))}
-          />
-          )}
-        </div>
-
-        {/* Read-only side panel */}
-        {(selectedNote || showStressTest) && (
-          <aside className="w-full shrink-0 border-t border-line bg-surface lg:h-full lg:w-[360px] lg:border-l lg:border-t-0 shadow-sm z-10 flex flex-col">
-            {showStressTest ? (
-              <StressTestPanel
-                template={template}
+            {view === "risks" ? (
+              <RiskiestAssumptionsView
+                blocks={template.blocks}
                 result={publicStressTest}
-                isRunning={false}
-                canRun={false} // Anonymous users cannot run mutations or trigger AI actions
-                onRunTest={() => {}}
-                onClose={() => setShowStressTest(false)}
-                onViewRisks={() => {
-                  setView("risks");
-                  setShowStressTest(false);
+                notes={notes}
+                onOpenNote={(noteId) => {
+                  setView("canvas");
+                  setSelectedId(noteId);
                 }}
               />
-            ) : selectedNote ? (
-              <NoteDetailPanel
-                note={selectedNote}
-                blockTitle={
-                  template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block
-                }
-                canEdit={false} // Read-only
-                onClose={() => setSelectedId(null)}
-                onUpdate={() => {}}
-                onUpdateEvidence={() => {}}
-                onDelete={() => {}}
-              />
-            ) : null}
-          </aside>
-        )}
-      </main>
+            ) : (
+            <CanvasBoard
+              blocks={template.blocks}
+              riskRanks={riskRanksFor(publicStressTest?.riskiestAssumptions)}
+              notes={notes}
+              selectedId={selectedId}
+              canEdit={false} // Strictly read-only for anonymous users
+              onSelect={(id) => setSelectedId((curr) => (curr === id ? null : id))}
+            />
+            )}
+          </div>
+
+          {/* Read-only side panel */}
+          {(selectedNote || showStressTest) && (
+            <aside className="w-full shrink-0 border-t border-line bg-surface lg:h-full lg:w-[360px] lg:border-l lg:border-t-0 shadow-sm z-10 flex flex-col">
+              {showStressTest ? (
+                <StressTestPanel
+                  template={template}
+                  result={publicStressTest}
+                  isRunning={false}
+                  canRun={false} // Anonymous users cannot run mutations or trigger AI actions
+                  onRunTest={() => {}}
+                  onClose={() => setShowStressTest(false)}
+                  onViewRisks={() => {
+                    setView("risks");
+                    setShowStressTest(false);
+                  }}
+                />
+              ) : selectedNote ? (
+                <NoteDetailPanel
+                  note={selectedNote}
+                  blockTitle={
+                    template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block
+                  }
+                  canEdit={false} // Read-only
+                  onClose={() => setSelectedId(null)}
+                  onUpdate={() => {}}
+                  onUpdateEvidence={() => {}}
+                  onDelete={() => {}}
+                />
+              ) : null}
+            </aside>
+          )}
+        </main>
+      </LaunchDateContext.Provider>
     </div>
   );
 }

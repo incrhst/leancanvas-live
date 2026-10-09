@@ -21,6 +21,8 @@ interface TopBarProps {
   onExportJson?: () => void;
   /** PDF and PNG export menu, rendered before the Markdown and JSON buttons */
   exportMenu?: React.ReactNode;
+  /** Shown after the role badge, e.g. the launch day chip */
+  status?: React.ReactNode;
 }
 
 export function TopBar({
@@ -32,6 +34,7 @@ export function TopBar({
   onExportMarkdown,
   onExportJson,
   exportMenu,
+  status,
 }: TopBarProps) {
   const isAnonymous = role === "anonymous" || role === "viewer";
 
@@ -77,6 +80,7 @@ export function TopBar({
         >
           {role.toUpperCase()}
         </span>
+        {status}
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
