@@ -2,15 +2,8 @@ import React, { useContext } from "react";
 import { FlaskConicalIcon } from "lucide-react";
 import { LatestResult, NoteItem, Verdict } from "../types/canvas";
 import { EditableField } from "./EditableField";
-import {
-  LaunchDateContext,
-  VERDICT_CONFIG,
-  formatCalendarDate,
-  hasTest,
-  isReviewOverdue,
-  planDay,
-  todayLocal,
-} from "../utils/testFields";
+import { VERDICT_CONFIG, formatCalendarDate, hasTest, isReviewOverdue, planDay, todayLocal } from "../utils/testFields";
+import { LaunchDateContext } from "../utils/launchDate";
 
 export type TestFieldsPatch = {
   measure?: string | null;
