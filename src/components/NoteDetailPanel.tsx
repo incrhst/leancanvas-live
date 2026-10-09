@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Trash2Icon, XIcon, CheckCircle2Icon } from "lucide-react";
+import { Trash2Icon, XIcon, ChevronDownIcon } from "lucide-react";
 import { NoteItem, EvidenceState } from "../types/canvas";
 import { EvidenceBadge, EVIDENCE_CONFIG, EVIDENCE_STATES } from "./EvidenceBadge";
 import { NoteHistory } from "./NoteHistory";
@@ -9,6 +9,26 @@ import { NoteTestFields, TestFieldsPatch } from "./NoteTestFields";
 import { NoteOwnerField } from "./OwnerControls";
 import { NoteDecisionSection } from "./NoteDecision";
 import { NoteMarketsField } from "./MarketControls";
+import { hasTest } from "../utils/testFields";
+
+/** Claim box tint per state. Full class names so Tailwind finds them; ! beats EditableField's base colours. */
+const CLAIM_TINT: Record<EvidenceState, string> = {
+  unknown: "!bg-surface !border-dashed !border-stone-300",
+  assumption: "!bg-amber-50/70 !border-amber-300",
+  observed: "!bg-blue-50/60 !border-blue-300",
+  supported: "!bg-emerald-50/60 !border-emerald-300",
+  contradicted: "!bg-rose-50 !border-rose-400",
+  decision: "!bg-purple-50/60 !border-purple-300",
+};
+
+const NEXT_STEP: Record<EvidenceState, { title: string; body: string }> = {
+  unknown: { title: "Start with your best guess", body: "If you believe this but have not checked it, mark it as an assumption." },
+  assumption: { title: "Decide how you would find out", body: "A test says what to watch and what result would prove this wrong." },
+  observed: { title: "Turn what you saw into a test", body: "You have seen this once. Say what to watch to be sure it holds." },
+  supported: { title: "The evidence backs this", body: "Ready to commit? Ask the team to make it a decision." },
+  contradicted: { title: "The evidence goes against this", body: "Rewrite the claim, or ask the team whether to drop it." },
+  decision: { title: "The team has committed to this", body: "Nothing more to do here." },
+};
 
 interface NoteDetailPanelProps {
   note: NoteItem;
@@ -49,7 +69,17 @@ export function NoteDetailPanel({
   const [reason, setReason] = useState("");
   const [reasonStatus, setReasonStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
+  const [showTest, setShowTest] = useState(false);
+  const [showMore, setShowMore] = useState<boolean | null>(null);
+  const step = NEXT_STEP[note.evidenceState];
+  const testPrompt = note.evidenceState === "assumption" || note.evidenceState === "observed";
+  const decisionPrompt = note.evidenceState === "supported" || note.evidenceState === "contradicted";
+  const testVisible = hasTest(note) || (testPrompt && showTest);
+  const moreOpen = showMore ?? !!(note.ownerId || note.markets?.length);
+
   useEffect(() => {
+    setShowTest(false);
+    setShowMore(null);
     setChangedTo(null);
     setReason("");
     setReasonStatus("idle");
@@ -107,31 +137,25 @@ export function NoteDetailPanel({
         </div>
       </header>
 
-      <div className="p-4 space-y-5 flex-1">
-        {/* Note Content */}
+      <div className="p-4 space-y-6 flex-1">
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-muted">Claim / Item Content</label>
+          <label className="text-xs font-semibold text-muted">What do we believe?</label>
           <EditableField
             multiline
-            rows={4}
+            rows={3}
             required
             disabled={!canEdit}
             value={note.content}
             onCommit={onUpdate}
-            className="!border-amber-200/80 !bg-amber-50/50 p-3"
+            className={`!p-3 !text-base ${CLAIM_TINT[note.evidenceState]}`}
           />
         </div>
 
-        {/* Evidence State Selector */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-muted">Evidence State</label>
-            <EvidenceBadge state={note.evidenceState} />
-          </div>
-
+          <p className="text-xs font-semibold text-muted">How sure are we?</p>
           {canEdit ? (
             <>
-              <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="grid grid-cols-3 gap-2">
                 {EVIDENCE_STATES.map((state) => {
                   const conf = EVIDENCE_CONFIG[state];
                   const Icon = conf.icon;
@@ -142,25 +166,21 @@ export function NoteDetailPanel({
                       type="button"
                       aria-pressed={active}
                       onClick={() => changeState(state)}
-                      className={`flex flex-col items-start p-2 rounded-lg border text-left text-xs transition-all ${
+                      className={`flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2 text-xs transition-colors ${
                         active
                           ? `${conf.bg} ${conf.text} ${conf.border} ring-1 ring-accent font-semibold`
                           : "bg-surface border-line text-ink hover:bg-surface-2"
                       }`}
                     >
-                      <span className="flex items-center gap-1.5">
-                        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                        {conf.label}
-                      </span>
-                      <span
-                        className={`mt-0.5 text-[10px] font-normal leading-snug ${active ? "opacity-80" : "text-muted"}`}
-                      >
-                        {conf.desc}
-                      </span>
+                      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      {conf.label}
                     </button>
                   );
                 })}
               </div>
+              <p className="text-xs text-muted" aria-live="polite">
+                {EVIDENCE_CONFIG[note.evidenceState].desc}.
+              </p>
 
               {onAddReason && changedTo && (
                 <form onSubmit={saveReason} className="space-y-1.5 rounded-lg border border-line bg-surface-2 p-2">
@@ -192,32 +212,76 @@ export function NoteDetailPanel({
               {reasonStatus === "saved" && <p className="text-[11px] text-muted">Reason saved to history.</p>}
             </>
           ) : (
-            <p className="text-xs text-muted">
-              Viewing in read-only mode. Sign in with editor permissions to change evidence status.
-            </p>
+            <>
+              <EvidenceBadge state={note.evidenceState} />
+              <p className="text-xs text-muted">Viewing in read-only mode. Sign in with editor permissions to make changes.</p>
+            </>
           )}
         </div>
 
-        <NoteDecisionSection note={note} canEdit={canEdit} />
+        {canEdit && (
+          <section
+            aria-label="Next step"
+            className={`space-y-3 rounded-xl border p-4 ${EVIDENCE_CONFIG[note.evidenceState].card}`}
+          >
+            <div className="space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">Next step</p>
+              <p className="text-sm font-semibold text-ink">{step.title}</p>
+              <p className="text-xs text-muted">{step.body}</p>
+            </div>
+            {note.evidenceState === "unknown" && (
+              <button
+                type="button"
+                onClick={() => changeState("assumption")}
+                className="min-h-11 rounded-lg bg-ink px-4 text-sm font-semibold text-surface hover:opacity-90"
+              >
+                Mark as assumption
+              </button>
+            )}
+            {testPrompt && !testVisible && (
+              <button
+                type="button"
+                onClick={() => setShowTest(true)}
+                className="min-h-11 rounded-lg bg-ink px-4 text-sm font-semibold text-surface hover:opacity-90"
+              >
+                Add a test
+              </button>
+            )}
+            {testVisible && <NoteTestFields note={note} canEdit={canEdit} onUpdate={onUpdateTest} />}
+            {(decisionPrompt || note.decision) && <NoteDecisionSection note={note} canEdit={canEdit} />}
+          </section>
+        )}
 
-        <NoteOwnerField note={note} canEdit={canEdit} onChange={onUpdateOwner} />
+        {!canEdit && (
+          <>
+            <NoteDecisionSection note={note} canEdit={canEdit} />
+            <NoteOwnerField note={note} canEdit={canEdit} onChange={onUpdateOwner} />
+            <NoteMarketsField note={note} canEdit={canEdit} allMarkets={allMarkets} onChange={onUpdateMarkets} />
+            <NoteTestFields note={note} canEdit={canEdit} onUpdate={onUpdateTest} />
+          </>
+        )}
 
-        <NoteMarketsField note={note} canEdit={canEdit} allMarkets={allMarkets} onChange={onUpdateMarkets} />
-
-        <NoteTestFields note={note} canEdit={canEdit} onUpdate={onUpdateTest} />
+        {canEdit && (
+          <div className="space-y-3">
+            <button
+              type="button"
+              aria-expanded={moreOpen}
+              onClick={() => setShowMore(!moreOpen)}
+              className="flex min-h-11 items-center gap-1.5 text-sm font-semibold text-accent"
+            >
+              <ChevronDownIcon className={`h-4 w-4 transition-transform ${moreOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+              {moreOpen ? "Hide owner and markets" : "Owner and markets"}
+            </button>
+            {moreOpen && (
+              <div className="space-y-5">
+                <NoteOwnerField note={note} canEdit={canEdit} onChange={onUpdateOwner} />
+                <NoteMarketsField note={note} canEdit={canEdit} allMarkets={allMarkets} onChange={onUpdateMarkets} />
+              </div>
+            )}
+          </div>
+        )}
 
         {blockTitleOf && <NoteHistory noteId={note._id} blockTitleOf={blockTitleOf} />}
-
-        {/* Validation hint */}
-        <div className="rounded-xl bg-surface-2 border border-line p-3 text-xs text-muted space-y-1">
-          <div className="font-semibold text-ink flex items-center gap-1">
-            <CheckCircle2Icon className="w-3.5 h-3.5 text-accent" />
-            Ash Maurya Validation Framework
-          </div>
-          <p className="text-[11px] leading-relaxed">
-            Move items systematically from <strong>Assumption</strong> to <strong>Observed</strong> or <strong>Supported</strong> through customer interviews, concierge tests, and observable sales traction.
-          </p>
-        </div>
       </div>
     </motion.div>
   );
