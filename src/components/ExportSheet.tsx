@@ -1,6 +1,7 @@
 import React from "react";
-import { FlaskConicalIcon, LayoutGridIcon, ShieldAlertIcon } from "lucide-react";
+import { FlaskConicalIcon, LayoutGridIcon } from "lucide-react";
 import { EvidenceBadge, EVIDENCE_CONFIG } from "./EvidenceBadge";
+import { noteCardClass, RiskTag } from "./StickyNote";
 import { statusFor } from "./RiskiestAssumptionsView";
 import { riskRanksFor } from "./CanvasViewToggle";
 import { blockName, CanvasTemplateDef } from "../utils/canvasTemplates";
@@ -57,7 +58,7 @@ export function ExportSheet({
     <div
       ref={ref}
       style={{ width: isRisks ? RISKS_WIDTH : CANVAS_WIDTH }}
-      className="border-t-4 border-accent bg-white p-12 font-sans text-ink"
+      className="bg-white p-12 font-sans text-ink"
     >
       <header className="flex items-start justify-between gap-6">
         <div className="flex items-center gap-3">
@@ -207,17 +208,8 @@ function SheetBlock({
 
 function SheetNote({ note, riskRank }: { note: NoteItem; riskRank?: number }) {
   return (
-    <article
-      className={`rounded-lg border p-2.5 ${
-        riskRank ? "border-rose-300 bg-rose-50" : "border-amber-200/80 bg-amber-50/70"
-      }`}
-    >
-      {riskRank && (
-        <div className="mb-1.5 inline-flex items-center gap-1 rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-800">
-          <ShieldAlertIcon className="h-3 w-3" aria-hidden="true" />
-          Risk #{riskRank}
-        </div>
-      )}
+    <article className={`p-2.5 ${noteCardClass(note)}`}>
+      {riskRank && <RiskTag rank={riskRank} />}
       <p className="text-[13px] leading-snug text-ink">{note.content}</p>
       <div className="mt-2.5 pt-1">
         <EvidenceBadge state={note.evidenceState || "assumption"} />

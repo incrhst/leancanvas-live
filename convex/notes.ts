@@ -3,7 +3,14 @@ import { v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
 import { requireEditor, getCanvasRole, getCurrentUser } from "./lib/auth";
 import { assertBlockForTemplate, blockValidator, templateOf } from "./lib/canvasTemplates";
-import { Actor, diffFields, listNoteHistory, recordNoteHistory, trackedFields } from "./lib/history";
+import {
+  Actor,
+  annotateLatestChange,
+  diffFields,
+  listNoteHistory,
+  recordNoteHistory,
+  trackedFields,
+} from "./lib/history";
 import { TestFieldsUpdate, testFieldsPatch, testFieldsUpdateArgs } from "./lib/testFields";
 
 type EvidenceState = Doc<"notes">["evidenceState"];
@@ -254,6 +261,22 @@ export const reorderNotes = mutation({
     }
 
     await ctx.db.patch(args.canvasId, { updatedAt: now });
+  },
+});
+
+/**
+ * Adds a one-line reason to the caller's latest change to a note.
+ */
+export const addReasonToLatestChange = mutation({
+  args: {
+    noteId: v.id("notes"),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const note = await ctx.db.get(args.noteId);
+    if (!note) throw new Error("Note not found");
+    const { user } = await requireEditor(ctx, note.canvasId);
+    await annotateLatestChange(ctx, uiActor(user._id), note._id, args.reason);
   },
 });
 
