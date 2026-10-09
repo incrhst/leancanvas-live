@@ -19,6 +19,7 @@ function snapshotNoteOf(note: Doc<"notes">): SnapshotNote {
     reviewDate: note.reviewDate,
     latestResult: note.latestResult,
     ownerId: note.ownerId,
+    markets: note.markets,
     decisionStatus: note.decision?.status,
   };
 }

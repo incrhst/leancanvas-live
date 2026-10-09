@@ -115,6 +115,8 @@ export interface NoteItem {
   reviewDate?: string;
   latestResult?: LatestResult;
   ownerId?: string;
+  /** Markets where the note holds; none means every market */
+  markets?: string[];
   decision?: DecisionRequest;
   createdBy?: string;
   updatedAt: number;

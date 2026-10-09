@@ -128,6 +128,8 @@ export default defineSchema({
     ...testFieldsSchema,
     // The one person responsible for this note; any canvas member, viewers included
     ownerId: v.optional(v.id("users")),
+    // Where the note holds (e.g. "Jamaica"); none means every market. See lib/markets.ts
+    markets: v.optional(v.array(v.string())),
     // A decision someone has been asked to make about this note
     decision: v.optional(decisionRequestValidator),
     createdBy: v.id("users"),
@@ -186,6 +188,7 @@ export default defineSchema({
     evidenceState: evidenceStateValidator,
     ...testFieldsSchema,
     ownerId: v.optional(v.id("users")),
+    markets: v.optional(v.array(v.string())),
     decisionStatus: v.optional(decisionStatusValidator),
   }).index("by_snapshot", ["snapshotId"]),
 

@@ -56,6 +56,7 @@ function noteForAgent(n: Doc<"notes">, { launchDate, memberNames }: CanvasContex
     owner: n.ownerId
       ? { userId: n.ownerId, name: memberNames.get(n.ownerId) ?? "Former member" }
       : undefined,
+    markets: n.markets,
     decision: n.decision
       ? {
           question: n.decision.question,
@@ -153,18 +154,22 @@ export const getCanvas = query({
     canvasId: v.string(),
     // Only notes owned by this user id, or "unassigned" for notes with no owner
     ownerUserId: v.optional(v.string()),
+    // Only notes that hold in this market: tagged with it, or untagged (which means every market)
+    market: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requireTokenUser(ctx, args.accessToken);
     const { canvas, role } = await resolveCanvas(ctx, user, args.canvasId, false);
 
     const owner = args.ownerUserId;
-    const notes = (
-      await ctx.db
-        .query("notes")
-        .withIndex("by_canvas_block", (q) => q.eq("canvasId", canvas._id))
-        .collect()
-    ).filter((n) => !owner || (owner === "unassigned" ? !n.ownerId : n.ownerId === owner));
+    const market = args.market?.trim().toLowerCase();
+    const allNotes = await ctx.db
+      .query("notes")
+      .withIndex("by_canvas_block", (q) => q.eq("canvasId", canvas._id))
+      .collect();
+    const notes = allNotes
+      .filter((n) => !owner || (owner === "unassigned" ? !n.ownerId : n.ownerId === owner))
+      .filter((n) => !market || !n.markets || n.markets.some((m) => m.toLowerCase() === market));
 
     const template = templateOf(canvas);
     const context = await canvasContext(ctx, canvas);
@@ -191,6 +196,8 @@ export const getCanvas = query({
       yourRole: role,
       url: canvasUrl(canvas._id),
       ...(owner ? { filteredByOwner: owner } : {}),
+      ...(market ? { filteredByMarket: args.market!.trim() } : {}),
+      markets: [...new Set(allNotes.flatMap((n) => n.markets ?? []))].sort(),
       blocks,
     };
   },
@@ -316,6 +323,7 @@ export const addNote = mutation({
     ...testFieldsUpdateArgs,
     reviewDay: v.optional(v.number()),
     ownerUserId: v.optional(v.union(v.string(), v.null())),
+    markets: v.optional(v.union(v.array(v.string()), v.null())),
   },
   handler: async (ctx, args) => {
     const { user, actor } = await requireTokenActor(ctx, args.accessToken);
@@ -343,6 +351,7 @@ export const updateNote = mutation({
     ...testFieldsUpdateArgs,
     reviewDay: v.optional(v.number()),
     ownerUserId: v.optional(v.union(v.string(), v.null())),
+    markets: v.optional(v.union(v.array(v.string()), v.null())),
   },
   handler: async (ctx, args) => {
     const { user, actor } = await requireTokenActor(ctx, args.accessToken);

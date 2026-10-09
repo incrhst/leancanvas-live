@@ -20,6 +20,7 @@ export function exportCanvasMarkdown(
     } else {
       for (const note of blockNotes) {
         md += `- [**${note.evidenceState.toUpperCase()}**] ${note.content}\n`;
+        if (note.markets?.length) md += `  - Markets: ${note.markets.join(", ")}\n`;
         if (note.measure) md += `  - Measure: ${note.measure}\n`;
         if (note.passMark) md += `  - Pass mark: ${note.passMark}\n`;
         if (note.reviewDate) md += `  - Review: ${note.reviewDate}\n`;

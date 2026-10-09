@@ -57,6 +57,8 @@ export function describeChange(change: Change, blockTitleOf: (blockId: string) =
   switch (change.field) {
     case "owner":
       return fromTo("Owner", change.from, change.to);
+    case "markets":
+      return fromTo("Markets", change.from, change.to);
     case "decision.status": {
       const status = (value?: string) => (value === undefined ? undefined : DECISION_STATUS_LABELS[value] ?? value);
       return fromTo("Decision", status(change.from), status(change.to));

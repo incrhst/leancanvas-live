@@ -1,6 +1,7 @@
 import { MutationCtx, QueryCtx } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
 import { displayName } from "./members";
+import { marketsLabel } from "./markets";
 
 /** Who made a change, and through which surface. */
 export type Actor = {
@@ -19,7 +20,15 @@ const COALESCE_WINDOW_MS = 2 * 60 * 1000;
 export function trackedFields(
   note: Pick<
     Doc<"notes">,
-    "content" | "block" | "evidenceState" | "measure" | "passMark" | "reviewDate" | "latestResult" | "ownerId"
+    | "content"
+    | "block"
+    | "evidenceState"
+    | "measure"
+    | "passMark"
+    | "reviewDate"
+    | "latestResult"
+    | "ownerId"
+    | "markets"
   >
 ) {
   return {
@@ -33,6 +42,7 @@ export function trackedFields(
     "latestResult.date": note.latestResult?.date,
     "latestResult.verdict": note.latestResult?.verdict,
     ownerId: note.ownerId,
+    markets: marketsLabel(note.markets),
   } as Record<string, string | undefined>;
 }
 

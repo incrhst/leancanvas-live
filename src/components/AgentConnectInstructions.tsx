@@ -138,11 +138,12 @@ const AGENT_TOOLS: AgentTool[] = [
     name: "get_canvas",
     summary: "Read a canvas with its blocks and sticky notes.",
     detail:
-      "Returns the canvas's template, each block's notes, and every note's evidence state, owner and test. Pass ownerUserId to see one person's notes.",
+      "Returns the canvas's template, each block's notes, and every note's evidence state, owner, market tags and test. Pass ownerUserId to see one person's notes, or market to see what holds in one market.",
     changesCanvas: false,
     inputs: [
       { name: "canvasId", required: true },
       { name: "ownerUserId", required: false },
+      { name: "market", required: false },
     ],
   },
   {
@@ -164,6 +165,7 @@ const AGENT_TOOLS: AgentTool[] = [
       { name: "content", required: true },
       { name: "evidenceState", required: false },
       { name: "ownerUserId", required: false },
+      { name: "markets", required: false },
       { name: "measure", required: false },
       { name: "passMark", required: false },
       { name: "reviewDate", required: false },
@@ -184,6 +186,7 @@ const AGENT_TOOLS: AgentTool[] = [
       { name: "block", required: false },
       { name: "evidenceState", required: false },
       { name: "ownerUserId", required: false },
+      { name: "markets", required: false },
       { name: "measure", required: false },
       { name: "passMark", required: false },
       { name: "reviewDate", required: false },

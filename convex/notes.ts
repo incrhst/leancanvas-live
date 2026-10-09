@@ -12,6 +12,7 @@ import {
   trackedFields,
 } from "./lib/history";
 import { TestFieldsUpdate, testFieldsPatch, testFieldsUpdateArgs } from "./lib/testFields";
+import { normalizeMarkets } from "./lib/markets";
 
 type EvidenceState = Doc<"notes">["evidenceState"];
 type Block = Doc<"notes">["block"];
@@ -49,6 +50,7 @@ export async function addNoteForUser(
     content: string;
     evidenceState?: EvidenceState;
     ownerId?: Id<"users"> | null;
+    markets?: string[] | null;
     reason?: string;
   } & TestFieldsUpdate
 ): Promise<Id<"notes">> {
@@ -64,6 +66,7 @@ export async function addNoteForUser(
     evidenceState: args.evidenceState || "assumption",
     ...testFieldsPatch(args),
     ownerId: await checkOwner(ctx, args.canvasId, args.ownerId),
+    markets: await normalizeMarkets(ctx, args.canvasId, args.markets),
   };
 
   const noteId = await ctx.db.insert("notes", {
@@ -110,6 +113,7 @@ export async function updateNoteForUser(
     block?: Block;
     evidenceState?: EvidenceState;
     ownerId?: Id<"users"> | null;
+    markets?: string[] | null;
     reason?: string;
     link?: string;
   } & TestFieldsUpdate
@@ -120,6 +124,7 @@ export async function updateNoteForUser(
   if (args.content !== undefined) patch.content = args.content;
   if (args.evidenceState !== undefined) patch.evidenceState = args.evidenceState;
   if (args.ownerId !== undefined) patch.ownerId = await checkOwner(ctx, note.canvasId, args.ownerId);
+  if (args.markets !== undefined) patch.markets = await normalizeMarkets(ctx, note.canvasId, args.markets);
   if (args.block !== undefined && args.block !== note.block) {
     const canvas = await ctx.db.get(note.canvasId);
     if (!canvas) throw new Error("Canvas not found");
@@ -210,6 +215,8 @@ export const updateNote = mutation({
     content: v.optional(v.string()),
     // null clears the owner
     ownerId: v.optional(v.union(v.id("users"), v.null())),
+    // [] or null clears the tags
+    markets: v.optional(v.union(v.array(v.string()), v.null())),
     ...testFieldsUpdateArgs,
     evidenceState: v.optional(
       v.union(

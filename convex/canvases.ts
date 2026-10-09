@@ -470,6 +470,7 @@ export const getCanvasByPublicToken = query({
           passMark: n.passMark,
           reviewDate: n.reviewDate,
           latestResult: n.latestResult,
+          markets: n.markets,
           updatedAt: n.updatedAt,
         }))
         .sort((a, b) => a.order - b.order),
