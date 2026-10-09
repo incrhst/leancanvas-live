@@ -6,7 +6,8 @@ import { OwnerChip } from "./OwnerControls";
 import { DecisionSummary } from "./NoteDecision";
 import { MarketTags } from "./MarketControls";
 import { NoteItem } from "../types/canvas";
-import { LaunchDateContext, VERDICT_CONFIG, formatPlanDate, hasTest, isReviewOverdue } from "../utils/testFields";
+import { VERDICT_CONFIG, formatPlanDate, hasTest, isReviewOverdue } from "../utils/testFields";
+import { LaunchDateContext } from "../utils/launchDate";
 
 interface StickyNoteProps {
   note: NoteItem;
