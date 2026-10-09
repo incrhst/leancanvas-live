@@ -8,7 +8,7 @@ import { useParams, usePathname, useRouter, useSearchParams } from "next/navigat
 import { CanvasBoard } from "../../../components/CanvasBoard";
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
 import { LaunchDayChip } from "../../../components/LaunchDayChip";
-import { useEvidenceFilter } from "../../../utils/evidenceFilter";
+import { noteMatchesEvidence, useEvidenceFilter } from "../../../utils/evidenceFilter";
 import { EvidenceLegend } from "../../../components/EvidenceLegend";
 import { LaunchDateContext } from "../../../utils/launchDate";
 import { StressTestPanel } from "../../../components/StressTestPanel";
@@ -16,6 +16,7 @@ import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptions
 import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/CanvasViewToggle";
 import { NoteItem, StressTestResult } from "../../../types/canvas";
 import { GlobeIcon, SparklesIcon, LogInIcon, FileTextIcon, DownloadIcon, LockIcon } from "lucide-react";
+import { NoteSearch, NoteSearchButton, useNoteSearchShortcut } from "../../../components/NoteSearch";
 import { ExportMenu } from "../../../components/ExportMenu";
 import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
 import { getCanvasTemplate } from "../../../utils/canvasTemplates";
@@ -44,6 +45,8 @@ export default function PublicSharePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showStressTest, setShowStressTest] = useState(false);
   const evidence = useEvidenceFilter();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  useNoteSearchShortcut(() => setIsSearchOpen(true));
 
   // Restore a viewing pass from this browser session, if any
   useEffect(() => {
@@ -222,11 +225,14 @@ export default function PublicSharePage() {
       <LaunchDateContext.Provider value={data.canvas.launchDate}>
         <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
           <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3">
-            <CanvasViewToggle
-              view={view}
-              riskCount={publicStressTest?.riskiestAssumptions.length ?? 0}
-              onChange={setView}
-            />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CanvasViewToggle
+                view={view}
+                riskCount={publicStressTest?.riskiestAssumptions.length ?? 0}
+                onChange={setView}
+              />
+              <NoteSearchButton onClick={() => setIsSearchOpen(true)} />
+            </div>
             {view === "canvas" && (
               <EvidenceLegend
                 filter={evidence.filter}
@@ -293,6 +299,27 @@ export default function PublicSharePage() {
           )}
         </main>
       </LaunchDateContext.Provider>
+
+      {isSearchOpen && (
+        <NoteSearch
+          notes={notes}
+          blocks={template.blocks}
+          onClose={() => setIsSearchOpen(false)}
+          onSelect={(noteId) => {
+            const note = notes.find((n) => n._id === noteId);
+            if (note && evidence.filter.mode === "hide" && !noteMatchesEvidence(note, evidence.filter)) {
+              evidence.clear();
+            }
+            setIsSearchOpen(false);
+            setView("canvas");
+            setShowStressTest(false);
+            setSelectedId(noteId);
+            setTimeout(() => {
+              document.getElementById(`note-${noteId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+            }, 80);
+          }}
+        />
+      )}
     </div>
   );
 }
