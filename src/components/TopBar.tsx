@@ -10,6 +10,7 @@ import {
   FileTextIcon,
   CameraIcon,
   AlignLeftIcon,
+  PresentationIcon,
 } from "lucide-react";
 import { Role } from "../types/canvas";
 
@@ -20,6 +21,8 @@ interface TopBarProps {
   onOpenShare?: () => void;
   onOpenStressTest?: () => void;
   onOpenSnapshots?: () => void;
+  /** Link to review mode */
+  reviewHref?: string;
   onExportMarkdown?: () => void;
   /** Plain-language summary for a non-technical reader */
   onExportSummary?: () => void;
@@ -37,6 +40,7 @@ export function TopBar({
   onOpenShare,
   onOpenStressTest,
   onOpenSnapshots,
+  reviewHref,
   onExportMarkdown,
   onExportSummary,
   onExportJson,
@@ -46,8 +50,8 @@ export function TopBar({
   const isAnonymous = role === "anonymous" || role === "viewer";
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-4">
-      <div className="flex min-w-0 items-center gap-3">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-line bg-surface px-3 sm:gap-4 sm:px-4">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         <Link
           href="/dashboard"
           className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-ink text-surface hover:opacity-90"
@@ -77,7 +81,7 @@ export function TopBar({
 
         {/* Role badge */}
         <span
-          className={`px-2 py-0.5 rounded text-[11px] font-medium border ${
+          className={`hidden shrink-0 px-2 py-0.5 rounded text-[11px] font-medium border sm:inline-block ${
             role === "owner"
               ? "bg-purple-100 text-purple-800 border-purple-300"
               : role === "editor"
@@ -87,10 +91,10 @@ export function TopBar({
         >
           {role.toUpperCase()}
         </span>
-        {status}
+        {status && <div className="flex shrink-0 items-center gap-1.5">{status}</div>}
       </div>
 
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         {/* Export buttons */}
         {exportMenu && <div className="hidden sm:block">{exportMenu}</div>}
         {onExportSummary && (
@@ -127,6 +131,17 @@ export function TopBar({
           </button>
         )}
 
+        {reviewHref && (
+          <Link
+            href={reviewHref}
+            title="Review mode: tests and results, open decisions, and changes since the last snapshot"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 text-xs font-medium text-ink hover:bg-surface-2 transition-colors"
+          >
+            <PresentationIcon size={14} />
+            <span className="hidden sm:inline">Review</span>
+          </Link>
+        )}
+
         {onOpenSnapshots && (
           <button
             type="button"
@@ -144,10 +159,11 @@ export function TopBar({
           <button
             type="button"
             onClick={onOpenStressTest}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-accent/30 bg-accent-soft px-3 text-xs font-semibold text-accent hover:bg-accent-soft/80 transition-colors"
+            title="Stress test"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-accent/30 bg-accent-soft px-2.5 text-xs font-semibold text-accent hover:bg-accent-soft/80 transition-colors sm:px-3"
           >
             <SparklesIcon size={14} />
-            Stress Test
+            <span className="hidden sm:inline">Stress Test</span>
           </button>
         )}
 
@@ -156,10 +172,11 @@ export function TopBar({
           <button
             type="button"
             onClick={onOpenShare}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-accent px-3 text-xs font-medium text-white hover:bg-accent/90 transition-colors shadow-sm"
+            title="Share"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-accent px-2.5 text-xs font-medium text-white hover:bg-accent/90 transition-colors shadow-sm sm:px-3"
           >
             <Share2Icon size={14} />
-            Share
+            <span className="hidden sm:inline">Share</span>
           </button>
         )}
       </div>
