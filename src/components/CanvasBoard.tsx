@@ -1,6 +1,7 @@
 import React from "react";
 import { CanvasBlock } from "./CanvasBlock";
 import { MobileCanvasBoard } from "./MobileCanvasBoard";
+import type { EvidenceFilter } from "../utils/evidenceFilter";
 import type { BlockDef, BlockId, NoteItem } from "../types/canvas";
 
 interface CanvasBoardProps {
@@ -11,6 +12,7 @@ interface CanvasBoardProps {
   /** noteId -> 1-based rank from the latest stress test's riskiest assumptions */
   riskRanks?: Record<string, number>;
   canEdit?: boolean;
+  evidenceFilter?: EvidenceFilter;
   onSelect: (id: string) => void;
   onAdd?: (blockId: BlockId, text: string) => void;
   onDelete?: (noteId: string) => void;
@@ -22,6 +24,7 @@ export function CanvasBoard({
   selectedId,
   riskRanks,
   canEdit = true,
+  evidenceFilter,
   onSelect,
   onAdd,
   onDelete,
@@ -36,6 +39,7 @@ export function CanvasBoard({
         selectedId={selectedId}
         riskRanks={riskRanks}
         canEdit={canEdit}
+        evidenceFilter={evidenceFilter}
         onSelect={onSelect}
         onAdd={onAdd}
         onDelete={onDelete}
@@ -51,6 +55,7 @@ export function CanvasBoard({
             selectedId={selectedId}
             riskRanks={riskRanks}
             canEdit={canEdit}
+            evidenceFilter={evidenceFilter}
             onSelect={onSelect}
             onAdd={onAdd ? (text) => onAdd(block.id, text) : undefined}
             onDelete={onDelete}
