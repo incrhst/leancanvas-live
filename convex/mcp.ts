@@ -11,6 +11,8 @@ import { listNoteHistory } from "./lib/history";
 import { listCanvasMembers } from "./lib/members";
 import { compareSnapshots, createSnapshotForUser, listSnapshots } from "./lib/snapshots";
 import { buildReview } from "./lib/review";
+import { answerCheckInForUser, listPendingCheckIns, mondayOf, startCheckInForCanvas } from "./lib/checkIns";
+import { verdictValidator } from "./lib/testFields";
 import {
   answerDecisionForUser,
   decisionAnswerValidator,
@@ -591,6 +593,47 @@ export const getReview = query({
       },
       url: `${canvasUrl(canvas._id)}/review`,
     };
+  },
+});
+
+export const listCheckIns = query({
+  args: { accessToken: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    return { waitingOnYou: await listPendingCheckIns(ctx, user._id) };
+  },
+});
+
+export const answerCheckIn = mutation({
+  args: {
+    accessToken: v.string(),
+    noteId: v.string(),
+    hasEvidence: v.boolean(),
+    text: v.optional(v.string()),
+    verdict: v.optional(verdictValidator),
+    date: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    // Owners can be view-only; answering their own check-in is allowed
+    const note = await resolveNote(ctx, user, args.noteId, false);
+    await answerCheckInForUser(ctx, actor, note._id, {
+      hasEvidence: args.hasEvidence,
+      text: args.text,
+      verdict: args.verdict,
+      date: args.date,
+    });
+    const canvas = (await ctx.db.get(note.canvasId))!;
+    return noteForAgent((await ctx.db.get(note._id))!, await canvasContext(ctx, canvas));
+  },
+});
+
+export const sendCheckIn = mutation({
+  args: { accessToken: v.string(), canvasId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { canvas } = await resolveCanvas(ctx, user, args.canvasId, true);
+    return await startCheckInForCanvas(ctx, canvas, mondayOf(todayUtc()));
   },
 });
 

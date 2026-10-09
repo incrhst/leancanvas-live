@@ -102,6 +102,16 @@ function describeEntry(kind: string, changes: Change[], blockTitleOf: (blockId: 
     return [`${outcome ?? "Answered"} the decision request${comment ? `: “${truncate(comment, 80)}”` : ""}`];
   }
   if (kind === "decision_withdrawn") return ["Withdrew the decision request"];
+  if (kind === "check_in") {
+    if (value("checkIn")?.to === "no new evidence") return ["Weekly check-in: no new evidence"];
+    const result = value("latestResult.text")?.to;
+    const verdict = value("latestResult.verdict")?.to;
+    return [
+      `Weekly check-in: new evidence${result ? `: “${truncate(result, 80)}”` : ""}${
+        verdict ? ` (${VERDICT_CONFIG[verdict as Verdict]?.label ?? verdict})` : ""
+      }`,
+    ];
+  }
   return changes.map((c) => describeChange(c, blockTitleOf));
 }
 

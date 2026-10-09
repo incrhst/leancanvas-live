@@ -10,17 +10,21 @@
 
 import type * as auth from "../auth.js";
 import type * as canvases from "../canvases.js";
+import type * as checkIns from "../checkIns.js";
 import type * as constants_prompts from "../constants/prompts.js";
+import type * as crons from "../crons.js";
 import type * as decisions from "../decisions.js";
 import type * as email from "../email.js";
 import type * as http from "../http.js";
 import type * as invites from "../invites.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_canvasTemplates from "../lib/canvasTemplates.js";
+import type * as lib_checkIns from "../lib/checkIns.js";
 import type * as lib_decisions from "../lib/decisions.js";
 import type * as lib_history from "../lib/history.js";
 import type * as lib_markets from "../lib/markets.js";
 import type * as lib_members from "../lib/members.js";
+import type * as lib_notify from "../lib/notify.js";
 import type * as lib_password from "../lib/password.js";
 import type * as lib_review from "../lib/review.js";
 import type * as lib_snapshots from "../lib/snapshots.js";
@@ -43,17 +47,21 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   canvases: typeof canvases;
+  checkIns: typeof checkIns;
   "constants/prompts": typeof constants_prompts;
+  crons: typeof crons;
   decisions: typeof decisions;
   email: typeof email;
   http: typeof http;
   invites: typeof invites;
   "lib/auth": typeof lib_auth;
   "lib/canvasTemplates": typeof lib_canvasTemplates;
+  "lib/checkIns": typeof lib_checkIns;
   "lib/decisions": typeof lib_decisions;
   "lib/history": typeof lib_history;
   "lib/markets": typeof lib_markets;
   "lib/members": typeof lib_members;
+  "lib/notify": typeof lib_notify;
   "lib/password": typeof lib_password;
   "lib/review": typeof lib_review;
   "lib/snapshots": typeof lib_snapshots;

@@ -358,6 +358,42 @@ const TOOLS_MANIFEST = [
     },
   },
   {
+    name: "list_check_ins",
+    description:
+      "The weekly check-in questions waiting on you: for each note you own, has there been new evidence this week? Answer each with answer_check_in.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "answer_check_in",
+    description:
+      "Answer a weekly check-in on a note you own (works with view-only access). hasEvidence false records 'no new evidence'. hasEvidence true needs a one-line text, which becomes the note's latest result. Both go into the note's history.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        noteId: { type: "string" },
+        hasEvidence: { type: "boolean" },
+        text: { type: "string", description: "One line on the new evidence (required if hasEvidence is true)" },
+        verdict: {
+          type: "string",
+          enum: ["pass", "fail", "inconclusive"],
+          description: "Optional: how the new result compares with the pass mark",
+        },
+        date: { type: "string", description: "YYYY-MM-DD; defaults to today (UTC)" },
+      },
+      required: ["noteId", "hasEvidence"],
+    },
+  },
+  {
+    name: "send_check_in",
+    description:
+      "Send this week's check-in for a canvas now rather than waiting for the Monday email: each owner is emailed once about their notes. Notes already asked about this week are skipped.",
+    inputSchema: {
+      type: "object",
+      properties: { canvasId: { type: "string" } },
+      required: ["canvasId"],
+    },
+  },
+  {
     name: "update_evidence_state",
     description: "Update the empirical evidence state of a note",
     inputSchema: {
@@ -614,6 +650,19 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         canvasId: str(args.canvasId),
         sinceSnapshotId: optStr(args.sinceSnapshotId),
       });
+    case "list_check_ins":
+      return await fetchQuery(api.mcp.listCheckIns, { accessToken });
+    case "answer_check_in":
+      return await fetchMutation(api.mcp.answerCheckIn, {
+        accessToken,
+        noteId: str(args.noteId),
+        hasEvidence: args.hasEvidence === true,
+        text: optStr(args.text),
+        verdict: optStr(args.verdict) as any, // validated by Convex
+        date: optStr(args.date),
+      });
+    case "send_check_in":
+      return await fetchMutation(api.mcp.sendCheckIn, { accessToken, canvasId: str(args.canvasId) });
     case "update_evidence_state":
       return await fetchMutation(api.mcp.updateEvidenceState, {
         accessToken,

@@ -1,11 +1,11 @@
 import { ConvexError, Infer, v } from "convex/values";
 import { MutationCtx, QueryCtx } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
-import { internal } from "../_generated/api";
 import { getCanvasRole } from "./auth";
 import { Actor, NoteChange, recordNoteHistory } from "./history";
 import { displayName } from "./members";
 import { checkDate } from "./testFields";
+import { emailUser, siteUrl } from "./notify";
 
 /** A request for someone to decide on a note. Stays on the note after it's answered, as the record. */
 export const decisionStatusValidator = v.union(
@@ -36,20 +36,6 @@ const STATUS_FOR_ANSWER = {
   reject: "rejected",
   change: "changes_requested",
 } as const;
-
-function siteUrl() {
-  return process.env.SITE_URL ?? "https://lean.incrementic.com";
-}
-
-async function emailUser(
-  ctx: MutationCtx,
-  userId: Id<"users">,
-  message: { subject: string; text: string }
-) {
-  const user = await ctx.db.get(userId);
-  if (!user?.email) return;
-  await ctx.scheduler.runAfter(0, internal.email.send, { to: user.email, ...message });
-}
 
 async function touch(ctx: MutationCtx, note: Doc<"notes">, actor: Actor, message: string) {
   const now = Date.now();

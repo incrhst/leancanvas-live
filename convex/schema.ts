@@ -152,7 +152,8 @@ export default defineSchema({
       v.literal("deleted"),
       v.literal("decision_requested"),
       v.literal("decision_answered"),
-      v.literal("decision_withdrawn")
+      v.literal("decision_withdrawn"),
+      v.literal("check_in")
     ),
     changes: v.array(
       v.object({
@@ -191,6 +192,22 @@ export default defineSchema({
     markets: v.optional(v.array(v.string())),
     decisionStatus: v.optional(decisionStatusValidator),
   }).index("by_snapshot", ["snapshotId"]),
+
+  // One weekly check-in question: "any new evidence on this note?", for the note's owner
+  checkInItems: defineTable({
+    userId: v.id("users"),
+    canvasId: v.id("canvases"),
+    noteId: v.id("notes"),
+    // Monday of the check-in week, YYYY-MM-DD (UTC)
+    weekOf: v.string(),
+    status: v.union(v.literal("pending"), v.literal("answered"), v.literal("expired")),
+    hasEvidence: v.optional(v.boolean()),
+    answer: v.optional(v.string()),
+    answeredAt: v.optional(v.number()),
+  })
+    .index("by_user_and_status", ["userId", "status"])
+    .index("by_note_and_status", ["noteId", "status"])
+    .index("by_canvas", ["canvasId"]),
 
   evidence: defineTable({
     noteId: v.id("notes"),
