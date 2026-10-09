@@ -15,6 +15,8 @@ interface StickyNoteProps {
   /** 1-based rank if the latest stress test flagged this note as a riskiest assumption */
   riskRank?: number;
   canEdit?: boolean;
+  /** Outside the evidence filter: shown faded rather than removed */
+  dimmed?: boolean;
   onSelect?: () => void;
   onDelete?: () => void;
 }
@@ -96,6 +98,7 @@ export function StickyNote({
   selected = false,
   riskRank,
   canEdit = true,
+  dimmed = false,
   onSelect,
   onDelete,
 }: StickyNoteProps) {
@@ -103,7 +106,7 @@ export function StickyNote({
     <motion.article
       layout="position"
       initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
+      animate={{ opacity: dimmed ? 0.35 : 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
       className={`group relative p-2.5 transition-all duration-150 hover:shadow-sm ${noteCardClass(note)} ${

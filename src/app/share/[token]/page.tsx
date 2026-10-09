@@ -8,6 +8,7 @@ import { useParams, usePathname, useRouter, useSearchParams } from "next/navigat
 import { CanvasBoard } from "../../../components/CanvasBoard";
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
 import { LaunchDayChip } from "../../../components/LaunchDayChip";
+import { useEvidenceFilter } from "../../../utils/evidenceFilter";
 import { EvidenceLegend } from "../../../components/EvidenceLegend";
 import { LaunchDateContext } from "../../../utils/launchDate";
 import { StressTestPanel } from "../../../components/StressTestPanel";
@@ -42,6 +43,7 @@ export default function PublicSharePage() {
   const [unlocking, setUnlocking] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showStressTest, setShowStressTest] = useState(false);
+  const evidence = useEvidenceFilter();
 
   // Restore a viewing pass from this browser session, if any
   useEffect(() => {
@@ -225,7 +227,16 @@ export default function PublicSharePage() {
               riskCount={publicStressTest?.riskiestAssumptions.length ?? 0}
               onChange={setView}
             />
-            {view === "canvas" && <EvidenceLegend />}
+            {view === "canvas" && (
+              <EvidenceLegend
+                filter={evidence.filter}
+                notes={notes}
+                onToggle={evidence.toggle}
+                onShowNeedsEvidence={evidence.showNeedsEvidence}
+                onClear={evidence.clear}
+                onModeChange={evidence.setMode}
+              />
+            )}
             {view === "risks" ? (
               <RiskiestAssumptionsView
                 blocks={template.blocks}
@@ -241,6 +252,7 @@ export default function PublicSharePage() {
               blocks={template.blocks}
               riskRanks={riskRanksFor(publicStressTest?.riskiestAssumptions)}
               notes={notes}
+              evidenceFilter={evidence.filter}
               selectedId={selectedId}
               canEdit={false} // Strictly read-only for anonymous users
               onSelect={(id) => setSelectedId((curr) => (curr === id ? null : id))}

@@ -4,6 +4,8 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { StickyNote } from "./StickyNote";
 import { EVIDENCE_CONFIG } from "./EvidenceBadge";
 import { AddNoteInput } from "./AddNoteInput";
+import { noteMatchesEvidence } from "../utils/evidenceFilter";
+import type { EvidenceFilter } from "../utils/evidenceFilter";
 import type { BlockDef, BlockId, EvidenceState, NoteItem } from "../types/canvas";
 
 interface MobileCanvasBoardProps {
@@ -12,6 +14,7 @@ interface MobileCanvasBoardProps {
   selectedId: string | null;
   riskRanks?: Record<string, number>;
   canEdit?: boolean;
+  evidenceFilter?: EvidenceFilter;
   onSelect: (id: string) => void;
   onAdd?: (blockId: BlockId, text: string) => void;
   onDelete?: (noteId: string) => void;
@@ -47,6 +50,7 @@ export function MobileCanvasBoard({
   selectedId,
   riskRanks,
   canEdit = true,
+  evidenceFilter,
   onSelect,
   onAdd,
   onDelete,
@@ -97,7 +101,10 @@ export function MobileCanvasBoard({
   if (count === 0) return null;
 
   const current = ordered[Math.min(index, count - 1)];
-  const currentNotes = notesByBlock.get(current.block.id) ?? [];
+  const filtering = !!evidenceFilter && evidenceFilter.active.length > 0;
+  const allCurrentNotes = notesByBlock.get(current.block.id) ?? [];
+  const matchingCurrent = allCurrentNotes.filter((n) => noteMatchesEvidence(n, evidenceFilter));
+  const currentNotes = filtering && evidenceFilter.mode === "hide" ? matchingCurrent : allCurrentNotes;
   const prev = ordered[(index - 1 + count) % count];
   const next = ordered[(index + 1) % count];
 
@@ -185,6 +192,7 @@ export function MobileCanvasBoard({
         <header className="px-1 pb-3 pt-4">
           <p className="font-mono text-xs font-medium uppercase tracking-wide text-muted">
             Block {current.num} of {count}
+            {filtering && ` · ${matchingCurrent.length} of ${allCurrentNotes.length} match`}
           </p>
           <h2
             id={`mobile-block-${current.block.id}`}
@@ -205,6 +213,7 @@ export function MobileCanvasBoard({
                 selected={selectedId === note._id}
                 riskRank={riskRanks?.[note._id]}
                 canEdit={canEdit}
+                dimmed={filtering && !noteMatchesEvidence(note, evidenceFilter)}
                 onSelect={() => onSelect(note._id)}
                 onDelete={() => onDelete && onDelete(note._id)}
               />
@@ -286,6 +295,8 @@ export function MobileCanvasBoard({
               const active = i === index;
               const peeking = i === peekIndex && !active;
               const extra = blockNotes.length - MAX_PIPS;
+              const hits = blockNotes.filter((n) => noteMatchesEvidence(n, evidenceFilter)).length;
+              const faded = filtering && hits === 0 && !active;
               return (
                 <button
                   key={o.block.id}
@@ -297,7 +308,9 @@ export function MobileCanvasBoard({
                   onPointerLeave={(e) => e.pointerType === "mouse" && setPeekIndex(null)}
                   onFocus={() => setPeekIndex(i)}
                   onBlur={() => setPeekIndex(null)}
-                  aria-label={`${o.num}. ${o.name}, ${blockNotes.length} ${blockNotes.length === 1 ? "note" : "notes"}`}
+                  aria-label={`${o.num}. ${o.name}, ${
+                    filtering ? `${hits} of ${blockNotes.length}` : blockNotes.length
+                  } ${blockNotes.length === 1 ? "note" : "notes"}${filtering ? " match" : ""}`}
                   aria-current={active ? "true" : undefined}
                   className={`relative flex min-w-0 flex-col items-start justify-between gap-0.5 rounded-lg border px-1.5 pb-1.5 pt-1 transition-[background-color,color,transform] duration-150 ${
                     active
@@ -305,17 +318,21 @@ export function MobileCanvasBoard({
                       : peeking
                       ? "z-10 scale-[1.04] border-line bg-surface text-ink outline outline-2 outline-offset-1 outline-ink"
                       : "border-line bg-surface-2 text-ink"
-                  }`}
+                  } ${faded ? "opacity-40" : ""}`}
                 >
                   <span className="font-mono text-[13px] font-medium leading-none">{o.num}</span>
                   <span aria-hidden="true" className="flex max-w-full flex-wrap items-center gap-[3px]">
                     {blockNotes.slice(0, MAX_PIPS).map((note) => {
                       const red = note.evidenceState === "contradicted";
+                      // With a filter on, notes outside it show as hollow pips.
+                      const out = filtering && !noteMatchesEvidence(note, evidenceFilter);
                       return (
                         <span
                           key={note._id}
                           className={`h-1.5 w-1.5 rounded-full ${
-                            active
+                            out
+                              ? `border ${active ? "border-white/70" : "border-subtle"}`
+                              : active
                               ? red
                                 ? "bg-white ring-[1.5px] ring-ink"
                                 : "bg-white/60"

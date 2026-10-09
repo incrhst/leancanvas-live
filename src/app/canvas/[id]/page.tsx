@@ -13,6 +13,7 @@ import { LaunchDayChip } from "../../../components/LaunchDayChip";
 import { DecisionsWaitingChip } from "../../../components/NoteDecision";
 import { CheckInsWaitingChip } from "../../../components/CheckIn";
 import { SnapshotsPanel } from "../../../components/SnapshotsPanel";
+import { useEvidenceFilter } from "../../../utils/evidenceFilter";
 import { EvidenceLegend } from "../../../components/EvidenceLegend";
 import { matchesOwnerFilter, OwnerFilter, OwnerFilterValue } from "../../../components/OwnerControls";
 import { MarketFilter, marketsOf, matchesMarketFilter } from "../../../components/MarketControls";
@@ -69,6 +70,7 @@ export default function CanvasEditorPage() {
   const [isTesting, setIsTesting] = useState(false);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilterValue>("all");
   const [marketFilter, setMarketFilter] = useState("all");
+  const evidence = useEvidenceFilter();
 
   const notes: NoteItem[] = data?.notes ?? [];
   const role = data?.currentUserRole ?? "viewer";
@@ -231,7 +233,16 @@ export default function CanvasEditorPage() {
                   </div>
                 )}
               </div>
-              {view === "canvas" && <EvidenceLegend />}
+              {view === "canvas" && (
+              <EvidenceLegend
+                filter={evidence.filter}
+                notes={visibleNotes}
+                onToggle={evidence.toggle}
+                onShowNeedsEvidence={evidence.showNeedsEvidence}
+                onClear={evidence.clear}
+                onModeChange={evidence.setMode}
+              />
+              )}
               {view === "risks" ? (
                 <RiskiestAssumptionsView
                   blocks={template.blocks}
@@ -253,6 +264,7 @@ export default function CanvasEditorPage() {
                 blocks={template.blocks}
                 riskRanks={riskRanks}
                 notes={visibleNotes}
+                evidenceFilter={evidence.filter}
                 selectedId={selectedId}
                 canEdit={canEdit}
                 onSelect={(id) => {
