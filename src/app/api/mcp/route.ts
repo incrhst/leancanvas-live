@@ -294,6 +294,42 @@ const TOOLS_MANIFEST = [
     },
   },
   {
+    name: "create_snapshot",
+    description:
+      "Freeze a canvas as it is now under a label, e.g. 'Day 30', so it can be compared with later. Take one before each review.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        canvasId: { type: "string" },
+        label: { type: "string", description: "Short name, e.g. 'Day 0' or 'Day 30 review'" },
+      },
+      required: ["canvasId", "label"],
+    },
+  },
+  {
+    name: "list_snapshots",
+    description: "List a canvas's snapshots, newest first, with their snapshotId, label, date and day of the plan.",
+    inputSchema: {
+      type: "object",
+      properties: { canvasId: { type: "string" } },
+      required: ["canvasId"],
+    },
+  },
+  {
+    name: "compare_snapshots",
+    description:
+      "Compare two snapshots, or a snapshot and the canvas now: which notes were added, removed, or changed (text, block, evidence state, test fields, owner, decision status), field by field.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        canvasId: { type: "string" },
+        from: { type: "string", description: "The earlier snapshotId" },
+        to: { type: "string", description: "The later snapshotId, or 'current' for the canvas now (default)" },
+      },
+      required: ["canvasId", "from"],
+    },
+  },
+  {
     name: "update_evidence_state",
     description: "Update the empirical evidence state of a note",
     inputSchema: {
@@ -488,6 +524,21 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
       });
     case "list_decisions":
       return await fetchQuery(api.mcp.listDecisions, { accessToken, canvasId: optStr(args.canvasId) });
+    case "create_snapshot":
+      return await fetchMutation(api.mcp.createSnapshot, {
+        accessToken,
+        canvasId: str(args.canvasId),
+        label: str(args.label),
+      });
+    case "list_snapshots":
+      return await fetchQuery(api.mcp.listCanvasSnapshots, { accessToken, canvasId: str(args.canvasId) });
+    case "compare_snapshots":
+      return await fetchQuery(api.mcp.compareCanvasSnapshots, {
+        accessToken,
+        canvasId: str(args.canvasId),
+        from: str(args.from),
+        to: optStr(args.to),
+      });
     case "update_evidence_state":
       return await fetchMutation(api.mcp.updateEvidenceState, {
         accessToken,

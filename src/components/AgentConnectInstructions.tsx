@@ -254,6 +254,35 @@ const AGENT_TOOLS: AgentTool[] = [
     inputs: [{ name: "canvasId", required: false }],
   },
   {
+    name: "create_snapshot",
+    summary: "Freeze a canvas under a label, like Day 30.",
+    detail: "Take one at day 0 and before each review, so you can compare what changed.",
+    changesCanvas: true,
+    inputs: [
+      { name: "canvasId", required: true },
+      { name: "label", required: true },
+    ],
+  },
+  {
+    name: "list_snapshots",
+    summary: "See a canvas's snapshots.",
+    detail: "Newest first, with each snapshot's ID, label, date and day of the plan.",
+    changesCanvas: false,
+    inputs: [{ name: "canvasId", required: true }],
+  },
+  {
+    name: "compare_snapshots",
+    summary: "See what changed between two snapshots, or since one.",
+    detail:
+      "Lists notes added, removed, or changed (text, block, state, test, owner, decision), field by field. Leave out 'to' to compare with the canvas now.",
+    changesCanvas: false,
+    inputs: [
+      { name: "canvasId", required: true },
+      { name: "from", required: true },
+      { name: "to", required: false },
+    ],
+  },
+  {
     name: "update_evidence_state",
     summary: "Change how a note is marked, such as assumption to observed.",
     detail: "Valid states: unknown, assumption, observed, supported, contradicted, decision.",

@@ -21,11 +21,13 @@ import type * as lib_decisions from "../lib/decisions.js";
 import type * as lib_history from "../lib/history.js";
 import type * as lib_members from "../lib/members.js";
 import type * as lib_password from "../lib/password.js";
+import type * as lib_snapshots from "../lib/snapshots.js";
 import type * as lib_testFields from "../lib/testFields.js";
 import type * as mcp from "../mcp.js";
 import type * as notes from "../notes.js";
 import type * as oauth from "../oauth.js";
 import type * as presence from "../presence.js";
+import type * as snapshots from "../snapshots.js";
 import type * as stressTests from "../stressTests.js";
 import type * as users from "../users.js";
 
@@ -49,11 +51,13 @@ declare const fullApi: ApiFromModules<{
   "lib/history": typeof lib_history;
   "lib/members": typeof lib_members;
   "lib/password": typeof lib_password;
+  "lib/snapshots": typeof lib_snapshots;
   "lib/testFields": typeof lib_testFields;
   mcp: typeof mcp;
   notes: typeof notes;
   oauth: typeof oauth;
   presence: typeof presence;
+  snapshots: typeof snapshots;
   stressTests: typeof stressTests;
   users: typeof users;
 }>;

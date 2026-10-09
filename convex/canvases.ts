@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { hashPassword, verifyPassword } from "./lib/password";
 import { checkDate } from "./lib/testFields";
 import { displayName } from "./lib/members";
+import { deleteSnapshotRows } from "./lib/snapshots";
 import { requireAuth, requireOwner, requireEditor, getCurrentUser, getCanvasRole, Role, sha256Hex } from "./lib/auth";
 import { Doc, Id } from "./_generated/dataModel";
 import { MutationCtx, QueryCtx } from "./_generated/server";
@@ -627,6 +628,22 @@ export const deleteCanvas = mutation({
       .collect();
     for (const inv of invites) {
       await ctx.db.delete(inv._id);
+    }
+
+    // Delete note history and snapshots
+    const historyRows = await ctx.db
+      .query("noteHistory")
+      .withIndex("by_canvas", (q) => q.eq("canvasId", args.canvasId))
+      .collect();
+    for (const row of historyRows) {
+      await ctx.db.delete(row._id);
+    }
+    const snapshots = await ctx.db
+      .query("canvasSnapshots")
+      .withIndex("by_canvas", (q) => q.eq("canvasId", args.canvasId))
+      .collect();
+    for (const snapshot of snapshots) {
+      await deleteSnapshotRows(ctx, snapshot._id);
     }
 
     // Delete stress tests

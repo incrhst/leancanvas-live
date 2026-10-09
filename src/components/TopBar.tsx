@@ -8,6 +8,7 @@ import {
   SparklesIcon,
   DownloadIcon,
   FileTextIcon,
+  CameraIcon,
 } from "lucide-react";
 import { Role } from "../types/canvas";
 
@@ -17,6 +18,7 @@ interface TopBarProps {
   isPublicViewEnabled: boolean;
   onOpenShare?: () => void;
   onOpenStressTest?: () => void;
+  onOpenSnapshots?: () => void;
   onExportMarkdown?: () => void;
   onExportJson?: () => void;
   /** PDF and PNG export menu, rendered before the Markdown and JSON buttons */
@@ -31,6 +33,7 @@ export function TopBar({
   isPublicViewEnabled,
   onOpenShare,
   onOpenStressTest,
+  onOpenSnapshots,
   onExportMarkdown,
   onExportJson,
   exportMenu,
@@ -106,6 +109,18 @@ export function TopBar({
           >
             <DownloadIcon size={13} />
             JSON
+          </button>
+        )}
+
+        {onOpenSnapshots && (
+          <button
+            type="button"
+            onClick={onOpenSnapshots}
+            title="Snapshots: freeze the canvas and compare"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 text-xs font-medium text-ink hover:bg-surface-2 transition-colors"
+          >
+            <CameraIcon size={14} />
+            <span className="hidden sm:inline">Snapshots</span>
           </button>
         )}
 
