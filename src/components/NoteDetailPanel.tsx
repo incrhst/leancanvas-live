@@ -8,6 +8,7 @@ import { EditableField } from "./EditableField";
 import { NoteTestFields, TestFieldsPatch } from "./NoteTestFields";
 import { NoteOwnerField } from "./OwnerControls";
 import { NoteDecisionSection } from "./NoteDecision";
+import { NoteMarketsField } from "./MarketControls";
 
 interface NoteDetailPanelProps {
   note: NoteItem;
@@ -18,6 +19,9 @@ interface NoteDetailPanelProps {
   onUpdateEvidence: (state: EvidenceState) => void;
   onUpdateTest?: (patch: TestFieldsPatch) => void;
   onUpdateOwner?: (ownerId: string | null) => void;
+  onUpdateMarkets?: (markets: string[] | null) => void;
+  /** Market tags already used on the canvas, offered as suggestions */
+  allMarkets?: string[];
   /** Adds a reason to the current user's latest change to this note */
   onAddReason?: (reason: string) => Promise<void>;
   onDelete: () => void;
@@ -34,6 +38,8 @@ export function NoteDetailPanel({
   onUpdateEvidence,
   onUpdateTest,
   onUpdateOwner,
+  onUpdateMarkets,
+  allMarkets = [],
   onAddReason,
   onDelete,
   blockTitleOf,
@@ -195,6 +201,8 @@ export function NoteDetailPanel({
         <NoteDecisionSection note={note} canEdit={canEdit} />
 
         <NoteOwnerField note={note} canEdit={canEdit} onChange={onUpdateOwner} />
+
+        <NoteMarketsField note={note} canEdit={canEdit} allMarkets={allMarkets} onChange={onUpdateMarkets} />
 
         <NoteTestFields note={note} canEdit={canEdit} onUpdate={onUpdateTest} />
 

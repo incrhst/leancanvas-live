@@ -14,6 +14,7 @@ import { DecisionsWaitingChip } from "../../../components/NoteDecision";
 import { SnapshotsPanel } from "../../../components/SnapshotsPanel";
 import { EvidenceLegend } from "../../../components/EvidenceLegend";
 import { matchesOwnerFilter, OwnerFilter, OwnerFilterValue } from "../../../components/OwnerControls";
+import { MarketFilter, marketsOf, matchesMarketFilter } from "../../../components/MarketControls";
 import { CanvasMember, MembersContext } from "../../../utils/members";
 import { LaunchDateContext } from "../../../utils/testFields";
 import { StressTestPanel } from "../../../components/StressTestPanel";
@@ -64,6 +65,7 @@ export default function CanvasEditorPage() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilterValue>("all");
+  const [marketFilter, setMarketFilter] = useState("all");
 
   const notes: NoteItem[] = data?.notes ?? [];
   const role = data?.currentUserRole ?? "viewer";
@@ -75,7 +77,10 @@ export default function CanvasEditorPage() {
     () => new Map<string, CanvasMember>((data?.members ?? []).map((m) => [m.id, m])),
     [data?.members]
   );
-  const visibleNotes = notes.filter((n) => matchesOwnerFilter(n, ownerFilter, user?.id));
+  const allMarkets = marketsOf(notes);
+  const visibleNotes = notes.filter(
+    (n) => matchesOwnerFilter(n, ownerFilter, user?.id) && matchesMarketFilter(n, marketFilter)
+  );
 
   if (isLoading || data === undefined) {
     return (
@@ -200,7 +205,10 @@ export default function CanvasEditorPage() {
                   onChange={setView}
                 />
                 {view === "canvas" && (
-                  <OwnerFilter value={ownerFilter} currentUserId={user?.id} onChange={setOwnerFilter} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <MarketFilter markets={allMarkets} value={marketFilter} onChange={setMarketFilter} />
+                    <OwnerFilter value={ownerFilter} currentUserId={user?.id} onChange={setOwnerFilter} />
+                  </div>
                 )}
               </div>
               {view === "canvas" && <EvidenceLegend />}
@@ -262,6 +270,10 @@ export default function CanvasEditorPage() {
                     onUpdateOwner={(ownerId) =>
                       void updateNote({ noteId: selectedNote._id as Id<"notes">, ownerId: ownerId as Id<"users"> | null })
                     }
+                    onUpdateMarkets={(markets) =>
+                      void updateNote({ noteId: selectedNote._id as Id<"notes">, markets })
+                    }
+                    allMarkets={allMarkets}
                     onAddReason={(reason) =>
                       addReasonToLatestChange({ noteId: selectedNote._id as Id<"notes">, reason })
                     }

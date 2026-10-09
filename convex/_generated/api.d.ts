@@ -19,6 +19,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_canvasTemplates from "../lib/canvasTemplates.js";
 import type * as lib_decisions from "../lib/decisions.js";
 import type * as lib_history from "../lib/history.js";
+import type * as lib_markets from "../lib/markets.js";
 import type * as lib_members from "../lib/members.js";
 import type * as lib_password from "../lib/password.js";
 import type * as lib_snapshots from "../lib/snapshots.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   "lib/canvasTemplates": typeof lib_canvasTemplates;
   "lib/decisions": typeof lib_decisions;
   "lib/history": typeof lib_history;
+  "lib/markets": typeof lib_markets;
   "lib/members": typeof lib_members;
   "lib/password": typeof lib_password;
   "lib/snapshots": typeof lib_snapshots;

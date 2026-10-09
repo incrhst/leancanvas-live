@@ -4,6 +4,7 @@ import { FlaskConicalIcon, ShieldAlertIcon } from "lucide-react";
 import { EVIDENCE_CONFIG, EvidenceBadge } from "./EvidenceBadge";
 import { OwnerChip } from "./OwnerControls";
 import { DecisionSummary } from "./NoteDecision";
+import { MarketTags } from "./MarketControls";
 import { NoteItem } from "../types/canvas";
 import { LaunchDateContext, VERDICT_CONFIG, formatPlanDate, hasTest, isReviewOverdue } from "../utils/testFields";
 
@@ -119,6 +120,7 @@ export function StickyNote({
         </p>
         {hasTest(note) && <TestSummary note={note} />}
         <DecisionSummary note={note} />
+        <MarketTags markets={note.markets} />
       </div>
 
       <div className="mt-2.5 flex items-center justify-between pt-1 border-t border-black/5">

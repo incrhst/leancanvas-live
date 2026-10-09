@@ -60,6 +60,13 @@ const OWNER_PROPERTY = {
     "The one person responsible for the note: a userId from list_canvas_members (viewers can own notes too). null clears it.",
 };
 
+const MARKETS_PROPERTY = {
+  type: ["array", "null"],
+  items: { type: "string" },
+  description:
+    "Markets where the note holds, e.g. ['Jamaica']. Leave a note untagged when it applies everywhere, so a result from one market doesn't read as true in all of them. Up to 5; [] or null clears.",
+};
+
 const REASON_PROPERTY = {
   type: "string",
   description: "Optional one line on why, kept in the note's history",
@@ -138,7 +145,7 @@ const TOOLS_MANIFEST = [
   {
     name: "get_canvas",
     description:
-      "Fetch a canvas (Lean or GTM) with all of its blocks and sticky notes, including each note's evidence state and, where set, its test (measure, passMark, reviewDate, latestResult). Each note shows its owner if it has one; pass ownerUserId to see one person's notes. If the canvas has a launchDate, it also returns currentDay and each note's reviewDay (days since launch).",
+      "Fetch a canvas (Lean or GTM) with all of its blocks and sticky notes, including each note's evidence state and, where set, its test (measure, passMark, reviewDate, latestResult). Each note shows its owner and market tags if it has them; pass ownerUserId to see one person's notes, or market to see what holds in one market. If the canvas has a launchDate, it also returns currentDay and each note's reviewDay (days since launch).",
     inputSchema: {
       type: "object",
       properties: {
@@ -149,6 +156,10 @@ const TOOLS_MANIFEST = [
         ownerUserId: {
           type: "string",
           description: "Only return notes owned by this userId, or 'unassigned' for notes with no owner",
+        },
+        market: {
+          type: "string",
+          description: "Only return notes that hold in this market: tagged with it, or untagged (which means every market)",
         },
       },
       required: ["canvasId"],
@@ -182,6 +193,7 @@ const TOOLS_MANIFEST = [
         content: { type: "string" },
         evidenceState: { ...EVIDENCE_STATE_PROPERTY, default: "assumption" },
         ownerUserId: OWNER_PROPERTY,
+        markets: MARKETS_PROPERTY,
         ...TEST_FIELD_PROPERTIES,
         reason: REASON_PROPERTY,
       },
@@ -206,6 +218,7 @@ const TOOLS_MANIFEST = [
         },
         evidenceState: EVIDENCE_STATE_PROPERTY,
         ownerUserId: OWNER_PROPERTY,
+        markets: MARKETS_PROPERTY,
         ...TEST_FIELD_PROPERTIES,
         reason: REASON_PROPERTY,
         link: { type: "string", description: "Optional link backing the change, kept in the note's history" },
@@ -413,6 +426,12 @@ function nullableStr(value: unknown): string | null | undefined {
   return value === null ? null : optStr(value);
 }
 
+/** An array of strings sets the tags, null clears them, anything else leaves them alone. */
+function marketsArg(value: unknown): string[] | null | undefined {
+  if (value === null) return null;
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : undefined;
+}
+
 function testFieldArgs(args: Record<string, unknown>) {
   const result = args.latestResult as Record<string, unknown> | null | undefined;
   return {
@@ -442,6 +461,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         accessToken,
         canvasId: str(args.canvasId),
         ownerUserId: optStr(args.ownerUserId),
+        market: optStr(args.market),
       });
     case "list_canvas_members":
       return await fetchQuery(api.mcp.listMembers, { accessToken, canvasId: str(args.canvasId) });
@@ -478,6 +498,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         evidenceState: (args.evidenceState as any) || undefined,
         reason: optStr(args.reason),
         ownerUserId: nullableStr(args.ownerUserId),
+        markets: marketsArg(args.markets),
         ...testFieldArgs(args),
       });
     case "update_note":
@@ -490,6 +511,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         reason: optStr(args.reason),
         link: optStr(args.link),
         ownerUserId: nullableStr(args.ownerUserId),
+        markets: marketsArg(args.markets),
         ...testFieldArgs(args),
       });
     case "delete_note":
