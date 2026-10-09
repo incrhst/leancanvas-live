@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -24,11 +24,10 @@ import { plainSummary, summaryFromNotes } from "../../../utils/plainSummary";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { ShareModal } from "../../../components/ShareModal";
 import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptionsView";
-import { SearchIcon } from "lucide-react";
 import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/CanvasViewToggle";
 import { useAuth } from "../../../components/ConvexClientProvider";
 import { NoteItem, BlockId, EvidenceState, StressTestResult } from "../../../types/canvas";
-import { NoteSearch } from "../../../components/NoteSearch";
+import { NoteSearch, NoteSearchButton, useNoteSearchShortcut } from "../../../components/NoteSearch";
 import { ExportMenu, parseExportRequest } from "../../../components/ExportMenu";
 import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
 import { getCanvasTemplate } from "../../../utils/canvasTemplates";
@@ -75,20 +74,7 @@ export default function CanvasEditorPage() {
   const evidence = useEvidenceFilter();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  // Cmd/Ctrl+K opens quick search anywhere; "/" does too when not typing in a field
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      const typing = !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
-      const combo = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k";
-      const slash = e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey && !typing;
-      if (!combo && !slash) return;
-      e.preventDefault();
-      setIsSearchOpen(true);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
+  useNoteSearchShortcut(() => setIsSearchOpen(true));
 
   const notes: NoteItem[] = data?.notes ?? [];
   const role = data?.currentUserRole ?? "viewer";
@@ -245,16 +231,7 @@ export default function CanvasEditorPage() {
                   onChange={setView}
                 />
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsSearchOpen(true)}
-                    title="Search notes (Ctrl/Cmd+K or /)"
-                    className="inline-flex h-8 items-center gap-2 rounded-md border border-line bg-surface px-2.5 text-xs text-muted hover:bg-surface-2 hover:text-ink transition-colors"
-                  >
-                    <SearchIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                    Search notes
-                    <kbd className="hidden rounded border border-line bg-surface-2 px-1 text-[10px] font-medium sm:inline">/</kbd>
-                  </button>
+                  <NoteSearchButton onClick={() => setIsSearchOpen(true)} />
                 {view === "canvas" && (
                   <>
                     <MarketFilter markets={allMarkets} value={marketFilter} onChange={setMarketFilter} />

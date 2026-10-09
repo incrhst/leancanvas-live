@@ -259,3 +259,35 @@ export function NoteSearch({ notes, blocks, onSelect, onClose }: NoteSearchProps
     </div>
   );
 }
+
+/** Cmd/Ctrl+K opens quick search anywhere; "/" does too when not typing in a field. */
+export function useNoteSearchShortcut(onOpen: () => void) {
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      const typing = !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+      const combo = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k";
+      const slash = e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey && !typing;
+      if (!combo && !slash) return;
+      e.preventDefault();
+      onOpen();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onOpen]);
+}
+
+export function NoteSearchButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Search notes (Ctrl/Cmd+K or /)"
+      className="inline-flex h-8 items-center gap-2 rounded-md border border-line bg-surface px-2.5 text-xs text-muted hover:bg-surface-2 hover:text-ink transition-colors"
+    >
+      <SearchIcon className="h-3.5 w-3.5" aria-hidden="true" />
+      Search notes
+      <kbd className="hidden rounded border border-line bg-surface-2 px-1 text-[10px] font-medium sm:inline">/</kbd>
+    </button>
+  );
+}
