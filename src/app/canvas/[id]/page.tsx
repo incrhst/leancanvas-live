@@ -16,7 +16,9 @@ import { EvidenceLegend } from "../../../components/EvidenceLegend";
 import { matchesOwnerFilter, OwnerFilter, OwnerFilterValue } from "../../../components/OwnerControls";
 import { MarketFilter, marketsOf, matchesMarketFilter } from "../../../components/MarketControls";
 import { CanvasMember, MembersContext } from "../../../utils/members";
-import { LaunchDateContext } from "../../../utils/testFields";
+import { todayLocal } from "../../../utils/testFields";
+import { LaunchDateContext } from "../../../utils/launchDate";
+import { plainSummary, summaryFromNotes } from "../../../utils/plainSummary";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { ShareModal } from "../../../components/ShareModal";
 import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptionsView";
@@ -150,6 +152,20 @@ export default function CanvasEditorPage() {
   };
 
   // Export handlers
+  const handleExportSummary = () => {
+    const summary = plainSummary(
+      summaryFromNotes({
+        title: canvas.title,
+        today: todayLocal(),
+        launchDate: canvas.launchDate,
+        blocks: template.blocks,
+        notes,
+        nameOf: (userId) => members.get(userId)?.name,
+      })
+    );
+    downloadFile(`${template.fileSlug}-${canvasId}-summary.txt`, summary, "text/plain");
+  };
+
   const handleExportMarkdown = () => {
     const md = exportCanvasMarkdown(canvas.title, template, notes, stressResult);
     downloadFile(`${template.fileSlug}-${canvasId}.md`, md, "text/markdown");
@@ -179,6 +195,7 @@ export default function CanvasEditorPage() {
         onOpenStressTest={() => setActivePanel((curr) => (curr === "stressTest" ? null : "stressTest"))}
         onOpenSnapshots={user ? () => setActivePanel((curr) => (curr === "snapshots" ? null : "snapshots")) : undefined}
         onExportMarkdown={handleExportMarkdown}
+        onExportSummary={handleExportSummary}
         onExportJson={handleExportJson}
         exportMenu={
           <ExportMenu

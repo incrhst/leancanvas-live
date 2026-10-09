@@ -6,7 +6,8 @@ import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { DecisionStatus, NoteItem } from "../types/canvas";
 import { MembersContext } from "../utils/members";
-import { LaunchDateContext, formatCalendarDate, formatPlanDate, todayLocal } from "../utils/testFields";
+import { formatCalendarDate, formatPlanDate, todayLocal } from "../utils/testFields";
+import { LaunchDateContext } from "../utils/launchDate";
 import { useAuth } from "./ConvexClientProvider";
 
 export type DecisionAnswer = "approve" | "reject" | "change";

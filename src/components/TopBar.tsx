@@ -9,6 +9,7 @@ import {
   DownloadIcon,
   FileTextIcon,
   CameraIcon,
+  AlignLeftIcon,
 } from "lucide-react";
 import { Role } from "../types/canvas";
 
@@ -20,6 +21,8 @@ interface TopBarProps {
   onOpenStressTest?: () => void;
   onOpenSnapshots?: () => void;
   onExportMarkdown?: () => void;
+  /** Plain-language summary for a non-technical reader */
+  onExportSummary?: () => void;
   onExportJson?: () => void;
   /** PDF and PNG export menu, rendered before the Markdown and JSON buttons */
   exportMenu?: React.ReactNode;
@@ -35,6 +38,7 @@ export function TopBar({
   onOpenStressTest,
   onOpenSnapshots,
   onExportMarkdown,
+  onExportSummary,
   onExportJson,
   exportMenu,
   status,
@@ -89,6 +93,17 @@ export function TopBar({
       <div className="flex shrink-0 items-center gap-2">
         {/* Export buttons */}
         {exportMenu && <div className="hidden sm:block">{exportMenu}</div>}
+        {onExportSummary && (
+          <button
+            type="button"
+            onClick={onExportSummary}
+            title="Download a plain-language summary: one short paragraph per block"
+            className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted hover:text-ink rounded-md border border-line bg-surface hover:bg-surface-2 transition-colors"
+          >
+            <AlignLeftIcon size={13} />
+            Summary
+          </button>
+        )}
         {onExportMarkdown && (
           <button
             type="button"

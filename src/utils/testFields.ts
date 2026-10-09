@@ -1,4 +1,3 @@
-import { createContext } from "react";
 import { NoteItem, Verdict } from "../types/canvas";
 import { daysBetween } from "../../convex/lib/testFields";
 
@@ -43,9 +42,6 @@ export function isReviewOverdue(note: NoteItem): boolean {
   if (!note.reviewDate || note.reviewDate >= todayLocal()) return false;
   return !note.latestResult || note.latestResult.date < note.reviewDate;
 }
-
-/** The canvas's launch date (day 0), if it has one. Provided by the canvas and share pages. */
-export const LaunchDateContext = createContext<string | undefined>(undefined);
 
 /** Day of the plan for a calendar date, or null when there's no launch date. */
 export function planDay(launchDate: string | undefined, date: string): number | null {
