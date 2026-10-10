@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
@@ -20,6 +20,7 @@ import { MarketFilter, marketsOf, matchesMarketFilter } from "../../../component
 import { CanvasMember, MembersContext } from "../../../utils/members";
 import { todayLocal } from "../../../utils/testFields";
 import { LaunchDateContext } from "../../../utils/launchDate";
+import { useMediaQuery, useSetQueryParams } from "../../../utils/urlState";
 import { plainSummary, summaryFromNotes } from "../../../utils/plainSummary";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { ShareModal } from "../../../components/ShareModal";
@@ -35,21 +36,19 @@ import { getCanvasTemplate } from "../../../utils/canvasTemplates";
 type NoteBlock = Doc<"notes">["block"];
 export default function CanvasEditorPage() {
   const params = useParams();
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const setQueryParams = useSetQueryParams();
   const view: CanvasView = searchParams.get("view") === "risks" ? "risks" : "canvas";
-  const setView = (next: CanvasView) => {
-    router.replace(next === "risks" ? `${pathname}?view=risks` : pathname, { scroll: false });
-  };
+  const setView = (next: CanvasView) => setQueryParams({ view: next === "risks" ? "risks" : null });
   // An export a link asked for, e.g. ?export=risks-pdf. The param is cleared once it has run.
   const exportRequest = parseExportRequest(searchParams.get("export"));
-  const clearExportRequest = () => {
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete("export");
-    const query = next.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  };
+  const clearExportRequest = () => setQueryParams({ export: null });
+  // The open note lives in the URL (?note=<id>) so it can be bookmarked and shared
+  const selectedId = searchParams.get("note");
+  const setSelectedId = (noteId: string | null) => setQueryParams({ note: noteId });
+  // Wide screens open the note in its place on the board; phones (and the risks view) use the panel
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const noteInline = isDesktop && view === "canvas";
   const canvasId = (params?.id as string) as Id<"canvases">;
   const { user, isLoading } = useAuth();
 
@@ -65,7 +64,6 @@ export default function CanvasEditorPage() {
   const createInvite = useMutation(api.invites.createInvite);
   const runStressTest = useAction(api.stressTests.runStressTest);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activePanel, setActivePanel] = useState<"detail" | "stressTest" | "snapshots" | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -133,16 +131,15 @@ export default function CanvasEditorPage() {
   };
 
   // Update Note Evidence directly
-  const handleUpdateEvidence = (noteId: string, state: EvidenceState) => {
-    void updateNote({ noteId: noteId as Id<"notes">, evidenceState: state });
-  };
+  const handleUpdateEvidence = (noteId: string, state: EvidenceState) =>
+    updateNote({ noteId: noteId as Id<"notes">, evidenceState: state });
 
   // Delete Note
   const handleDeleteNote = (noteId: string) => {
     void deleteNote({ noteId: noteId as Id<"notes"> });
     if (selectedId === noteId) {
       setSelectedId(null);
-      setActivePanel(null);
+      if (activePanel === "detail") setActivePanel(null);
     }
   };
 
@@ -182,6 +179,33 @@ export default function CanvasEditorPage() {
     const json = JSON.stringify({ canvasId, title: canvas.title, template: template.id, notes, stressResult }, null, 2);
     downloadFile(`${template.fileSlug}-${canvasId}.json`, json, "application/json");
   };
+
+  const renderNoteDetail = (note: NoteItem, variant: "panel" | "inline") => (
+    <NoteDetailPanel
+      note={note}
+      variant={variant}
+      blockTitle={template.blocks.find((b) => b.id === note.block)?.title || note.block}
+      canEdit={canEdit}
+      onClose={() => {
+        setSelectedId(null);
+        // Leave a snapshots or stress test panel open beside an inline note
+        if (activePanel === "detail") setActivePanel(null);
+      }}
+      onUpdate={(content) => handleUpdateNote(note._id, content)}
+      onUpdateEvidence={(state) => handleUpdateEvidence(note._id, state)}
+      onUpdateTest={(patch) => void updateNote({ noteId: note._id as Id<"notes">, ...patch })}
+      onUpdateOwner={(ownerId) =>
+        void updateNote({ noteId: note._id as Id<"notes">, ownerId: ownerId as Id<"users"> | null })
+      }
+      onUpdateMarkets={(markets) => void updateNote({ noteId: note._id as Id<"notes">, markets })}
+      allMarkets={allMarkets}
+      onAddReason={(reason) => addReasonToLatestChange({ noteId: note._id as Id<"notes">, reason })}
+      onDelete={() => handleDeleteNote(note._id)}
+      blockTitleOf={(blockId) => template.blocks.find((b) => b.id === blockId)?.title || blockId}
+    />
+  );
+  // A note opened from a link has no panel chosen yet: show it
+  const panel = activePanel ?? (selectedNote ? "detail" : null);
 
   return (
     <div className="flex h-screen w-full flex-col bg-canvas text-ink overflow-hidden">
@@ -285,43 +309,17 @@ export default function CanvasEditorPage() {
                 }}
                 onAdd={canEdit ? handleAddNote : undefined}
                 onDelete={canEdit ? handleDeleteNote : undefined}
+                renderOpenNote={noteInline ? (note) => renderNoteDetail(note, "inline") : undefined}
               />
               )}
             </div>
 
             {/* Side Panel (Note Detail or Stress Test) */}
-            {activePanel && (
+            {panel && !(panel === "detail" && noteInline) && (
               <aside className="w-full shrink-0 border-t border-line bg-surface lg:h-full lg:w-[360px] lg:border-l lg:border-t-0 shadow-sm z-10 flex flex-col">
-                {activePanel === "detail" && selectedNote && (
-                  <NoteDetailPanel
-                    note={selectedNote}
-                    blockTitle={
-                      template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block
-                    }
-                    canEdit={canEdit}
-                    onClose={() => {
-                      setSelectedId(null);
-                      setActivePanel(null);
-                    }}
-                    onUpdate={(content) => handleUpdateNote(selectedNote._id, content)}
-                    onUpdateEvidence={(state) => handleUpdateEvidence(selectedNote._id, state)}
-                    onUpdateTest={(patch) => void updateNote({ noteId: selectedNote._id as Id<"notes">, ...patch })}
-                    onUpdateOwner={(ownerId) =>
-                      void updateNote({ noteId: selectedNote._id as Id<"notes">, ownerId: ownerId as Id<"users"> | null })
-                    }
-                    onUpdateMarkets={(markets) =>
-                      void updateNote({ noteId: selectedNote._id as Id<"notes">, markets })
-                    }
-                    allMarkets={allMarkets}
-                    onAddReason={(reason) =>
-                      addReasonToLatestChange({ noteId: selectedNote._id as Id<"notes">, reason })
-                    }
-                    onDelete={() => handleDeleteNote(selectedNote._id)}
-                    blockTitleOf={(blockId) => template.blocks.find((b) => b.id === blockId)?.title || blockId}
-                  />
-                )}
+                {panel === "detail" && selectedNote && renderNoteDetail(selectedNote, "panel")}
 
-                {activePanel === "snapshots" && (
+                {panel === "snapshots" && (
                   <SnapshotsPanel
                     canvasId={canvasId}
                     canEdit={canEdit}
@@ -337,7 +335,7 @@ export default function CanvasEditorPage() {
                   />
                 )}
 
-                {activePanel === "stressTest" && (
+                {panel === "stressTest" && (
                   <StressTestPanel
                     template={template}
                     result={stressResult}

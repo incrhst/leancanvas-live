@@ -16,6 +16,8 @@ interface CanvasBlockProps {
   onSelect: (id: string) => void;
   onAdd?: (text: string) => void;
   onDelete?: (noteId: string) => void;
+  /** Renders the open note in its place on the board; without it the open note is a highlighted card */
+  renderOpenNote?: (note: NoteItem) => React.ReactNode;
 }
 
 export function CanvasBlock({
@@ -28,11 +30,13 @@ export function CanvasBlock({
   onSelect,
   onAdd,
   onDelete,
+  renderOpenNote,
 }: CanvasBlockProps) {
   const filtering = !!evidenceFilter && evidenceFilter.active.length > 0;
   const matching = notes.filter((n) => noteMatchesEvidence(n, evidenceFilter));
   const listed = filtering && evidenceFilter.mode === "hide" ? matching : notes;
-  const holdsSelected = !!selectedId && notes.some((n) => n._id === selectedId);
+  const holdsSelected = !renderOpenNote && !!selectedId && notes.some((n) => n._id === selectedId);
+  const quiet = !!renderOpenNote && !!selectedId;
   const listClass =
     block.layout === "wide"
       ? "grid content-start gap-2 sm:grid-cols-2 xl:grid-cols-3"
@@ -69,7 +73,11 @@ export function CanvasBlock({
       <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
         <div className={listClass}>
           <AnimatePresence initial={false}>
-            {listed.map((note) => (
+            {listed.map((note) =>
+              renderOpenNote && note._id === selectedId ? (
+                // Same key as the card, so opening swaps it in place without an exit animation
+                <React.Fragment key={note._id}>{renderOpenNote(note)}</React.Fragment>
+              ) : (
               <StickyNote
                 key={note._id}
                 note={note}
@@ -77,10 +85,12 @@ export function CanvasBlock({
                 riskRank={riskRanks?.[note._id]}
                 canEdit={canEdit}
                 dimmed={filtering && !noteMatchesEvidence(note, evidenceFilter)}
+                quiet={quiet}
                 onSelect={() => onSelect(note._id)}
                 onDelete={() => onDelete && onDelete(note._id)}
               />
-            ))}
+              )
+            )}
           </AnimatePresence>
         </div>
         {filtering && matching.length === 0 && evidenceFilter.mode === "hide" && notes.length > 0 && (

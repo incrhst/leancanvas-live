@@ -104,3 +104,20 @@ export function testFieldsPatch(args: TestFieldsUpdate): TestFieldsPatch {
   }
   return patch;
 }
+
+type TestFields = Partial<Pick<Doc<"notes">, "measure" | "passMark" | "reviewDate" | "latestResult">>;
+
+/**
+ * Where a note's test is, given today's date: "running" until its review date, then "due" until a
+ * result dated on or after it is recorded, then "result". Null when the note has no test.
+ */
+export function testStage(note: TestFields, today: string): "running" | "due" | "result" | null {
+  if (!note.measure && !note.passMark && !note.reviewDate && !note.latestResult) return null;
+  const result = note.latestResult;
+  if (result && (!note.reviewDate || result.date >= note.reviewDate)) return "result";
+  if (note.reviewDate && note.reviewDate <= today) return "due";
+  return "running";
+}
+
+/** The evidence state a verdict points to: a pass backs the note, a fail goes against it. */
+export const VERDICT_EVIDENCE = { pass: "supported", fail: "contradicted" } as const;

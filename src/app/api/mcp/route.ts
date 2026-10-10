@@ -7,6 +7,7 @@ import { getCanvasTemplate } from "../../../utils/canvasTemplates";
 import { EVIDENCE_GLOSSARY, EVIDENCE_STATES } from "../../../utils/evidenceStates";
 import { plainSummary, SummaryNote } from "../../../utils/plainSummary";
 import { todayLocal } from "../../../utils/testFields";
+import { VERDICT_EVIDENCE, daysBetween, testStage, todayUtc } from "../../../../convex/lib/testFields";
 
 const ALL_BLOCK_IDS = [...new Set([...LEAN_BLOCK_IDS, ...GTM_BLOCK_IDS])];
 const EVIDENCE_STATE_PROPERTY = {
@@ -207,6 +208,9 @@ const TOOLS_MANIFEST = [
     description:
       "Reword a note, move it to another block of the same canvas, change its evidence state or owner, or set its test " +
       "(measure, passMark, reviewDate, latestResult). Pass only what changes; null clears a test field. " +
+      "Tests go: plan (measure, passMark and reviewDate or reviewDay) → record what was seen at the review (latestResult with a verdict) → " +
+      "act on it (a pass points to 'supported', a fail to 'contradicted'; set evidenceState with the result as the reason, in the same call if you like). " +
+      "To run a new test after a result, pass latestResult: null with the new plan. list_tests shows where each test is. " +
       "Use this instead of adding a second note when refining one. Every change is kept in the note's history.",
     inputSchema: {
       type: "object",
@@ -394,6 +398,26 @@ const TOOLS_MANIFEST = [
     },
   },
   {
+    name: "list_tests",
+    description:
+      "Every test on a canvas and where it is: 'running' (waiting for its review date), 'due' or 'overdue' (the review date has come and no result is recorded since), " +
+      "or 'result' (a result is in). For results whose verdict points to a different evidence state than the note has, suggestedEvidenceState says which. " +
+      "Record results and act on them with update_note.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        canvasId: { type: "string" },
+        stage: {
+          type: "string",
+          enum: ["running", "due", "overdue", "result"],
+          description: "Only tests at this stage ('due' includes overdue ones)",
+        },
+        ownerUserId: { type: "string", description: "Only tests on notes this user owns, or 'unassigned'" },
+      },
+      required: ["canvasId"],
+    },
+  },
+  {
     name: "update_evidence_state",
     description: "Update the empirical evidence state of a note",
     inputSchema: {
@@ -535,6 +559,53 @@ async function exportSummary(accessToken: string, canvasId: string, view: string
   return { canvasId: canvas.canvasId, title: canvas.title, format: "summary", summary };
 }
 
+/** The tests on a canvas by stage, built from get_canvas with the same stage rules as the app. */
+async function listTests(accessToken: string, args: Record<string, unknown>) {
+  const canvas = await fetchQuery(api.mcp.getCanvas, {
+    accessToken,
+    canvasId: str(args.canvasId),
+    ownerUserId: optStr(args.ownerUserId),
+  });
+  const today = todayUtc();
+  const only = optStr(args.stage);
+  const tests = Object.entries(canvas.blocks).flatMap(([block, notes]) =>
+    notes.flatMap((n) => {
+      const base = testStage(n, today);
+      if (!base) return [];
+      const stage = base === "due" && n.reviewDate && n.reviewDate < today ? "overdue" : base;
+      if (only && only !== stage && !(only === "due" && stage === "overdue")) return [];
+      const verdict = stage === "result" ? n.latestResult?.verdict : undefined;
+      const points = verdict && verdict !== "inconclusive" ? VERDICT_EVIDENCE[verdict] : undefined;
+      return [
+        {
+          noteId: n.noteId,
+          block,
+          text: n.text,
+          evidenceState: n.evidenceState,
+          owner: n.owner,
+          stage,
+          measure: n.measure,
+          passMark: n.passMark,
+          reviewDate: n.reviewDate,
+          reviewDay: n.reviewDay,
+          daysUntilReview: n.reviewDate ? daysBetween(today, n.reviewDate) : undefined,
+          latestResult: n.latestResult,
+          suggestedEvidenceState: points && points !== n.evidenceState ? points : undefined,
+        },
+      ];
+    })
+  );
+  const count = (s: string) => tests.filter((t) => t.stage === s).length;
+  return {
+    canvasId: canvas.canvasId,
+    title: canvas.title,
+    today,
+    currentDay: canvas.currentDay,
+    counts: { running: count("running"), due: count("due"), overdue: count("overdue"), result: count("result") },
+    tests,
+  };
+}
+
 async function callTool(accessToken: string, toolName: string, args: Record<string, unknown>) {
   switch (toolName) {
     case "list_canvases":
@@ -548,6 +619,8 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
       });
     case "list_canvas_members":
       return await fetchQuery(api.mcp.listMembers, { accessToken, canvasId: str(args.canvasId) });
+    case "list_tests":
+      return await listTests(accessToken, args);
     case "create_canvas": {
       const result = await fetchMutation(api.mcp.createCanvas, {
         accessToken,

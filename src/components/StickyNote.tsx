@@ -17,12 +17,15 @@ interface StickyNoteProps {
   canEdit?: boolean;
   /** Outside the evidence filter: shown faded rather than removed */
   dimmed?: boolean;
+  /** Another note is open: drop the evidence tint so the open note is the one coloured card */
+  quiet?: boolean;
   onSelect?: () => void;
   onDelete?: () => void;
 }
 
 /** A note card's look for its evidence state: tinted background and a full border in the state's colour. */
-export function noteCardClass(note: NoteItem) {
+export function noteCardClass(note: NoteItem, quiet = false) {
+  if (quiet) return "rounded-lg border border-line bg-surface";
   return `rounded-lg border ${EVIDENCE_CONFIG[note.evidenceState || "assumption"].card}`;
 }
 
@@ -99,6 +102,7 @@ export function StickyNote({
   riskRank,
   canEdit = true,
   dimmed = false,
+  quiet = false,
   onSelect,
   onDelete,
 }: StickyNoteProps) {
@@ -118,7 +122,7 @@ export function StickyNote({
       animate={{ opacity: dimmed && !selected ? 0.35 : 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-      className={`group relative p-2.5 transition-all duration-150 hover:shadow-sm ${noteCardClass(note)} ${
+      className={`group relative p-2.5 transition-all duration-150 hover:shadow-sm ${noteCardClass(note, quiet)} ${
         selected
           ? "z-10 ring-[3px] ring-accent ring-offset-2 ring-offset-surface shadow-lg shadow-accent/20"
           : ""
