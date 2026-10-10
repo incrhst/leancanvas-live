@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Trash2Icon, XIcon, ChevronDownIcon, FlaskConicalIcon } from "lucide-react";
+import { Trash2Icon, XIcon, ChevronDownIcon, FlaskConicalIcon, Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { NoteItem, EvidenceState } from "../types/canvas";
 import { EvidenceBadge, EVIDENCE_CONFIG, EVIDENCE_STATES } from "./EvidenceBadge";
 import { NoteHistory } from "./NoteHistory";
@@ -48,8 +48,10 @@ interface NoteDetailPanelProps {
   onDelete: () => void;
   /** Set to show the note's change history (canvas members only, not the public link) */
   blockTitleOf?: (blockId: string) => string;
-  /** "inline" opens the note in its place on the board instead of in the side panel */
-  variant?: "panel" | "inline";
+  /** "inline" opens the note in its place on the board, "modal" in a dialog over it, "panel" in the side panel */
+  variant?: "panel" | "inline" | "modal";
+  /** Moves the note into the dialog, or (from the dialog) back where it was */
+  onToggleModal?: () => void;
 }
 
 export function NoteDetailPanel({
@@ -67,8 +69,10 @@ export function NoteDetailPanel({
   onDelete,
   blockTitleOf,
   variant = "panel",
+  onToggleModal,
 }: NoteDetailPanelProps) {
   const inline = variant === "inline";
+  const modal = variant === "modal";
   const rootRef = useRef<HTMLElement>(null);
   // After a state change here, offer a line on why. Cleared when another note is opened.
   const [changedTo, setChangedTo] = useState<EvidenceState | null>(null);
@@ -117,7 +121,8 @@ export function NoteDetailPanel({
       const el = e.target as HTMLElement | null;
       if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
       if (e.key === "Escape") {
-        onClose();
+        // In the dialog, Esc steps back to the board with the note still open
+        (modal && onToggleModal ? onToggleModal : onClose)();
         return;
       }
       if (!canEdit) return;
@@ -157,14 +162,16 @@ export function NoteDetailPanel({
       ref={rootRef as React.Ref<HTMLDivElement>}
       id={inline ? `note-${note._id}` : undefined}
       aria-label={inline ? "Open note" : undefined}
-      initial={inline ? { opacity: 0, scale: 0.98 } : { opacity: 0, x: 8 }}
-      animate={inline ? { opacity: 1, scale: 1 } : { opacity: 1, x: 0 }}
-      exit={inline ? { opacity: 0, scale: 0.98 } : { opacity: 0, x: 8 }}
+      initial={inline || modal ? { opacity: 0, scale: 0.98 } : { opacity: 0, x: 8 }}
+      animate={inline || modal ? { opacity: 1, scale: 1 } : { opacity: 1, x: 0 }}
+      exit={inline || modal ? { opacity: 0, scale: 0.98 } : { opacity: 0, x: 8 }}
       transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
       className={
         inline
           ? "scroll-my-3 rounded-xl border-2 border-ink bg-surface shadow-lg"
-          : "flex h-full flex-col bg-surface overflow-y-auto"
+          : modal
+            ? "flex max-h-full flex-col bg-surface"
+            : "flex h-full flex-col bg-surface overflow-y-auto"
       }
     >
       <header
@@ -176,6 +183,17 @@ export function NoteDetailPanel({
       >
         <p className="text-xs font-semibold text-muted uppercase tracking-wider">{inline ? "Open note" : blockTitle}</p>
         <div className="flex items-center gap-1">
+          {onToggleModal && (
+            <button
+              type="button"
+              onClick={onToggleModal}
+              title={modal ? "Collapse back to the board (Esc)" : "Expand into a larger view"}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted hover:bg-stone-100 hover:text-ink transition-colors"
+            >
+              {modal ? <Minimize2Icon size={14} aria-hidden="true" /> : <Maximize2Icon size={14} aria-hidden="true" />}
+              {modal ? "Collapse" : "Expand"}
+            </button>
+          )}
           {canEdit && (
             <button
               type="button"
@@ -198,7 +216,7 @@ export function NoteDetailPanel({
         </div>
       </header>
 
-      <div className={inline ? "space-y-4 p-3 pt-2" : "p-4 space-y-6 flex-1"}>
+      <div className={inline ? "space-y-4 p-3 pt-2" : modal ? "min-h-0 flex-1 space-y-6 overflow-y-auto p-5 sm:p-6" : "p-4 space-y-6 flex-1"}>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-muted">What do we believe?</label>
           <EditableField
@@ -396,5 +414,52 @@ function StateToggle({ state, onClick }: { state: EvidenceState; onClick: () => 
       {conf.label}
       <ChevronDownIcon className="h-4 w-4 text-muted" aria-hidden="true" />
     </button>
+  );
+}
+
+/**
+ * A dialog over the board for working on one note with room to spare. Esc and a click outside
+ * step back to the board; the note stays open there.
+ */
+export function NoteModal({
+  label,
+  onDismiss,
+  children,
+}: {
+  label: string;
+  onDismiss: () => void;
+  children: React.ReactNode;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = overflow;
+      previous?.focus?.();
+    };
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-6"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onDismiss();
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        tabIndex={-1}
+        className="flex h-full w-full flex-col overflow-hidden bg-surface shadow-xl outline-none sm:h-auto sm:max-h-[88vh] sm:max-w-[680px] sm:rounded-2xl sm:border sm:border-line"
+      >
+        {children}
+      </div>
+    </div>
   );
 }
