@@ -19,6 +19,7 @@ import {
   ArrowRightIcon,
   LogOutIcon,
   SparklesIcon,
+  UsersIcon,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -239,7 +240,16 @@ export default function DashboardPage() {
 
               <div className="pt-3 border-t border-line/60 flex items-center justify-between text-xs text-accent font-medium">
                 <span>Open Canvas</span>
-                <ArrowRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <span className="flex items-center gap-3">
+                  <span
+                    className="flex items-center gap-1 text-[11px] font-normal text-muted"
+                    title={`${c.memberCount} ${c.memberCount === 1 ? "person" : "people"} on this canvas`}
+                  >
+                    <UsersIcon className="w-3 h-3" />
+                    {c.memberCount}
+                  </span>
+                  <ArrowRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </span>
               </div>
             </Link>
           ))}
