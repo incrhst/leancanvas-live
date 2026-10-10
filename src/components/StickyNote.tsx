@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { FlaskConicalIcon, ShieldAlertIcon } from "lucide-react";
 import { EVIDENCE_CONFIG, EvidenceBadge } from "./EvidenceBadge";
@@ -102,18 +102,33 @@ export function StickyNote({
   onSelect,
   onDelete,
 }: StickyNoteProps) {
+  const ref = useRef<HTMLElement>(null);
+  // Keep the open note fully visible inside its block's scroll area.
+  useEffect(() => {
+    if (selected) ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selected]);
+
   return (
     <motion.article
+      ref={ref}
       id={`note-${note._id}`}
+      aria-current={selected ? "true" : undefined}
       layout="position"
       initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: dimmed ? 0.35 : 1, scale: 1 }}
+      animate={{ opacity: dimmed && !selected ? 0.35 : 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
       className={`group relative p-2.5 transition-all duration-150 hover:shadow-sm ${noteCardClass(note)} ${
-        selected ? "ring-2 ring-accent ring-offset-1 ring-offset-surface" : ""
+        selected
+          ? "z-10 ring-[3px] ring-accent ring-offset-2 ring-offset-surface shadow-lg shadow-accent/20"
+          : ""
       }`}
     >
+      {selected && (
+        <span className="pointer-events-none absolute -top-2 right-2 rounded-full bg-accent px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">
+          Open
+        </span>
+      )}
       {riskRank && <RiskTag rank={riskRank} />}
       <div
         onClick={onSelect}

@@ -32,6 +32,7 @@ export function CanvasBlock({
   const filtering = !!evidenceFilter && evidenceFilter.active.length > 0;
   const matching = notes.filter((n) => noteMatchesEvidence(n, evidenceFilter));
   const listed = filtering && evidenceFilter.mode === "hide" ? matching : notes;
+  const holdsSelected = !!selectedId && notes.some((n) => n._id === selectedId);
   const listClass =
     block.layout === "wide"
       ? "grid content-start gap-2 sm:grid-cols-2 xl:grid-cols-3"
@@ -40,7 +41,9 @@ export function CanvasBlock({
   return (
     <section
       aria-labelledby={`block-${block.id}`}
-      className={`flex min-h-[220px] flex-col border border-line lg:min-h-0 ${
+      className={`relative flex min-h-[220px] flex-col border lg:min-h-0 ${
+        holdsSelected ? "z-[1] border-accent/60 ring-1 ring-accent/60" : "border-line"
+      } ${
         block.emphasis ? "bg-surface-2" : "bg-surface"
       } ${block.area}`}
     >
