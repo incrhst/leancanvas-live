@@ -325,6 +325,18 @@ const AGENT_TOOLS: AgentTool[] = [
     inputs: [{ name: "canvasId", required: true }],
   },
   {
+    name: "list_tests",
+    summary: "See every test on a canvas and where it is.",
+    detail:
+      "Each test is running, due, overdue or has a result. Where a result points to a different evidence state, it says which, ready to apply with update_note.",
+    changesCanvas: false,
+    inputs: [
+      { name: "canvasId", required: true },
+      { name: "stage", required: false },
+      { name: "ownerUserId", required: false },
+    ],
+  },
+  {
     name: "update_evidence_state",
     summary: "Change how a note is marked, such as assumption to observed.",
     detail: "Valid states: unknown, assumption, observed, supported, contradicted, decision.",

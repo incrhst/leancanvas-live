@@ -4,13 +4,14 @@ import React, { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
-import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { CanvasBoard } from "../../../components/CanvasBoard";
 import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
 import { LaunchDayChip } from "../../../components/LaunchDayChip";
 import { noteMatchesEvidence, useEvidenceFilter } from "../../../utils/evidenceFilter";
 import { EvidenceLegend } from "../../../components/EvidenceLegend";
 import { LaunchDateContext } from "../../../utils/launchDate";
+import { useMediaQuery, useSetQueryParams } from "../../../utils/urlState";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptionsView";
 import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/CanvasViewToggle";
@@ -24,13 +25,16 @@ import { getCanvasTemplate } from "../../../utils/canvasTemplates";
 export default function PublicSharePage() {
   const params = useParams();
   const token = (params?.token as string) || "";
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const setQueryParams = useSetQueryParams();
   const view: CanvasView = searchParams.get("view") === "risks" ? "risks" : "canvas";
-  const setView = (next: CanvasView) => {
-    router.replace(next === "risks" ? `${pathname}?view=risks` : pathname, { scroll: false });
-  };
+  const setView = (next: CanvasView) => setQueryParams({ view: next === "risks" ? "risks" : null });
+  // The open note lives in the URL (?note=<id>) so it can be bookmarked and shared
+  const selectedId = searchParams.get("note");
+  const setSelectedId = (noteId: string | null) => setQueryParams({ note: noteId });
+  // Wide screens open the note in its place on the board; phones (and the risks view) use the panel
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const noteInline = isDesktop && view === "canvas";
 
   const grantKey = `leancanvas_share_grant_${token}`;
   const [grant, setGrant] = useState<string | undefined>(undefined);
@@ -42,7 +46,6 @@ export default function PublicSharePage() {
   const [password, setPassword] = useState("");
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [unlocking, setUnlocking] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showStressTest, setShowStressTest] = useState(false);
   const evidence = useEvidenceFilter();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -163,6 +166,19 @@ export default function PublicSharePage() {
     downloadFile(`${template.fileSlug}-public.md`, md, "text/markdown");
   };
 
+  const renderNoteDetail = (note: NoteItem, variant: "panel" | "inline") => (
+    <NoteDetailPanel
+      note={note}
+      variant={variant}
+      blockTitle={template.blocks.find((b) => b.id === note.block)?.title || note.block}
+      canEdit={false} // Read-only
+      onClose={() => setSelectedId(null)}
+      onUpdate={() => {}}
+      onUpdateEvidence={() => {}}
+      onDelete={() => {}}
+    />
+  );
+
   return (
     <div className="flex h-screen w-full flex-col bg-canvas text-ink overflow-hidden">
       {/* Top Banner: Read Only Notice */}
@@ -261,13 +277,14 @@ export default function PublicSharePage() {
               evidenceFilter={evidence.filter}
               selectedId={selectedId}
               canEdit={false} // Strictly read-only for anonymous users
-              onSelect={(id) => setSelectedId((curr) => (curr === id ? null : id))}
+              onSelect={(id) => setSelectedId(selectedId === id ? null : id)}
+              renderOpenNote={noteInline ? (note) => renderNoteDetail(note, "inline") : undefined}
             />
             )}
           </div>
 
           {/* Read-only side panel */}
-          {(selectedNote || showStressTest) && (
+          {((selectedNote && !noteInline) || showStressTest) && (
             <aside className="w-full shrink-0 border-t border-line bg-surface lg:h-full lg:w-[360px] lg:border-l lg:border-t-0 shadow-sm z-10 flex flex-col">
               {showStressTest ? (
                 <StressTestPanel
@@ -283,17 +300,7 @@ export default function PublicSharePage() {
                   }}
                 />
               ) : selectedNote ? (
-                <NoteDetailPanel
-                  note={selectedNote}
-                  blockTitle={
-                    template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block
-                  }
-                  canEdit={false} // Read-only
-                  onClose={() => setSelectedId(null)}
-                  onUpdate={() => {}}
-                  onUpdateEvidence={() => {}}
-                  onDelete={() => {}}
-                />
+                renderNoteDetail(selectedNote, "panel")
               ) : null}
             </aside>
           )}

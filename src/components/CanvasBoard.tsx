@@ -16,6 +16,8 @@ interface CanvasBoardProps {
   onSelect: (id: string) => void;
   onAdd?: (blockId: BlockId, text: string) => void;
   onDelete?: (noteId: string) => void;
+  /** Desktop grid only: renders the open note in its place (phones keep the side panel) */
+  renderOpenNote?: (note: NoteItem) => React.ReactNode;
 }
 
 export function CanvasBoard({
@@ -28,6 +30,7 @@ export function CanvasBoard({
   onSelect,
   onAdd,
   onDelete,
+  renderOpenNote,
 }: CanvasBoardProps) {
   return (
     <>
@@ -59,6 +62,7 @@ export function CanvasBoard({
             onSelect={onSelect}
             onAdd={onAdd ? (text) => onAdd(block.id, text) : undefined}
             onDelete={onDelete}
+            renderOpenNote={renderOpenNote}
           />
         ))}
       </div>
