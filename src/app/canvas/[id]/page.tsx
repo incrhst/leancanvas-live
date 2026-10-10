@@ -8,7 +8,7 @@ import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { TopBar } from "../../../components/TopBar";
 import { CanvasBoard } from "../../../components/CanvasBoard";
-import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
+import { NoteDetailPanel, NoteModal } from "../../../components/NoteDetailPanel";
 import { LaunchDayChip } from "../../../components/LaunchDayChip";
 import { DecisionsWaitingChip } from "../../../components/NoteDecision";
 import { CheckInsWaitingChip } from "../../../components/CheckIn";
@@ -45,7 +45,9 @@ export default function CanvasEditorPage() {
   const clearExportRequest = () => setQueryParams({ export: null });
   // The open note lives in the URL (?note=<id>) so it can be bookmarked and shared
   const selectedId = searchParams.get("note");
-  const setSelectedId = (noteId: string | null) => setQueryParams({ note: noteId });
+  // Opening or closing a note goes back to its usual place; ?noteView=modal expands it into a dialog
+  const setSelectedId = (noteId: string | null) => setQueryParams({ note: noteId, noteView: null });
+  const setNoteExpanded = (expanded: boolean) => setQueryParams({ noteView: expanded ? "modal" : null });
   // Wide screens open the note in its place on the board; phones (and the risks view) use the panel
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const noteInline = isDesktop && view === "canvas";
@@ -79,6 +81,7 @@ export default function CanvasEditorPage() {
   const canEdit = role === "owner" || role === "editor";
   const stressResult: StressTestResult | null = latestStressTest ?? null;
   const selectedNote = notes.find((n) => n._id === selectedId) || null;
+  const noteExpanded = !!selectedNote && searchParams.get("noteView") === "modal";
   const riskRanks = riskRanksFor(stressResult?.riskiestAssumptions);
   const members = useMemo(
     () => new Map<string, CanvasMember>((data?.members ?? []).map((m) => [m.id, m])),
@@ -180,10 +183,11 @@ export default function CanvasEditorPage() {
     downloadFile(`${template.fileSlug}-${canvasId}.json`, json, "application/json");
   };
 
-  const renderNoteDetail = (note: NoteItem, variant: "panel" | "inline") => (
+  const renderNoteDetail = (note: NoteItem, variant: "panel" | "inline" | "modal") => (
     <NoteDetailPanel
       note={note}
       variant={variant}
+      onToggleModal={() => setNoteExpanded(variant !== "modal")}
       blockTitle={template.blocks.find((b) => b.id === note.block)?.title || note.block}
       canEdit={canEdit}
       onClose={() => {
@@ -309,13 +313,13 @@ export default function CanvasEditorPage() {
                 }}
                 onAdd={canEdit ? handleAddNote : undefined}
                 onDelete={canEdit ? handleDeleteNote : undefined}
-                renderOpenNote={noteInline ? (note) => renderNoteDetail(note, "inline") : undefined}
+                renderOpenNote={noteInline && !noteExpanded ? (note) => renderNoteDetail(note, "inline") : undefined}
               />
               )}
             </div>
 
             {/* Side Panel (Note Detail or Stress Test) */}
-            {panel && !(panel === "detail" && noteInline) && (
+            {panel && !(panel === "detail" && (noteInline || noteExpanded)) && (
               <aside className="w-full shrink-0 border-t border-line bg-surface lg:h-full lg:w-[360px] lg:border-l lg:border-t-0 shadow-sm z-10 flex flex-col">
                 {panel === "detail" && selectedNote && renderNoteDetail(selectedNote, "panel")}
 
@@ -352,6 +356,15 @@ export default function CanvasEditorPage() {
               </aside>
             )}
           </main>
+
+          {noteExpanded && selectedNote && (
+            <NoteModal
+              label={`Note in ${template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block}`}
+              onDismiss={() => setNoteExpanded(false)}
+            >
+              {renderNoteDetail(selectedNote, "modal")}
+            </NoteModal>
+          )}
         </LaunchDateContext.Provider>
       </MembersContext.Provider>
 
