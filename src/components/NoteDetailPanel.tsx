@@ -73,6 +73,8 @@ export function NoteDetailPanel({
 }: NoteDetailPanelProps) {
   const inline = variant === "inline";
   const modal = variant === "modal";
+  // Inline, the header says what you can do with the note rather than repeating its block
+  const mode = canEdit ? "Editing" : "Viewing";
   const rootRef = useRef<HTMLElement>(null);
   // After a state change here, offer a line on why. Cleared when another note is opened.
   const [changedTo, setChangedTo] = useState<EvidenceState | null>(null);
@@ -161,7 +163,7 @@ export function NoteDetailPanel({
     <Root
       ref={rootRef as React.Ref<HTMLDivElement>}
       id={inline ? `note-${note._id}` : undefined}
-      aria-label={inline ? "Open note" : undefined}
+      aria-label={inline ? `${mode} note in ${blockTitle}` : undefined}
       initial={inline || modal ? { opacity: 0, scale: 0.98 } : { opacity: 0, x: 8 }}
       animate={inline || modal ? { opacity: 1, scale: 1 } : { opacity: 1, x: 0 }}
       exit={inline || modal ? { opacity: 0, scale: 0.98 } : { opacity: 0, x: 8 }}
@@ -181,7 +183,7 @@ export function NoteDetailPanel({
             : "flex h-12 shrink-0 items-center justify-between border-b border-line px-4"
         }
       >
-        <p className="text-xs font-semibold text-muted uppercase tracking-wider">{inline ? "Open note" : blockTitle}</p>
+        <p className="text-xs font-semibold text-muted uppercase tracking-wider">{inline ? mode : blockTitle}</p>
         <div className="flex items-center gap-1">
           {onToggleModal && (
             <button
