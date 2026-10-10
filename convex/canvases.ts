@@ -196,9 +196,21 @@ export async function listCanvasesForUser(ctx: QueryCtx, userId: Id<"users">) {
     if (!canvasMap.has(canvas._id)) canvasMap.set(canvas._id, { ...canvas, role: "owner" });
   }
 
-  return Array.from(canvasMap.values())
+  const visible = Array.from(canvasMap.values())
     .filter((c) => c.status !== "archived")
     .sort((a, b) => b.updatedAt - a.updatedAt);
+
+  // How many people are on each canvas; counts the creator even without a membership row
+  return await Promise.all(
+    visible.map(async (c) => {
+      const rows = await ctx.db
+        .query("canvasMembers")
+        .withIndex("by_canvas", (q) => q.eq("canvasId", c._id))
+        .collect();
+      const hasCreator = rows.some((r) => r.userId === c.createdBy);
+      return { ...c, memberCount: rows.length + (hasCreator ? 0 : 1) };
+    })
+  );
 }
 
 /**
