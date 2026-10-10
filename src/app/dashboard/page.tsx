@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "../../../convex/_generated/api";
@@ -20,7 +20,24 @@ import {
   LogOutIcon,
   SparklesIcon,
   UsersIcon,
+  SearchIcon,
+  XIcon,
 } from "lucide-react";
+
+type SortKey = "updated" | "created" | "title" | "people";
+type OwnershipFilter = "all" | "owned" | "shared";
+
+const SORT_OPTIONS: { id: SortKey; label: string }[] = [
+  { id: "updated", label: "Recently updated" },
+  { id: "created", label: "Recently created" },
+  { id: "title", label: "Name (A–Z)" },
+  { id: "people", label: "Most people" },
+];
+
+const SORT_STORAGE_KEY = "dashboard.sort";
+
+const selectClass =
+  "rounded-lg border border-line bg-surface px-2.5 py-2 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-accent";
 
 export default function DashboardPage() {
   const { user, logout, isLoading } = useAuth();
@@ -33,10 +50,60 @@ export default function DashboardPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newTemplate, setNewTemplate] = useState<CanvasTemplate>("lean");
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("updated");
+  const [ownership, setOwnership] = useState<OwnershipFilter>("all");
+  const [templateFilter, setTemplateFilter] = useState<CanvasTemplate | "all">("all");
 
   useEffect(() => {
     if (!isLoading && !user) router.replace("/login?redirect=/dashboard");
   }, [isLoading, user, router]);
+
+  // Remember the chosen sort per browser; storage can be unavailable (private mode)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SORT_STORAGE_KEY);
+      if (saved && SORT_OPTIONS.some((o) => o.id === saved)) setSortKey(saved as SortKey);
+    } catch {}
+  }, []);
+
+  const changeSort = (key: SortKey) => {
+    setSortKey(key);
+    try {
+      localStorage.setItem(SORT_STORAGE_KEY, key);
+    } catch {}
+  };
+
+  const isFiltered = search.trim() !== "" || ownership !== "all" || templateFilter !== "all";
+  const clearFilters = () => {
+    setSearch("");
+    setOwnership("all");
+    setTemplateFilter("all");
+  };
+
+  const visibleCanvases = useMemo(() => {
+    if (!canvases) return [];
+    const q = search.trim().toLowerCase();
+    const filtered = canvases.filter((c) => {
+      if (ownership === "owned" && c.role !== "owner") return false;
+      if (ownership === "shared" && c.role === "owner") return false;
+      if (templateFilter !== "all" && getCanvasTemplate(c.template).id !== templateFilter) return false;
+      if (q && !`${c.title} ${c.description ?? ""}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+    return [...filtered].sort((a, b) => {
+      switch (sortKey) {
+        case "created":
+          return b._creationTime - a._creationTime;
+        case "title":
+          return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+        case "people":
+          return b.memberCount - a.memberCount || b.updatedAt - a.updatedAt;
+        default:
+          return b.updatedAt - a.updatedAt;
+      }
+    });
+  }, [canvases, search, ownership, templateFilter, sortKey]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,8 +275,79 @@ export default function DashboardPage() {
             <p className="text-xs text-muted">Click &quot;New Canvas&quot; to start your first canvas.</p>
           </div>
         ) : (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="relative flex-1">
+              <span className="sr-only">Search canvases</span>
+              <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by title or description"
+                className="w-full rounded-lg border border-line bg-surface py-2 pl-8 pr-3 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                aria-label="Filter by ownership"
+                value={ownership}
+                onChange={(e) => setOwnership(e.target.value as OwnershipFilter)}
+                className={selectClass}
+              >
+                <option value="all">All canvases</option>
+                <option value="owned">Owned by me</option>
+                <option value="shared">Shared with me</option>
+              </select>
+              <select
+                aria-label="Filter by template"
+                value={templateFilter}
+                onChange={(e) => setTemplateFilter(e.target.value as CanvasTemplate | "all")}
+                className={selectClass}
+              >
+                <option value="all">All templates</option>
+                {CANVAS_TEMPLATE_LIST.map((t) => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+              <select
+                aria-label="Sort canvases"
+                value={sortKey}
+                onChange={(e) => changeSort(e.target.value as SortKey)}
+                className={selectClass}
+              >
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {isFiltered && (
+            <div className="flex items-center gap-2 text-[11px] text-muted">
+              <span>
+                Showing {visibleCanvases.length} of {canvases.length}
+              </span>
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex items-center gap-1 text-accent hover:underline"
+              >
+                <XIcon className="h-3 w-3" />
+                Clear filters
+              </button>
+            </div>
+          )}
+
+          {visibleCanvases.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-line bg-surface p-10 text-center space-y-2">
+              <SearchIcon className="w-6 h-6 text-muted mx-auto" />
+              <p className="text-sm font-semibold text-ink">No canvases match</p>
+              <p className="text-xs text-muted">Try a different search or clear the filters.</p>
+            </div>
+          ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-          {canvases.map((c) => (
+          {visibleCanvases.map((c) => (
             <Link
               key={c._id}
               href={`/canvas/${c._id}`}
@@ -253,6 +391,8 @@ export default function DashboardPage() {
               </div>
             </Link>
           ))}
+        </div>
+          )}
         </div>
         )}
       </main>
