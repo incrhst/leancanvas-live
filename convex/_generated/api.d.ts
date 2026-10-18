@@ -20,6 +20,7 @@ import type * as invites from "../invites.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_canvasTemplates from "../lib/canvasTemplates.js";
 import type * as lib_checkIns from "../lib/checkIns.js";
+import type * as lib_decisionText from "../lib/decisionText.js";
 import type * as lib_decisions from "../lib/decisions.js";
 import type * as lib_history from "../lib/history.js";
 import type * as lib_markets from "../lib/markets.js";
@@ -57,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
   "lib/canvasTemplates": typeof lib_canvasTemplates;
   "lib/checkIns": typeof lib_checkIns;
+  "lib/decisionText": typeof lib_decisionText;
   "lib/decisions": typeof lib_decisions;
   "lib/history": typeof lib_history;
   "lib/markets": typeof lib_markets;

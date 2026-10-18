@@ -88,18 +88,31 @@ export interface LatestResult {
   verdict?: Verdict;
 }
 
-export type DecisionStatus = "open" | "approved" | "rejected" | "changes_requested";
+export type DecisionStatus = "open" | "approved" | "rejected" | "changes_requested" | "decided";
 
 export interface DecisionRequest {
   question: string;
   deciderId: string;
   /** YYYY-MM-DD */
   dueDate: string;
+  /** What happens if nobody decides by dueDate */
+  defaultOutcome?: string;
+  /** Choices instead of approve / reject */
+  options?: string[];
   requestedBy: string;
   requestedAt: number;
   status: DecisionStatus;
+  /** The option picked, when status is "decided" */
+  choice?: string;
   comment?: string;
   answeredAt?: number;
+  /** Answered from the emailed link, without signing in */
+  answeredVia?: "link";
+  answeredByName?: string;
+  /** Set while the emailed answer link works */
+  linkTokenHash?: string;
+  /** Only on the public link, which shares names but not member ids */
+  deciderName?: string;
 }
 
 export interface NoteItem {

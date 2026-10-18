@@ -42,6 +42,7 @@ const DECISION_STATUS_LABELS: Record<string, string> = {
   approved: "Approved",
   rejected: "Rejected",
   changes_requested: "Changes requested",
+  decided: "Decided",
 };
 
 /** One readable line for a field change. Shared with the snapshot comparison. */
@@ -92,14 +93,24 @@ function describeEntry(kind: string, changes: Change[], blockTitleOf: (blockId: 
     return [
       `Asked ${value("decision.decider")?.to ?? "someone"} for a decision, due ${formatCalendarDate(value("decision.dueDate")?.to ?? "")}`,
       `“${truncate(value("decision.question")?.to ?? "", 80)}”`,
+      ...(value("decision.options") ? [`Options: ${value("decision.options")!.to}`] : []),
+      ...(value("decision.defaultOutcome") ? [`If nobody decides: ${truncate(value("decision.defaultOutcome")!.to ?? "", 80)}`] : []),
     ];
   }
   if (kind === "decision_answered") {
-    const outcome = { approved: "Approved", rejected: "Rejected", changes_requested: "Asked for a change" }[
-      value("decision.status")?.to ?? ""
-    ];
+    const choice = value("decision.choice")?.to;
+    const outcome = {
+      approved: "Approved",
+      rejected: "Rejected",
+      changes_requested: "Asked for a change on",
+      decided: `Chose “${truncate(choice ?? "", 60)}” on`,
+    }[value("decision.status")?.to ?? ""];
     const comment = value("decision.comment")?.to;
-    return [`${outcome ?? "Answered"} the decision request${comment ? `: “${truncate(comment, 80)}”` : ""}`];
+    const signed = value("decision.answeredByName")?.to;
+    return [
+      `${outcome ?? "Answered"} the decision request${comment ? `: “${truncate(comment, 80)}”` : ""}`,
+      ...(signed ? [`Signed “${truncate(signed, 60)}”`] : []),
+    ];
   }
   if (kind === "decision_withdrawn") return ["Withdrew the decision request"];
   if (kind === "check_in") {
@@ -137,7 +148,8 @@ export function NoteHistory({ noteId, blockTitleOf }: NoteHistoryProps) {
             <li key={entry._id} className="text-[11px] leading-snug">
               <p className="text-muted">
                 <span className="font-semibold text-ink">{entry.userName}</span>
-                {entry.via === "mcp" && <> via {entry.clientName || "an agent"}</>} · {formatRelative(entry.at)}
+                {entry.via === "mcp" && <> via {entry.clientName || "an agent"}</>}
+                {entry.via === "link" && <> from the emailed link</>} · {formatRelative(entry.at)}
               </p>
               {describeEntry(entry.kind, entry.changes, blockTitleOf).map((line, i) => (
                 <p key={i} className="text-ink break-words">

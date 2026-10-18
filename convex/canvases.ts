@@ -461,6 +461,14 @@ export const getCanvasByPublicToken = query({
       .order("desc")
       .first();
 
+    // Decisions show the decider's name, not their id, and never the answer link
+    const deciderNames = new Map<Id<"users">, string>();
+    for (const n of notes) {
+      if (n.decision && !deciderNames.has(n.decision.deciderId)) {
+        deciderNames.set(n.decision.deciderId, displayName(await ctx.db.get(n.decision.deciderId)));
+      }
+    }
+
     return {
       canvas: {
         _id: canvas._id,
@@ -483,6 +491,16 @@ export const getCanvasByPublicToken = query({
           reviewDate: n.reviewDate,
           latestResult: n.latestResult,
           markets: n.markets,
+          decision: n.decision && {
+            question: n.decision.question,
+            dueDate: n.decision.dueDate,
+            defaultOutcome: n.decision.defaultOutcome,
+            options: n.decision.options,
+            status: n.decision.status,
+            choice: n.decision.choice,
+            answeredAt: n.decision.answeredAt,
+            deciderName: deciderNames.get(n.decision.deciderId),
+          },
           updatedAt: n.updatedAt,
         }))
         .sort((a, b) => a.order - b.order),

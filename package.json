@@ -8,7 +8,8 @@
     "dev:backend": "convex dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run"
   },
   "dependencies": {
     "@auth/core": "0.41.3",
@@ -30,12 +31,16 @@
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
     "@types/node": "^20.11.18",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "latest",
+    "convex-test": "^0.0.62",
     "postcss": "latest",
     "tailwindcss": "3.4.17",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
   }
 }

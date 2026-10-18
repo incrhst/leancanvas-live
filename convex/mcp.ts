@@ -69,8 +69,13 @@ function noteForAgent(n: Doc<"notes">, { launchDate, memberNames }: CanvasContex
             name: memberNames.get(n.decision.deciderId) ?? "Former member",
           },
           dueDate: n.decision.dueDate,
+          defaultOutcome: n.decision.defaultOutcome,
+          options: n.decision.options,
           requestedBy: memberNames.get(n.decision.requestedBy) ?? "Former member",
+          choice: n.decision.choice,
           comment: n.decision.comment,
+          answeredVia: n.decision.answeredVia,
+          answeredByName: n.decision.answeredByName,
         }
       : undefined,
     measure: n.measure,
@@ -450,6 +455,8 @@ export const requestDecision = mutation({
     deciderUserId: v.string(),
     dueDate: v.optional(v.string()),
     dueDay: v.optional(v.number()),
+    defaultOutcome: v.optional(v.string()),
+    options: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const { user, actor } = await requireTokenActor(ctx, args.accessToken);
@@ -461,6 +468,8 @@ export const requestDecision = mutation({
       question: args.question,
       deciderId: resolveOwner(ctx, args.deciderUserId)!,
       dueDate,
+      defaultOutcome: args.defaultOutcome,
+      options: args.options,
     });
     return noteForAgent((await ctx.db.get(note._id))!, await canvasContext(ctx, canvas));
   },
@@ -471,13 +480,18 @@ export const answerDecision = mutation({
     accessToken: v.string(),
     noteId: v.string(),
     answer: decisionAnswerValidator,
+    choice: v.optional(v.string()),
     comment: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { user, actor } = await requireTokenActor(ctx, args.accessToken);
     // Viewers can answer requests addressed to them, so no edit access is needed
     const note = await resolveNote(ctx, user, args.noteId, false);
-    await answerDecisionForUser(ctx, actor, note, { answer: args.answer, comment: args.comment });
+    await answerDecisionForUser(ctx, actor, note, {
+      answer: args.answer,
+      choice: args.choice,
+      comment: args.comment,
+    });
     const canvas = (await ctx.db.get(note.canvasId))!;
     return noteForAgent((await ctx.db.get(note._id))!, await canvasContext(ctx, canvas));
   },

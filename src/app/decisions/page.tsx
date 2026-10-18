@@ -13,6 +13,7 @@ const ANSWERED_LABEL: Record<DecisionAnswer, string> = {
   approve: "Approved",
   reject: "Rejected",
   change: "Sent back with your comment",
+  choose: "Decided",
 };
 
 /**
@@ -23,7 +24,7 @@ export default function DecisionsPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const open = useQuery(api.decisions.myOpenDecisions, user ? {} : "skip");
-  const [answered, setAnswered] = useState<{ question: string; answer: DecisionAnswer }[]>([]);
+  const [answered, setAnswered] = useState<{ question: string; answer: DecisionAnswer; choice?: string }[]>([]);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace("/login?redirect=/decisions");
@@ -53,7 +54,7 @@ export default function DecisionsPage() {
           >
             <CheckCircle2Icon size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
             <span>
-              <strong>{ANSWERED_LABEL[a.answer]}:</strong> {a.question}
+              <strong>{a.choice ? `${ANSWERED_LABEL[a.answer]} “${a.choice}”` : ANSWERED_LABEL[a.answer]}:</strong> {a.question}
             </span>
           </p>
         ))}
@@ -69,7 +70,7 @@ export default function DecisionsPage() {
             <DecisionCard
               key={d.noteId}
               decision={d}
-              onAnswered={(answer) => setAnswered((prev) => [...prev, { question: d.question, answer }])}
+              onAnswered={(answer, choice) => setAnswered((prev) => [...prev, { question: d.question, answer, choice }])}
             />
           ))
         )}

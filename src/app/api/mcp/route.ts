@@ -259,7 +259,7 @@ const TOOLS_MANIFEST = [
   {
     name: "request_decision",
     description:
-      "Ask one canvas member to decide on a note. They're emailed a link and can answer from their phone, even with view-only access. A note can have one open request at a time.",
+      "Ask one canvas member to decide on a note. They're emailed a link that answers it from their phone with no sign-in, even with view-only access; it works only for this decision and stops once it's made or withdrawn. Give a defaultOutcome so they see what happens if nobody decides by the due date (it is shown, never applied for them), and options to offer named choices instead of approve / reject. A note can have one open request at a time.",
     inputSchema: {
       type: "object",
       properties: {
@@ -271,6 +271,17 @@ const TOOLS_MANIFEST = [
           type: "integer",
           description: "Alternative to dueDate: the day of the plan, counted from the canvas's launchDate",
         },
+        defaultOutcome: {
+          type: "string",
+          description:
+            "What happens if nobody decides by the due date, e.g. 'We sign the agency'. Shown as 'If nothing is decided by 1 November, we sign the agency.'",
+        },
+        options: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "2 to 4 short choices instead of approve / reject, e.g. ['Sign the agency', 'Build in-house', 'Ask me Friday']",
+        },
       },
       required: ["noteId", "question", "deciderUserId"],
     },
@@ -278,12 +289,13 @@ const TOOLS_MANIFEST = [
   {
     name: "answer_decision",
     description:
-      "Answer a decision request addressed to you. approve or reject makes the note a decision; change sends it back to whoever asked, with your comment, and leaves the note as it is. Works with view-only access.",
+      "Answer a decision request addressed to you. approve or reject makes the note a decision (on a request with options, use choose with the option as choice instead); change sends it back to whoever asked, with your comment, and leaves the note as it is. Works with view-only access.",
     inputSchema: {
       type: "object",
       properties: {
         noteId: { type: "string" },
-        answer: { type: "string", enum: ["approve", "reject", "change"] },
+        answer: { type: "string", enum: ["approve", "reject", "change", "choose"] },
+        choice: { type: "string", description: "With answer 'choose': one of the request's options" },
         comment: { type: "string", description: "Optional for approve and reject; required for change" },
       },
       required: ["noteId", "answer"],
@@ -546,6 +558,7 @@ async function exportSummary(accessToken: string, canvasId: string, view: string
           question: n.decision.question,
           decider: n.decision.decider.name,
           dueDate: n.decision.dueDate,
+          defaultOutcome: n.decision.defaultOutcome,
         },
       })
     ),
@@ -686,12 +699,15 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         deciderUserId: str(args.deciderUserId),
         dueDate: optStr(args.dueDate),
         dueDay: typeof args.dueDay === "number" ? args.dueDay : undefined,
+        defaultOutcome: optStr(args.defaultOutcome),
+        options: Array.isArray(args.options) ? args.options.map(String) : undefined,
       });
     case "answer_decision":
       return await fetchMutation(api.mcp.answerDecision, {
         accessToken,
         noteId: str(args.noteId),
         answer: args.answer as any, // validated by Convex
+        choice: optStr(args.choice),
         comment: optStr(args.comment),
       });
     case "withdraw_decision":
