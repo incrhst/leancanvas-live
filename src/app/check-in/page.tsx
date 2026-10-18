@@ -10,7 +10,7 @@ import { useAuth } from "../../components/ConvexClientProvider";
 import { CheckInCard } from "../../components/CheckIn";
 
 /**
- * The weekly check-in: for each note you own, any new evidence this week? Built for a phone.
+ * The weekly check-in: for each note you're driving, any new evidence this week? Built for a phone.
  * The Monday email links here.
  */
 export default function CheckInPage() {

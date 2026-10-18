@@ -142,7 +142,7 @@ const GTM_BLOCKS: BlockDef[] = [
   {
     id: "launchPlan",
     title: "8. 90-Day Launch Plan",
-    prompt: "Milestones · experiments · owners",
+    prompt: "Milestones · experiments · drivers",
     area: "lg:col-start-1 lg:col-span-5 lg:row-start-3",
     layout: "wide",
   },

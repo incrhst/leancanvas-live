@@ -126,7 +126,8 @@ export default defineSchema({
     evidenceState: evidenceStateValidator,
     // Optional test: measure, passMark, reviewDate, latestResult
     ...testFieldsSchema,
-    // The one person responsible for this note; any canvas member, viewers included
+    // The note's driver: the one person doing the work on it; any canvas member, viewers included.
+    // Shown as "driver" everywhere; the field keeps its original name so no migration is needed
     ownerId: v.optional(v.id("users")),
     // Where the note holds (e.g. "Jamaica"); none means every market. See lib/markets.ts
     markets: v.optional(v.array(v.string())),
@@ -195,7 +196,7 @@ export default defineSchema({
     decisionStatus: v.optional(decisionStatusValidator),
   }).index("by_snapshot", ["snapshotId"]),
 
-  // One weekly check-in question: "any new evidence on this note?", for the note's owner
+  // One weekly check-in question: "any new evidence on this note?", for the note's driver
   checkInItems: defineTable({
     userId: v.id("users"),
     canvasId: v.id("canvases"),

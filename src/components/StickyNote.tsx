@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { FlaskConicalIcon, ShieldAlertIcon } from "lucide-react";
 import { EVIDENCE_CONFIG, EvidenceBadge } from "./EvidenceBadge";
-import { OwnerChip } from "./OwnerControls";
+import { DriverChip } from "./DriverControls";
 import { DecisionSummary } from "./NoteDecision";
 import { MarketTags } from "./MarketControls";
 import { NoteItem } from "../types/canvas";
@@ -159,7 +159,7 @@ export function StickyNote({
         />
 
         <div className="flex items-center gap-1">
-          <OwnerChip ownerId={note.ownerId} />
+          <DriverChip driverId={note.ownerId} />
           {canEdit && onDelete && (
             <button
               type="button"

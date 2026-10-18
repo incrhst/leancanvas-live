@@ -15,7 +15,7 @@ import { CheckInsWaitingChip } from "../../../components/CheckIn";
 import { SnapshotsPanel } from "../../../components/SnapshotsPanel";
 import { noteMatchesEvidence, useEvidenceFilter } from "../../../utils/evidenceFilter";
 import { EvidenceLegend } from "../../../components/EvidenceLegend";
-import { matchesOwnerFilter, OwnerFilter, OwnerFilterValue } from "../../../components/OwnerControls";
+import { matchesDriverFilter, DriverFilter, DriverFilterValue } from "../../../components/DriverControls";
 import { MarketFilter, marketsOf, matchesMarketFilter } from "../../../components/MarketControls";
 import { CanvasMember, MembersContext } from "../../../utils/members";
 import { todayLocal } from "../../../utils/testFields";
@@ -69,7 +69,7 @@ export default function CanvasEditorPage() {
   const [activePanel, setActivePanel] = useState<"detail" | "stressTest" | "snapshots" | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
-  const [ownerFilter, setOwnerFilter] = useState<OwnerFilterValue>("all");
+  const [driverFilter, setDriverFilter] = useState<DriverFilterValue>("all");
   const [marketFilter, setMarketFilter] = useState("all");
   const evidence = useEvidenceFilter();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -89,7 +89,7 @@ export default function CanvasEditorPage() {
   );
   const allMarkets = marketsOf(notes);
   const visibleNotes = notes.filter(
-    (n) => matchesOwnerFilter(n, ownerFilter, user?.id) && matchesMarketFilter(n, marketFilter)
+    (n) => matchesDriverFilter(n, driverFilter, user?.id) && matchesMarketFilter(n, marketFilter)
   );
 
   if (isLoading || data === undefined) {
@@ -124,8 +124,8 @@ export default function CanvasEditorPage() {
   // Add Note
   const handleAddNote = (block: BlockId, text: string) => {
     // While showing one person's notes, new notes are theirs, so they don't vanish from view
-    const owner = ownerFilter === "mine" ? user?.id : ownerFilter === "all" || ownerFilter === "unassigned" ? undefined : ownerFilter;
-    void addNote({ canvasId, block: block as NoteBlock, content: text, ownerId: owner as Id<"users"> | undefined });
+    const driver = driverFilter === "mine" ? user?.id : driverFilter === "all" || driverFilter === "unassigned" ? undefined : driverFilter;
+    void addNote({ canvasId, block: block as NoteBlock, content: text, ownerId: driver as Id<"users"> | undefined });
   };
 
   // Update Note Content
@@ -198,8 +198,8 @@ export default function CanvasEditorPage() {
       onUpdate={(content) => handleUpdateNote(note._id, content)}
       onUpdateEvidence={(state) => handleUpdateEvidence(note._id, state)}
       onUpdateTest={(patch) => void updateNote({ noteId: note._id as Id<"notes">, ...patch })}
-      onUpdateOwner={(ownerId) =>
-        void updateNote({ noteId: note._id as Id<"notes">, ownerId: ownerId as Id<"users"> | null })
+      onUpdateDriver={(driverId) =>
+        void updateNote({ noteId: note._id as Id<"notes">, ownerId: driverId as Id<"users"> | null })
       }
       onUpdateMarkets={(markets) => void updateNote({ noteId: note._id as Id<"notes">, markets })}
       allMarkets={allMarkets}
@@ -263,7 +263,7 @@ export default function CanvasEditorPage() {
                 {view === "canvas" && (
                   <>
                     <MarketFilter markets={allMarkets} value={marketFilter} onChange={setMarketFilter} />
-                    <OwnerFilter value={ownerFilter} currentUserId={user?.id} onChange={setOwnerFilter} />
+                    <DriverFilter value={driverFilter} currentUserId={user?.id} onChange={setDriverFilter} />
                   </>
                 )}
                 </div>
@@ -378,7 +378,7 @@ export default function CanvasEditorPage() {
             const note = notes.find((n) => n._id === noteId);
             // Reveal a note the current filters would hide
             if (note && !visibleNotes.includes(note)) {
-              setOwnerFilter("all");
+              setDriverFilter("all");
               setMarketFilter("all");
             }
             if (note && evidence.filter.mode === "hide" && !noteMatchesEvidence(note, evidence.filter)) {

@@ -138,18 +138,18 @@ const AGENT_TOOLS: AgentTool[] = [
     name: "get_canvas",
     summary: "Read a canvas with its blocks and sticky notes.",
     detail:
-      "Returns the canvas's template, each block's notes, and every note's evidence state, owner, market tags and test. Pass ownerUserId to see one person's notes, or market to see what holds in one market.",
+      "Returns the canvas's template, each block's notes, and every note's evidence state, driver, market tags and test. Pass driverUserId to see the notes one person is driving, or market to see what holds in one market.",
     changesCanvas: false,
     inputs: [
       { name: "canvasId", required: true },
-      { name: "ownerUserId", required: false },
+      { name: "driverUserId", required: false },
       { name: "market", required: false },
     ],
   },
   {
     name: "list_canvas_members",
     summary: "See who has access to a canvas.",
-    detail: "Returns each person's userId, name, email and role. Use the userId to make someone a note's owner.",
+    detail: "Returns each person's userId, name, email and role. Use the userId to make someone a note's driver or a decision's decider.",
     changesCanvas: false,
     inputs: [{ name: "canvasId", required: true }],
   },
@@ -164,7 +164,7 @@ const AGENT_TOOLS: AgentTool[] = [
       { name: "block", required: true },
       { name: "content", required: true },
       { name: "evidenceState", required: false },
-      { name: "ownerUserId", required: false },
+      { name: "driverUserId", required: false },
       { name: "markets", required: false },
       { name: "measure", required: false },
       { name: "passMark", required: false },
@@ -176,7 +176,7 @@ const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "update_note",
-    summary: "Reword a note, move it, change its state or owner, or set its test.",
+    summary: "Reword a note, move it, change its state or driver, or set its test.",
     detail:
       "Pass only what changes; null clears a test field. A test is a measure, a pass mark, a review date (YYYY-MM-DD, or reviewDay counted from the launch date) and the latest result with a pass, fail or inconclusive verdict. Every change, and the reason if given, is kept in the note's history.",
     changesCanvas: true,
@@ -185,7 +185,7 @@ const AGENT_TOOLS: AgentTool[] = [
       { name: "content", required: false },
       { name: "block", required: false },
       { name: "evidenceState", required: false },
-      { name: "ownerUserId", required: false },
+      { name: "driverUserId", required: false },
       { name: "markets", required: false },
       { name: "measure", required: false },
       { name: "passMark", required: false },
@@ -280,7 +280,7 @@ const AGENT_TOOLS: AgentTool[] = [
     name: "compare_snapshots",
     summary: "See what changed between two snapshots, or since one.",
     detail:
-      "Lists notes added, removed, or changed (text, block, state, test, owner, decision), field by field. Leave out 'to' to compare with the canvas now.",
+      "Lists notes added, removed, or changed (text, block, state, test, driver, decision), field by field. Leave out 'to' to compare with the canvas now.",
     changesCanvas: false,
     inputs: [
       { name: "canvasId", required: true },
@@ -302,13 +302,13 @@ const AGENT_TOOLS: AgentTool[] = [
   {
     name: "list_check_ins",
     summary: "See this week's check-in questions waiting on you.",
-    detail: "One per note you own: has there been new evidence this week?",
+    detail: "One per note you're driving: has there been new evidence this week?",
     changesCanvas: false,
     inputs: [],
   },
   {
     name: "answer_check_in",
-    summary: "Answer a weekly check-in on a note you own.",
+    summary: "Answer a weekly check-in on a note you're driving.",
     detail:
       "No records 'no new evidence'. Yes needs one line, which becomes the note's latest result. Both go into history. Works with view-only access.",
     changesCanvas: true,
@@ -323,7 +323,7 @@ const AGENT_TOOLS: AgentTool[] = [
   {
     name: "send_check_in",
     summary: "Send this week's check-in for a canvas now.",
-    detail: "Each owner gets one email about their notes. Otherwise it goes out every Monday morning.",
+    detail: "Each driver gets one email about the notes they're driving. Otherwise it goes out every Monday morning.",
     changesCanvas: true,
     inputs: [{ name: "canvasId", required: true }],
   },
@@ -336,7 +336,7 @@ const AGENT_TOOLS: AgentTool[] = [
     inputs: [
       { name: "canvasId", required: true },
       { name: "stage", required: false },
-      { name: "ownerUserId", required: false },
+      { name: "driverUserId", required: false },
     ],
   },
   {

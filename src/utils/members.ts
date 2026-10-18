@@ -8,7 +8,7 @@ export interface CanvasMember {
   role: Role;
 }
 
-/** Canvas members by user id, for showing note owners. Empty on the public share link. */
+/** Canvas members by user id, for showing note drivers. Empty on the public share link. */
 export const MembersContext = createContext<Map<string, CanvasMember>>(new Map());
 
 /** "Ana Brown" -> "AB", "ana@x.com" -> "A". */

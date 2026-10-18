@@ -50,7 +50,7 @@ export const myPending = query({
   },
 });
 
-/** Answers a check-in question. Owners can answer whatever their role, view-only included. */
+/** Answers a check-in question. Drivers can answer whatever their role, view-only included. */
 export const answer = mutation({
   args: {
     noteId: v.id("notes"),

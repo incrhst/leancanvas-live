@@ -47,10 +47,10 @@ When configured, Claude has access to:
 - `list_canvases()`: Lists your canvases with their `template`, role, and URL.
 - `create_canvas({ title, description, template, seedNotes, launchDate })`: Initializes a new canvas (`template`: `lean` by default, or `gtm`) and returns the direct collaboration URL.
 - `update_canvas({ canvasId, title, description, launchDate })`: Changes a canvas's title, description or launch date. The launch date (`YYYY-MM-DD`) is day 0 of the plan; `null` clears it.
-- `get_canvas({ canvasId, ownerUserId, market })`: Fetches full structured canvas, blocks, and current notes with evidence states, owners and tests (`measure`, `passMark`, `reviewDate`, `latestResult`). With a launch date it also returns `currentDay` and each note's `reviewDay`. `ownerUserId` (or `"unassigned"`) narrows it to one person's notes; `market` to the notes that hold in one market (tagged with it, or untagged, which means every market).
-- `list_canvas_members({ canvasId })`: Lists everyone with access (userId, name, email, role). Use a userId as a note's `ownerUserId`; viewers can own notes.
-- `add_note({ canvasId, block, content, evidenceState, ownerUserId, markets, measure, passMark, reviewDate, reviewDay, latestResult, reason })`: Inserts a note into a block of the canvas's template. A block from the other template is rejected.
-- `update_note({ noteId, content, block, evidenceState, ownerUserId, markets, measure, passMark, reviewDate, reviewDay, latestResult, reason, link })`: Rewords a note, moves it to another block of the same template, changes its state, or sets its test. Pass only what changes; `null` clears a test field. Dates are `YYYY-MM-DD`, or give `reviewDay` (e.g. `30`) on a canvas with a launch date; `latestResult` is `{ text, date?, verdict? }` with verdict `pass`, `fail` or `inconclusive`.
+- `get_canvas({ canvasId, driverUserId, market })`: Fetches full structured canvas, blocks, and current notes with evidence states, drivers and tests (`measure`, `passMark`, `reviewDate`, `latestResult`). With a launch date it also returns `currentDay` and each note's `reviewDay`. `driverUserId` (or `"unassigned"`) narrows it to the notes one person is driving; `market` to the notes that hold in one market (tagged with it, or untagged, which means every market).
+- `list_canvas_members({ canvasId })`: Lists everyone with access (userId, name, email, role). Use a userId as a note's `driverUserId` (the driver is the person doing the work on the note; viewers can be drivers) or a decision's `deciderUserId`.
+- `add_note({ canvasId, block, content, evidenceState, driverUserId, markets, measure, passMark, reviewDate, reviewDay, latestResult, reason })`: Inserts a note into a block of the canvas's template. A block from the other template is rejected.
+- `update_note({ noteId, content, block, evidenceState, driverUserId, markets, measure, passMark, reviewDate, reviewDay, latestResult, reason, link })`: Rewords a note, moves it to another block of the same template, changes its state, or sets its test. Pass only what changes; `null` clears a test field. Dates are `YYYY-MM-DD`, or give `reviewDay` (e.g. `30`) on a canvas with a launch date; `latestResult` is `{ text, date?, verdict? }` with verdict `pass`, `fail` or `inconclusive`.
 - `delete_note({ noteId, reason })`: Removes a note. Its history stays readable.
 - `get_note_history({ noteId })`: Lists every change to a note, newest first: who, when, app or agent, from and to, and the reason. Works for deleted notes.
 - `request_decision({ noteId, question, deciderUserId, dueDate | dueDay, defaultOutcome, options })`: Asks one canvas member to decide on a note. They're emailed a link (`/d/[token]`) that answers it from a phone with no account or sign-in, even with view-only access. `defaultOutcome` is what happens if nobody decides by the due date ("If nothing is decided by 1 November, we sign the agency."); it is shown everywhere the decision is, and never applied for them. `options` gives 2 to 4 named choices instead of approve / reject.
@@ -62,8 +62,8 @@ When configured, Claude has access to:
 - `compare_snapshots({ canvasId, from, to })`: Notes added, removed or changed between two snapshots; `to` defaults to `current` (the canvas now).
 - `get_review({ canvasId, sinceSnapshotId })`: The review-meeting view, also at `/canvas/[id]/review`: tests grouped by how the latest result compares with the pass mark (missed, no result yet, too early, met), overdue reviews, open decisions, and what changed since the latest (or given) snapshot.
 - `list_check_ins()`: The weekly check-in questions waiting on you.
-- `answer_check_in({ noteId, hasEvidence, text, verdict, date })`: No records "no new evidence"; yes needs a line, which becomes the note's latest result. Works for view-only owners.
-- `send_check_in({ canvasId })`: Sends this week's check-in now. Otherwise a cron sends it every Monday at 13:00 UTC (8am Jamaica) to the owner of every note that is unproven (unknown, assumption, observed) or has a test, and isn't a decision.
+- `answer_check_in({ noteId, hasEvidence, text, verdict, date })`: No records "no new evidence"; yes needs a line, which becomes the note's latest result. Works for view-only drivers.
+- `send_check_in({ canvasId })`: Sends this week's check-in now. Otherwise a cron sends it every Monday at 13:00 UTC (8am Jamaica) to the driver of every note that is unproven (unknown, assumption, observed) or has a test, and isn't a decision.
 - `update_evidence_state({ noteId, evidenceState, reason })`: Updates state (`unknown`, `assumption`, `observed`, `supported`, `contradicted`, `decision`).
 - `run_stress_test({ canvasId })`: Triggers the 7-dimension diagnostic (Ash Maurya for Lean, go-to-market criteria for GTM) and extracts top riskiest assumptions.
 - `export_canvas({ canvasId, view, format })`: Returns a link that downloads the canvas (`view: "canvas"`) or its riskiest assumptions (`view: "riskiest_assumptions"`, needs a stress test first) as a PDF or PNG (`format`). The file is rendered in the browser, so open the link while signed in. `format: "summary"` instead returns plain-language text right away: one short paragraph per block for a non-technical reader.
@@ -75,9 +75,9 @@ When configured, Claude has access to:
 | Actor | View Canvas | Edit Canvas | Comment | Invite Others | Run Stress Test | Answer Decisions / Check-ins |
 |---|---|---|---|---|---|---|
 | **Anonymous** | Yes (via `/share/[token]`) | **No** | No | No | No | Only with the decider's emailed link (`/d/[token]`), for that one decision |
-| **Authenticated Viewer** | Yes | No | Yes | No | No | Yes, when they're the named decider |
-| **Authenticated Editor** | Yes | Yes | Yes | Yes (Editor / Viewer) | Yes | Yes, when they're the named decider |
-| **Owner** | Yes | Yes | Yes | Yes | Yes | Yes, when they're the named decider |
+| **Authenticated Viewer** | Yes | No | Yes | No | No | Yes, when they're the named decider (decisions) or the note's driver (check-ins) |
+| **Authenticated Editor** | Yes | Yes | Yes | Yes (Editor / Viewer) | Yes | Yes, when they're the named decider (decisions) or the note's driver (check-ins) |
+| **Owner** | Yes | Yes | Yes | Yes | Yes | Yes, when they're the named decider (decisions) or the note's driver (check-ins) |
 
 ---
 
