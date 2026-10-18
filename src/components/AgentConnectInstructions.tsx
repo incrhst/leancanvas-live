@@ -217,7 +217,7 @@ const AGENT_TOOLS: AgentTool[] = [
     name: "request_decision",
     summary: "Ask someone on the canvas to decide on a note.",
     detail:
-      "They get an email with a link and can answer from their phone, even with view-only access. Give a due date (YYYY-MM-DD) or dueDay from the launch date.",
+      "They get an email with a link that answers it from their phone, no sign-in needed, even with view-only access. Give a due date (YYYY-MM-DD) or dueDay from the launch date, a default for if nobody decides by then, and up to 4 options instead of approve / reject.",
     changesCanvas: true,
     inputs: [
       { name: "noteId", required: true },
@@ -225,17 +225,20 @@ const AGENT_TOOLS: AgentTool[] = [
       { name: "deciderUserId", required: true },
       { name: "dueDate", required: false },
       { name: "dueDay", required: false },
+      { name: "defaultOutcome", required: false },
+      { name: "options", required: false },
     ],
   },
   {
     name: "answer_decision",
-    summary: "Approve, reject or ask for a change on a decision request addressed to you.",
+    summary: "Approve, reject, pick an option or ask for a change on a decision request addressed to you.",
     detail:
-      "Approve or reject makes the note a decision. Asking for a change needs a comment and sends it back to whoever asked. Works with view-only access.",
+      "Approve, reject or choose (with one of the request's options) makes the note a decision. Asking for a change needs a comment and sends it back to whoever asked. Works with view-only access.",
     changesCanvas: true,
     inputs: [
       { name: "noteId", required: true },
       { name: "answer", required: true },
+      { name: "choice", required: false },
       { name: "comment", required: false },
     ],
   },

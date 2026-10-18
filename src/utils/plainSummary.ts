@@ -1,5 +1,6 @@
 import { EvidenceState, NoteItem, Verdict } from "../types/canvas";
 import { formatCalendarDate, formatPlanDate } from "./testFields";
+import { defaultOutcomeLine } from "../../convex/lib/decisionText";
 
 /**
  * A plain-language summary of a canvas: one short paragraph per block, for someone who has never
@@ -11,7 +12,7 @@ export interface SummaryNote {
   state: EvidenceState;
   markets?: string[];
   result?: { text: string; verdict?: Verdict };
-  decision?: { status: string; question: string; decider?: string; dueDate: string };
+  decision?: { status: string; question: string; decider?: string; dueDate: string; defaultOutcome?: string };
 }
 
 export interface SummaryInput {
@@ -69,7 +70,7 @@ function blockName(title: string) {
   return title.replace(/^\d+\.\s*/, "");
 }
 
-export function blockParagraph(notes: SummaryNote[], launchDate?: string): string {
+export function blockParagraph(notes: SummaryNote[], launchDate?: string, today?: string): string {
   if (notes.length === 0) return "Nothing written here yet.";
   const parts: string[] = [];
   for (const { state, lead } of GROUPS) {
@@ -81,6 +82,8 @@ export function blockParagraph(notes: SummaryNote[], launchDate?: string): strin
     if (d?.status !== "open") continue;
     const who = d.decider ? `${d.decider.split(" ")[0]} to decide` : "a decision";
     parts.push(`Waiting on ${who} by ${formatPlanDate(launchDate, d.dueDate).replace(/^Day/, "day")}: ${clean(d.question)}?`.replace(/\?\?$/, "?"));
+    const fallback = today && defaultOutcomeLine(d, today);
+    if (fallback) parts.push(fallback);
   }
   return parts.join(" ");
 }
@@ -90,7 +93,7 @@ export function plainSummary(input: SummaryInput): string {
   const when = `${formatCalendarDate(input.today)}${day && day.startsWith("Day") ? ` (${day.toLowerCase()} of the plan)` : ""}`;
   const lines = [`# ${input.title}`, "", `Where the plan stands on ${when}.`, ""];
   for (const block of input.blocks) {
-    lines.push(`## ${blockName(block.title)}`, "", blockParagraph(block.notes, input.launchDate), "");
+    lines.push(`## ${blockName(block.title)}`, "", blockParagraph(block.notes, input.launchDate, input.today), "");
   }
   return lines.join("\n").trimEnd() + "\n";
 }
@@ -123,6 +126,7 @@ export function summaryFromNotes(args: {
             question: n.decision.question,
             decider: args.nameOf(n.decision.deciderId),
             dueDate: n.decision.dueDate,
+            defaultOutcome: n.decision.defaultOutcome,
           },
         })),
     })),

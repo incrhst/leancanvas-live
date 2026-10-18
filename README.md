@@ -53,8 +53,8 @@ When configured, Claude has access to:
 - `update_note({ noteId, content, block, evidenceState, ownerUserId, markets, measure, passMark, reviewDate, reviewDay, latestResult, reason, link })`: Rewords a note, moves it to another block of the same template, changes its state, or sets its test. Pass only what changes; `null` clears a test field. Dates are `YYYY-MM-DD`, or give `reviewDay` (e.g. `30`) on a canvas with a launch date; `latestResult` is `{ text, date?, verdict? }` with verdict `pass`, `fail` or `inconclusive`.
 - `delete_note({ noteId, reason })`: Removes a note. Its history stays readable.
 - `get_note_history({ noteId })`: Lists every change to a note, newest first: who, when, app or agent, from and to, and the reason. Works for deleted notes.
-- `request_decision({ noteId, question, deciderUserId, dueDate | dueDay })`: Asks one canvas member to decide on a note. They're emailed a link to `/decisions` and can answer from a phone, even with view-only access.
-- `answer_decision({ noteId, answer, comment })`: The named decider answers `approve`, `reject` (both make the note a `decision`) or `change` (needs a comment; sends it back with the note unchanged).
+- `request_decision({ noteId, question, deciderUserId, dueDate | dueDay, defaultOutcome, options })`: Asks one canvas member to decide on a note. They're emailed a link (`/d/[token]`) that answers it from a phone with no account or sign-in, even with view-only access. `defaultOutcome` is what happens if nobody decides by the due date ("If nothing is decided by 1 November, we sign the agency."); it is shown everywhere the decision is, and never applied for them. `options` gives 2 to 4 named choices instead of approve / reject.
+- `answer_decision({ noteId, answer, choice, comment })`: The named decider answers `approve`, `reject`, `choose` with one of the request's options as `choice` (all three make the note a `decision`), or `change` (needs a comment; sends it back with the note unchanged).
 - `withdraw_decision({ noteId, reason })`: Cancels an open request.
 - `list_decisions({ canvasId })`: Decision requests on a canvas, or, without `canvasId`, the open ones waiting on you.
 - `create_snapshot({ canvasId, label })`: Freezes the canvas under a label, e.g. `Day 30`.
@@ -74,7 +74,7 @@ When configured, Claude has access to:
 
 | Actor | View Canvas | Edit Canvas | Comment | Invite Others | Run Stress Test | Answer Decisions / Check-ins |
 |---|---|---|---|---|---|---|
-| **Anonymous** | Yes (via `/share/[token]`) | **No** | No | No | No | No |
+| **Anonymous** | Yes (via `/share/[token]`) | **No** | No | No | No | Only with the decider's emailed link (`/d/[token]`), for that one decision |
 | **Authenticated Viewer** | Yes | No | Yes | No | No | Yes, when they're the named decider |
 | **Authenticated Editor** | Yes | Yes | Yes | Yes (Editor / Viewer) | Yes | Yes, when they're the named decider |
 | **Owner** | Yes | Yes | Yes | Yes | Yes | Yes, when they're the named decider |
@@ -88,6 +88,8 @@ When configured, Claude has access to:
 - `/dashboard`: Workspace canvases list & creation modal
 - `/canvas/[id]`: Full multiplayer collaborative editor with sticky note evidence cycling
 - `/share/[token]`: Public read-only view for anonymous users (editing and stress-test triggers strictly disabled)
+- `/decisions`: The signed-in user's open decisions, across canvases
+- `/d/[token]`: Public answer page for one decision, from the request email. No sign-in. The token is stored hashed, works for that one request only, and stops working once the request is answered or withdrawn, when an editor sends a new link or turns it off, or when the decider leaves the canvas
 - `/invite/[token]`: Magic invite acceptance flow (requires authentication before joining)
 
 ---
@@ -115,6 +117,9 @@ npx convex dev
 
 # 3. Run Next.js frontend
 pnpm dev
+
+# Tests (convex-test + vitest)
+pnpm test
 ```
 
 Open [http://localhost:3000](http://localhost:3000) or deploy to [https://lean.incrementic.com](https://lean.incrementic.com).

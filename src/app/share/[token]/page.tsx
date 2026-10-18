@@ -158,7 +158,11 @@ export default function PublicSharePage() {
     );
   }
 
-  const notes: NoteItem[] = data.notes;
+  // The public link shares a decision's wording and outcome, not who asked (member ids stay private)
+  const notes: NoteItem[] = data.notes.map((n) => ({
+    ...n,
+    decision: n.decision && { ...n.decision, deciderId: "", requestedBy: "", requestedAt: 0 },
+  }));
   const publicStressTest: StressTestResult | null = data.latestStressTest;
   const selectedNote = notes.find((n) => n._id === selectedId) || null;
   const noteExpanded = !!selectedNote && searchParams.get("noteView") === "modal";

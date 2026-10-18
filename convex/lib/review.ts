@@ -70,6 +70,7 @@ export async function buildReview(
       decider: nameOf(n.decision!.deciderId)!,
       requestedBy: nameOf(n.decision!.requestedBy)!,
       dueDate: n.decision!.dueDate,
+      defaultOutcome: n.decision!.defaultOutcome,
       overdue: n.decision!.dueDate < today,
     }))
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));

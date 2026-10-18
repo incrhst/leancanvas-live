@@ -4,6 +4,7 @@ import { FlaskConicalIcon, GavelIcon, HistoryIcon } from "lucide-react";
 import { EvidenceState, LatestResult } from "../types/canvas";
 import { EvidenceBadge } from "./EvidenceBadge";
 import { SnapshotComparison } from "./SnapshotsPanel";
+import { DecisionDefault } from "./NoteDecision";
 import { formatCalendarDate, formatPlanDate, localDate } from "../utils/testFields";
 
 export type TestOutcome = "missed" | "met" | "unclear" | "no_result";
@@ -35,6 +36,7 @@ export interface ReviewData {
     decider: string;
     requestedBy: string;
     dueDate: string;
+    defaultOutcome?: string;
     overdue: boolean;
   }[];
   since: { snapshotId: string; label: string; takenAt: number } | null;
@@ -103,6 +105,7 @@ export function ReviewView({
                   {d.decider} decides · {d.overdue ? "overdue, was due" : "due"} {plan(d.dueDate)} · asked by {d.requestedBy}
                 </p>
                 <p className="text-xs text-muted">{blockLine(d.block)}: {d.text}</p>
+                <DecisionDefault decision={{ ...d, status: "open" }} />
                 {currentUserId === d.deciderId && (
                   <Link href="/decisions" className="inline-block text-xs font-semibold text-accent underline">
                     Answer it

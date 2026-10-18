@@ -136,15 +136,17 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_canvas_block", ["canvasId", "block"])
-    .index("by_decider_and_status", ["decision.deciderId", "decision.status"]),
+    .index("by_decider_and_status", ["decision.deciderId", "decision.status"])
+    .index("by_decision_link", ["decision.linkTokenHash"]),
 
   // One row per change to a note. Rows outlive the note, so a deleted note's history stays readable.
   noteHistory: defineTable({
     canvasId: v.id("canvases"),
     noteId: v.id("notes"),
     userId: v.id("users"),
-    // Where the change came from; an MCP token acts as its user, so this tells agent edits apart
-    via: v.union(v.literal("ui"), v.literal("mcp")),
+    // Where the change came from; an MCP token acts as its user, so this tells agent edits apart.
+    // "link" = a decision answered from its emailed link, without signing in (userId is the decider).
+    via: v.union(v.literal("ui"), v.literal("mcp"), v.literal("link")),
     clientName: v.optional(v.string()),
     kind: v.union(
       v.literal("created"),
