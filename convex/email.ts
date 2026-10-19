@@ -17,7 +17,7 @@ export const send = internalAction({
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.AUTH_EMAIL_FROM ?? "LeanCanvas <onboarding@resend.dev>",
+        from: process.env.AUTH_EMAIL_FROM ?? "LeanOn <onboarding@resend.dev>",
         to: [args.to],
         subject: args.subject,
         text: args.text,

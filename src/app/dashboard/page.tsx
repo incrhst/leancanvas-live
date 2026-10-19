@@ -136,7 +136,7 @@ export default function DashboardPage() {
       <header className="border-b border-line bg-surface px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-incrementic-red text-white font-bold flex items-center justify-center text-sm shadow-sm font-display">
-            LC
+            LO
           </div>
           <div className="flex items-baseline gap-2">
             <span className="font-bold text-base text-ink font-display">My Canvases</span>

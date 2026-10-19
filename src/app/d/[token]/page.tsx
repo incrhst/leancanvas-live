@@ -220,7 +220,7 @@ function Shell({ title, from, children }: { title?: string; from?: string; child
           <GavelIcon className="h-4 w-4" aria-hidden="true" />
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-[15px] font-semibold text-ink">{title || "LeanCanvas Live"}</span>
+          <span className="block truncate text-[15px] font-semibold text-ink">{title || "LeanOn"}</span>
           <span className="block truncate text-xs text-muted">{from ? `One question from ${from}` : "A decision"}</span>
         </span>
       </header>
