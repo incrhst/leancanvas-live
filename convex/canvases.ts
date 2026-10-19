@@ -496,6 +496,7 @@ export const getCanvasByPublicToken = query({
             dueDate: n.decision.dueDate,
             defaultOutcome: n.decision.defaultOutcome,
             options: n.decision.options,
+            deferOptions: n.decision.deferOptions,
             status: n.decision.status,
             choice: n.decision.choice,
             answeredAt: n.decision.answeredAt,

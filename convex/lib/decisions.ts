@@ -26,6 +26,9 @@ export const decisionRequestValidator = v.object({
   defaultOutcome: v.optional(v.string()),
   // The decider's choices instead of approve / reject, e.g. ["Sign the agency", "Build in-house"]
   options: v.optional(v.array(v.string())),
+  // The options that put the decision off (e.g. "Decide after day 3"): choosing one answers the
+  // request but leaves the note's evidence state as it was. Always a subset of `options`.
+  deferOptions: v.optional(v.array(v.string())),
   requestedBy: v.id("users"),
   requestedAt: v.number(),
   status: decisionStatusValidator,
@@ -109,6 +112,23 @@ function checkOptions(value: string[] | undefined) {
   return options;
 }
 
+/** The options that defer, matched to `options` (case-insensitive). At least one option must actually decide. */
+function checkDeferOptions(value: string[] | undefined, options: string[] | undefined) {
+  const named = (value ?? []).map((o) => o.trim().toLowerCase()).filter(Boolean);
+  if (named.length === 0) return undefined;
+  if (!options) throw new ConvexError("Only a request with options can have options that defer");
+  const unknown = named.find((n) => !options.some((o) => o.toLowerCase() === n));
+  if (unknown !== undefined) throw new ConvexError(`Each option that defers must be one of the options: ${options.join(", ")}`);
+  const deferOptions = options.filter((o) => named.includes(o.toLowerCase()));
+  if (deferOptions.length === options.length) throw new ConvexError("At least one option must make the decision");
+  return deferOptions;
+}
+
+/** Whether `choice` is one of the request's options that put the decision off. */
+export function isDeferral(decision: { deferOptions?: string[] }, choice: string | undefined) {
+  return !!choice && !!decision.deferOptions?.includes(choice);
+}
+
 /** The decision request email: the question, the default, and the link that answers it without signing in. */
 async function emailDecider(
   ctx: MutationCtx,
@@ -128,7 +148,9 @@ async function emailDecider(
       `${displayName(requester)} has asked you to decide on a note in "${canvas?.title ?? "a canvas"}".`,
       "",
       `Question: ${decision.question}`,
-      ...(decision.options ? [`Options: ${decision.options.join(" / ")}`] : []),
+      ...(decision.options
+        ? [`Options: ${decision.options.map((o) => (isDeferral(decision, o) ? `${o} (puts it off)` : o)).join(" / ")}`]
+        : []),
       `Note: ${note.content}`,
       `Needed by: ${by}`,
       ...(fallback ? [fallback] : []),
@@ -155,6 +177,8 @@ export async function requestDecisionForUser(
     dueDate: string;
     defaultOutcome?: string;
     options?: string[];
+    // Which of `options` defer the decision instead of making it
+    deferOptions?: string[];
   }
 ) {
   if (note.decision?.status === "open") {
@@ -165,6 +189,7 @@ export async function requestDecisionForUser(
   const dueDate = checkDate(args.dueDate.trim(), "dueDate");
   const defaultOutcome = checkDefaultOutcome(args.defaultOutcome);
   const options = checkOptions(args.options);
+  const deferOptions = checkDeferOptions(args.deferOptions, options);
   if (!(await getCanvasRole(ctx, note.canvasId, args.deciderId))) {
     throw new ConvexError("The decider must be a member of this canvas");
   }
@@ -177,6 +202,7 @@ export async function requestDecisionForUser(
     dueDate,
     defaultOutcome,
     options,
+    deferOptions,
     requestedBy: actor.userId,
     requestedAt: now,
     status: "open",
@@ -191,12 +217,14 @@ export async function requestDecisionForUser(
   ];
   if (defaultOutcome) changes.push({ field: "decision.defaultOutcome", to: defaultOutcome });
   if (options) changes.push({ field: "decision.options", to: options.join(" / ") });
+  if (deferOptions) changes.push({ field: "decision.deferOptions", to: deferOptions.join(" / ") });
   await recordNoteHistory(ctx, actor, note, "decision_requested", changes);
 
   const decider = await ctx.db.get(args.deciderId);
   await touch(ctx, note, actor, `asked ${displayName(decider)} for a decision`);
 
-  if (args.deciderId !== actor.userId) await emailDecider(ctx, note, decision, link.token);
+  // Sent even when you ask yourself, so the link works the same as "Send a new link" (and solo dry runs work)
+  await emailDecider(ctx, note, decision, link.token);
 }
 
 /** Checks an answer against the request and returns the fields it sets. */
@@ -218,8 +246,9 @@ function checkAnswer(decision: Decision, args: { answer: DecisionAnswer; choice?
   return { status: STATUS_FOR_ANSWER[args.answer], choice: undefined, comment };
 }
 
-/** What the decider did, as a phrase: "approved", "chose “Build in-house” on", … */
-function answerPhrase(status: Decision["status"], choice?: string) {
+/** What the decider did, as a phrase: "approved", "chose “Build in-house” on", "deferred", … */
+function answerPhrase(status: Decision["status"], choice?: string, deferred = false) {
+  if (deferred) return "deferred";
   if (status === "decided") return `chose “${choice}” on`;
   return { open: "answered", approved: "approved", rejected: "rejected", changes_requested: "asked for changes on" }[
     status
@@ -228,8 +257,8 @@ function answerPhrase(status: Decision["status"], choice?: string) {
 
 /**
  * Records an answer for the named decider (signed in, or holding the link). Approving, rejecting
- * or choosing an option makes the note a decision; asking for a change sends it back to whoever
- * asked, with the note unchanged.
+ * or choosing an option makes the note a decision; choosing an option that defers, or asking for
+ * a change, leaves the note's evidence state as it was (a change also sends it back to whoever asked).
  */
 async function recordAnswer(
   ctx: MutationCtx,
@@ -243,7 +272,8 @@ async function recordAnswer(
   const name = viaLink ? args.name?.trim().slice(0, MAX_NAME_LENGTH) || undefined : undefined;
 
   const now = Date.now();
-  const evidenceState = status === "changes_requested" ? note.evidenceState : "decision";
+  const deferred = isDeferral(decision, choice);
+  const evidenceState = status === "changes_requested" || deferred ? note.evidenceState : "decision";
   await ctx.db.patch(note._id, {
     decision: {
       ...decision,
@@ -260,6 +290,7 @@ async function recordAnswer(
 
   const changes: NoteChange[] = [{ field: "decision.status", from: "open", to: status }];
   if (choice) changes.push({ field: "decision.choice", to: choice });
+  if (deferred) changes.push({ field: "decision.deferred", to: "yes" });
   if (evidenceState !== note.evidenceState) {
     changes.push({ field: "evidenceState", from: note.evidenceState, to: evidenceState });
   }
@@ -267,7 +298,7 @@ async function recordAnswer(
   if (name) changes.push({ field: "decision.answeredByName", to: name });
   await recordNoteHistory(ctx, actor, note, "decision_answered", changes);
 
-  const label = answerPhrase(status, choice);
+  const label = answerPhrase(status, choice, deferred);
   await touch(ctx, note, actor, `${label} a decision request${viaLink ? " from the answer link" : ""}`);
 
   if (decision.requestedBy !== actor.userId) {
@@ -280,6 +311,7 @@ async function recordAnswer(
         `${who} ${label} your decision request in "${canvas?.title ?? "a canvas"}"${viaLink ? ", from the emailed link" : ""}.`,
         "",
         `Question: ${decision.question}`,
+        ...(deferred ? [`Their answer: ${choice}. The note stays as it was until the decision is made.`] : []),
         ...(comment ? [`Comment: ${comment}`] : []),
         "",
         `Open the canvas: ${siteUrl()}/canvas/${note.canvasId}`,
@@ -352,6 +384,7 @@ export async function getDecisionByLink(ctx: QueryCtx, token: string) {
     dueDate: decision.dueDate,
     defaultOutcome: decision.defaultOutcome,
     options: decision.options,
+    deferOptions: decision.deferOptions,
     deciderName: displayName(await ctx.db.get(decision.deciderId)),
     requestedBy: displayName(await ctx.db.get(decision.requestedBy)),
     status: decision.status,
@@ -423,6 +456,7 @@ export async function listOpenDecisionsFor(ctx: QueryCtx, userId: Id<"users">) {
       dueDate: decision.dueDate,
       defaultOutcome: decision.defaultOutcome,
       options: decision.options,
+      deferOptions: decision.deferOptions,
       requestedBy: displayName(await ctx.db.get(decision.requestedBy)),
       requestedAt: decision.requestedAt,
     });

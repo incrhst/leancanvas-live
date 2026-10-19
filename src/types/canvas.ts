@@ -99,6 +99,8 @@ export interface DecisionRequest {
   defaultOutcome?: string;
   /** Choices instead of approve / reject */
   options?: string[];
+  /** The options that put the decision off; choosing one leaves the note's evidence state alone */
+  deferOptions?: string[];
   requestedBy: string;
   requestedAt: number;
   status: DecisionStatus;

@@ -23,9 +23,20 @@ const STATUS_LABEL: Record<DecisionStatus, string> = {
 
 const MAX_OPTIONS = 4;
 
-/** "Approved", or the option chosen: "Decided: Build in-house". */
-export function outcomeLabel(decision: { status: DecisionStatus; choice?: string }) {
-  return decision.status === "decided" && decision.choice ? `Decided: ${decision.choice}` : STATUS_LABEL[decision.status];
+/** Whether `choice` only puts the decision off (it leaves the note's evidence state alone). */
+export function isDeferral(decision: { deferOptions?: string[] }, choice?: string) {
+  return !!choice && !!decision.deferOptions?.includes(choice);
+}
+
+/** "Approved", or the option chosen: "Decided: Build in-house", "Put off: Decide after day 3". */
+export function outcomeLabel(decision: { status: DecisionStatus; choice?: string; deferOptions?: string[] }) {
+  if (decision.status !== "decided" || !decision.choice) return STATUS_LABEL[decision.status];
+  return `${isDeferral(decision, decision.choice) ? "Put off" : "Decided"}: ${decision.choice}`;
+}
+
+/** "Sign the agency / Decide after day 3 (puts it off)" */
+function optionsLine(decision: { options?: string[]; deferOptions?: string[] }) {
+  return decision.options?.map((o) => (isDeferral(decision, o) ? `${o} (puts it off)` : o)).join(" / ");
 }
 
 /**
@@ -110,10 +121,12 @@ export function DecisionSummary({ note }: { note: NoteItem }) {
 export function DecisionAnswerForm({
   noteId,
   options,
+  deferOptions,
   onAnswered,
 }: {
   noteId: string;
   options?: string[];
+  deferOptions?: string[];
   onAnswered?: (answer: DecisionAnswer, choice?: string) => void;
 }) {
   const answerDecision = useMutation(api.decisions.answerDecision);
@@ -151,17 +164,30 @@ export function DecisionAnswerForm({
       />
       {options ? (
         <div className="grid gap-2">
-          {options.map((option) => (
-            <button
-              key={option}
-              type="button"
-              disabled={busy}
-              onClick={() => answer("choose", option)}
-              className={`${button} bg-ink text-surface hover:opacity-90`}
-            >
-              {option}
-            </button>
-          ))}
+          {options.map((option) =>
+            isDeferral({ deferOptions }, option) ? (
+              <button
+                key={option}
+                type="button"
+                disabled={busy}
+                onClick={() => answer("choose", option)}
+                className={`${button} border border-line bg-surface text-ink hover:bg-surface-2`}
+              >
+                {option}
+                <span className="block text-[11px] font-normal text-muted">Puts it off; the note stays open</span>
+              </button>
+            ) : (
+              <button
+                key={option}
+                type="button"
+                disabled={busy}
+                onClick={() => answer("choose", option)}
+                className={`${button} bg-ink text-surface hover:opacity-90`}
+              >
+                {option}
+              </button>
+            )
+          )}
         </div>
       ) : (
         <div className="flex gap-2">
@@ -201,8 +227,8 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
   const [deciderId, setDeciderId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [defaultOutcome, setDefaultOutcome] = useState("");
-  // null = approve / reject; otherwise the decider picks one of these
-  const [options, setOptions] = useState<string[] | null>(null);
+  // null = approve / reject; otherwise the decider picks one of these. `defer` = it only puts the decision off.
+  const [options, setOptions] = useState<{ label: string; defer: boolean }[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [linkNotice, setLinkNotice] = useState<string | null>(null);
 
@@ -238,7 +264,8 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
         deciderId: deciderId as Id<"users">,
         dueDate,
         defaultOutcome: defaultOutcome.trim() || undefined,
-        options: options ? options.map((o) => o.trim()).filter(Boolean) : undefined,
+        options: options ? options.map((o) => o.label.trim()).filter(Boolean) : undefined,
+        deferOptions: options?.filter((o) => o.defer && o.label.trim()).map((o) => o.label.trim()),
       });
       setAsking(false);
     } catch (err) {
@@ -273,10 +300,10 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
             {nameOf(decision.requestedBy)} asked {isDecider ? "you" : nameOf(decision.deciderId)} · due{" "}
             {formatCalendarDate(decision.dueDate)}
           </p>
-          {decision.options && <p className="text-muted">Options: {decision.options.join(" / ")}</p>}
+          {decision.options && <p className="text-muted">Options: {optionsLine(decision)}</p>}
         </div>
         <DecisionDefault decision={decision} />
-        {isDecider && <DecisionAnswerForm noteId={note._id} options={decision.options} />}
+        {isDecider && <DecisionAnswerForm noteId={note._id} options={decision.options} deferOptions={decision.deferOptions} />}
         {canEdit && (
           <div className="space-y-1">
             {!isDecider && (
@@ -402,7 +429,7 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
                     key={label}
                     type="button"
                     aria-pressed={(options !== null) === value}
-                    onClick={() => setOptions(value ? options ?? ["", ""] : null)}
+                    onClick={() => setOptions(value ? options ?? [{ label: "", defer: false }, { label: "", defer: false }] : null)}
                     className={`flex-1 rounded-md px-2 py-1 font-medium ${
                       (options !== null) === value ? "bg-ink text-surface" : "text-muted hover:text-ink"
                     }`}
@@ -414,17 +441,29 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
               {options && (
                 <div className="space-y-1.5">
                   {options.map((option, i) => (
-                    <div key={i} className="flex gap-1">
+                    <div key={i} className="flex items-center gap-1">
                       <input
                         type="text"
                         required={i < 2}
-                        value={option}
+                        value={option.label}
                         maxLength={60}
-                        onChange={(e) => setOptions(options.map((o, j) => (j === i ? e.target.value : o)))}
+                        onChange={(e) => setOptions(options.map((o, j) => (j === i ? { ...o, label: e.target.value } : o)))}
                         placeholder={["e.g. Sign the agency", "e.g. Build in-house", "e.g. Ask me Friday", "Another option"][i]}
                         aria-label={`Option ${i + 1}`}
                         className="w-full rounded-lg border border-line bg-surface p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
                       />
+                      <label
+                        title="Choosing this only puts the decision off: the note isn't marked as decided"
+                        className="flex shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap px-1 text-[11px] text-muted"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={option.defer}
+                          onChange={(e) => setOptions(options.map((o, j) => (j === i ? { ...o, defer: e.target.checked } : o)))}
+                          className="h-3.5 w-3.5 accent-ink"
+                        />
+                        Puts it off
+                      </label>
                       {i >= 2 && (
                         <button
                           type="button"
@@ -440,7 +479,7 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
                   {options.length < MAX_OPTIONS && (
                     <button
                       type="button"
-                      onClick={() => setOptions([...options, ""])}
+                      onClick={() => setOptions([...options, { label: "", defer: false }])}
                       className="flex items-center gap-1 text-[11px] font-medium text-muted hover:text-ink"
                     >
                       <PlusIcon className="h-3 w-3" aria-hidden="true" />
@@ -491,7 +530,7 @@ function PublicDecision({ decision }: { decision: NonNullable<NoteItem["decision
             : outcomeLabel(decision)}
         </p>
         <p className="text-muted">{decision.question}</p>
-        {decision.status === "open" && decision.options && <p className="text-muted">Options: {decision.options.join(" / ")}</p>}
+        {decision.status === "open" && decision.options && <p className="text-muted">Options: {optionsLine(decision)}</p>}
       </div>
       <DecisionDefault decision={decision} />
     </div>
@@ -524,6 +563,7 @@ export interface WaitingDecision {
   dueDate: string;
   defaultOutcome?: string;
   options?: string[];
+  deferOptions?: string[];
   requestedBy: string;
 }
 
@@ -551,7 +591,7 @@ export function DecisionCard({
       </div>
       {d.noteText !== d.question && <p className="rounded-lg bg-surface-2 p-2.5 text-sm text-ink">{d.noteText}</p>}
       <DecisionDefault decision={{ ...d, status: "open" }} />
-      <DecisionAnswerForm noteId={d.noteId} options={d.options} onAnswered={onAnswered} />
+      <DecisionAnswerForm noteId={d.noteId} options={d.options} deferOptions={d.deferOptions} onAnswered={onAnswered} />
     </article>
   );
 }

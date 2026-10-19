@@ -71,6 +71,7 @@ function noteForAgent(n: Doc<"notes">, { launchDate, memberNames }: CanvasContex
           dueDate: n.decision.dueDate,
           defaultOutcome: n.decision.defaultOutcome,
           options: n.decision.options,
+          deferOptions: n.decision.deferOptions,
           requestedBy: memberNames.get(n.decision.requestedBy) ?? "Former member",
           choice: n.decision.choice,
           comment: n.decision.comment,
@@ -468,6 +469,7 @@ export const requestDecision = mutation({
     dueDay: v.optional(v.number()),
     defaultOutcome: v.optional(v.string()),
     options: v.optional(v.array(v.string())),
+    deferOptions: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const { user, actor } = await requireTokenActor(ctx, args.accessToken);
@@ -481,6 +483,7 @@ export const requestDecision = mutation({
       dueDate,
       defaultOutcome: args.defaultOutcome,
       options: args.options,
+      deferOptions: args.deferOptions,
     });
     return noteForAgent((await ctx.db.get(note._id))!, await canvasContext(ctx, canvas));
   },

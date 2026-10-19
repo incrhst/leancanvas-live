@@ -259,7 +259,7 @@ const TOOLS_MANIFEST = [
   {
     name: "request_decision",
     description:
-      "Ask one canvas member to decide on a note. They're emailed a link that answers it from their phone with no sign-in, even with view-only access; it works only for this decision and stops once it's made or withdrawn. Give a defaultOutcome so they see what happens if nobody decides by the due date (it is shown, never applied for them), and options to offer named choices instead of approve / reject. A note can have one open request at a time.",
+      "Ask one canvas member to decide on a note. They're emailed a link that answers it from their phone with no sign-in, even with view-only access; it works only for this decision and stops once it's made or withdrawn. Give a defaultOutcome so they see what happens if nobody decides by the due date (it is shown, never applied for them), and options to offer named choices instead of approve / reject. Name any option that only puts the decision off (e.g. 'Decide after day 3') in deferOptions: choosing it answers the request but leaves the note's evidence state as it was, so the canvas doesn't claim it's settled. A note can have one open request at a time.",
     inputSchema: {
       type: "object",
       properties: {
@@ -282,6 +282,12 @@ const TOOLS_MANIFEST = [
           description:
             "2 to 4 short choices instead of approve / reject, e.g. ['Sign the agency', 'Build in-house', 'Ask me Friday']",
         },
+        deferOptions: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Which of options put the decision off instead of making it, e.g. ['Ask me Friday']. Choosing one records the answer but doesn't mark the note as a decision. At least one option must not defer.",
+        },
       },
       required: ["noteId", "question", "deciderUserId"],
     },
@@ -289,7 +295,7 @@ const TOOLS_MANIFEST = [
   {
     name: "answer_decision",
     description:
-      "Answer a decision request addressed to you. approve or reject makes the note a decision (on a request with options, use choose with the option as choice instead); change sends it back to whoever asked, with your comment, and leaves the note as it is. Works with view-only access.",
+      "Answer a decision request addressed to you. approve or reject makes the note a decision (on a request with options, use choose with the option as choice instead; an option listed in the request's deferOptions records your answer but leaves the note as it is); change sends it back to whoever asked, with your comment, and leaves the note as it is. Works with view-only access.",
     inputSchema: {
       type: "object",
       properties: {
@@ -706,6 +712,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         dueDay: typeof args.dueDay === "number" ? args.dueDay : undefined,
         defaultOutcome: optStr(args.defaultOutcome),
         options: Array.isArray(args.options) ? args.options.map(String) : undefined,
+        deferOptions: Array.isArray(args.deferOptions) ? args.deferOptions.map(String) : undefined,
       });
     case "answer_decision":
       return await fetchMutation(api.mcp.answerDecision, {

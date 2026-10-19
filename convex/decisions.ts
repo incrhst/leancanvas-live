@@ -23,6 +23,8 @@ export const requestDecision = mutation({
     defaultOutcome: v.optional(v.string()),
     // 2 to 4 choices instead of approve / reject
     options: v.optional(v.array(v.string())),
+    // Which of the options put the decision off: choosing one leaves the note's evidence state alone
+    deferOptions: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const note = await ctx.db.get(args.noteId);
