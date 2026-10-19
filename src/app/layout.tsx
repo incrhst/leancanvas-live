@@ -23,9 +23,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://lean.incrementic.com"),
-  title: "LeanCanvas Live — Realtime Collaborative Lean Canvas by Incrementic",
+  title: "LeanOn — Plans that keep moving between meetings, by Incrementic",
   description:
-    "Realtime multiplayer Lean Canvas tool with AI stress-testing and evidence-based assumption tracking. The shortest distance to your next validated business.",
+    "Lean and go-to-market canvases where the person who decides answers one question from their phone, with no login, and sees what happens if they don't.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -40,10 +40,10 @@ export const metadata: Metadata = {
     canonical: "https://lean.incrementic.com",
   },
   openGraph: {
-    title: "LeanCanvas Live — by Incrementic",
-    description: "The shortest distance to your next validated business. Realtime multiplayer Lean Canvas with automated AI stress testing.",
+    title: "LeanOn — by Incrementic",
+    description: "Plans don't fail in meetings. They stall between them. LeanOn sends the decider one question, with what happens if they don't answer.",
     url: "https://lean.incrementic.com",
-    siteName: "LeanCanvas Live",
+    siteName: "LeanOn",
     locale: "en_US",
     type: "website",
     images: [
@@ -51,15 +51,15 @@ export const metadata: Metadata = {
         url: "/og.svg",
         width: 1200,
         height: 630,
-        alt: "LeanCanvas Live by Incrementic",
+        alt: "LeanOn by Incrementic",
         type: "image/svg+xml",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "LeanCanvas Live — by Incrementic",
-    description: "The shortest distance to your next validated business. Realtime multiplayer Lean Canvas with automated AI stress testing.",
+    title: "LeanOn — by Incrementic",
+    description: "Plans don't fail in meetings. They stall between them. LeanOn sends the decider one question, with what happens if they don't answer.",
     images: ["/og.svg"],
   },
 };
