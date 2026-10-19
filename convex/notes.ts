@@ -21,13 +21,13 @@ function uiActor(userId: Id<"users">): Actor {
   return { userId, via: "ui" };
 }
 
-/** A note's owner must be able to see the canvas. null clears the owner. */
-async function checkOwner(ctx: MutationCtx, canvasId: Id<"canvases">, ownerId: Id<"users"> | null | undefined) {
-  if (!ownerId) return undefined;
-  if (!(await getCanvasRole(ctx, canvasId, ownerId))) {
-    throw new ConvexError("A note's owner must be a member of its canvas");
+/** A note's driver (stored as ownerId) must be able to see the canvas. null clears the driver. */
+async function checkDriver(ctx: MutationCtx, canvasId: Id<"canvases">, driverId: Id<"users"> | null | undefined) {
+  if (!driverId) return undefined;
+  if (!(await getCanvasRole(ctx, canvasId, driverId))) {
+    throw new ConvexError("A note's driver must be a member of its canvas");
   }
-  return ownerId;
+  return driverId;
 }
 
 async function nextOrderInBlock(ctx: MutationCtx, canvasId: Id<"canvases">, block: Block) {
@@ -65,7 +65,7 @@ export async function addNoteForUser(
     content: args.content,
     evidenceState: args.evidenceState || "assumption",
     ...testFieldsPatch(args),
-    ownerId: await checkOwner(ctx, args.canvasId, args.ownerId),
+    ownerId: await checkDriver(ctx, args.canvasId, args.ownerId),
     markets: await normalizeMarkets(ctx, args.canvasId, args.markets),
   };
 
@@ -123,7 +123,7 @@ export async function updateNoteForUser(
   const patch: Partial<Doc<"notes">> = { updatedAt: now, ...testFieldsPatch(args) };
   if (args.content !== undefined) patch.content = args.content;
   if (args.evidenceState !== undefined) patch.evidenceState = args.evidenceState;
-  if (args.ownerId !== undefined) patch.ownerId = await checkOwner(ctx, note.canvasId, args.ownerId);
+  if (args.ownerId !== undefined) patch.ownerId = await checkDriver(ctx, note.canvasId, args.ownerId);
   if (args.markets !== undefined) patch.markets = await normalizeMarkets(ctx, note.canvasId, args.markets);
   if (args.block !== undefined && args.block !== note.block) {
     const canvas = await ctx.db.get(note.canvasId);
@@ -213,7 +213,7 @@ export const updateNote = mutation({
   args: {
     noteId: v.id("notes"),
     content: v.optional(v.string()),
-    // null clears the owner
+    // The note's driver; null clears it
     ownerId: v.optional(v.union(v.id("users"), v.null())),
     // [] or null clears the tags
     markets: v.optional(v.union(v.array(v.string()), v.null())),

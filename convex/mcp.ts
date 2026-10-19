@@ -47,7 +47,7 @@ async function canvasContext(ctx: QueryCtx, canvas: Doc<"canvases">): Promise<Ca
 }
 
 /**
- * A note as agents see it. Test fields and owner appear only when set; reviewDay only when the
+ * A note as agents see it. Test fields and driver appear only when set; reviewDay only when the
  * canvas has a launch date.
  */
 function noteForAgent(n: Doc<"notes">, { launchDate, memberNames }: CanvasContext) {
@@ -56,7 +56,7 @@ function noteForAgent(n: Doc<"notes">, { launchDate, memberNames }: CanvasContex
     block: n.block,
     text: n.content,
     evidenceState: n.evidenceState,
-    owner: n.ownerId
+    driver: n.ownerId
       ? { userId: n.ownerId, name: memberNames.get(n.ownerId) ?? "Former member" }
       : undefined,
     markets: n.markets,
@@ -86,13 +86,18 @@ function noteForAgent(n: Doc<"notes">, { launchDate, memberNames }: CanvasContex
   };
 }
 
-/** Agents pass owners as user id strings (from list_canvas_members); null clears the owner. */
-function resolveOwner(ctx: QueryCtx, raw: string | null | undefined): Id<"users"> | null | undefined {
+/** Agents pass people as user id strings (from list_canvas_members); null clears the driver. */
+function resolveUser(ctx: QueryCtx, raw: string | null | undefined): Id<"users"> | null | undefined {
   if (raw === undefined) return undefined;
   if (raw === null) return null;
   const id = ctx.db.normalizeId("users", raw);
   if (!id) throw new ConvexError(`Unknown user: ${raw}. Use a userId from list_canvas_members.`);
   return id;
+}
+
+/** The driver an agent passed, under its current name or the older ownerUserId. */
+function driverArg(args: { driverUserId?: string | null; ownerUserId?: string | null }) {
+  return args.driverUserId !== undefined ? args.driverUserId : args.ownerUserId;
 }
 
 /**
@@ -160,7 +165,9 @@ export const getCanvas = query({
   args: {
     accessToken: v.string(),
     canvasId: v.string(),
-    // Only notes owned by this user id, or "unassigned" for notes with no owner
+    // Only notes this user id is driving, or "unassigned" for notes with no driver
+    driverUserId: v.optional(v.string()),
+    // Older name for driverUserId, still accepted
     ownerUserId: v.optional(v.string()),
     // Only notes that hold in this market: tagged with it, or untagged (which means every market)
     market: v.optional(v.string()),
@@ -169,14 +176,14 @@ export const getCanvas = query({
     const user = await requireTokenUser(ctx, args.accessToken);
     const { canvas, role } = await resolveCanvas(ctx, user, args.canvasId, false);
 
-    const owner = args.ownerUserId;
+    const driver = args.driverUserId ?? args.ownerUserId;
     const market = args.market?.trim().toLowerCase();
     const allNotes = await ctx.db
       .query("notes")
       .withIndex("by_canvas_block", (q) => q.eq("canvasId", canvas._id))
       .collect();
     const notes = allNotes
-      .filter((n) => !owner || (owner === "unassigned" ? !n.ownerId : n.ownerId === owner))
+      .filter((n) => !driver || (driver === "unassigned" ? !n.ownerId : n.ownerId === driver))
       .filter((n) => !market || !n.markets || n.markets.some((m) => m.toLowerCase() === market));
 
     const template = templateOf(canvas);
@@ -203,7 +210,7 @@ export const getCanvas = query({
       status: canvas.status,
       yourRole: role,
       url: canvasUrl(canvas._id),
-      ...(owner ? { filteredByOwner: owner } : {}),
+      ...(driver ? { filteredByDriver: driver } : {}),
       ...(market ? { filteredByMarket: args.market!.trim() } : {}),
       markets: [...new Set(allNotes.flatMap((n) => n.markets ?? []))].sort(),
       blocks,
@@ -212,7 +219,7 @@ export const getCanvas = query({
 });
 
 /**
- * Everyone with access to a canvas, with the userId to use as a note's owner.
+ * Everyone with access to a canvas, with the userId to use as a note's driver or a decision's decider.
  */
 export const listMembers = query({
   args: { accessToken: v.string(), canvasId: v.string() },
@@ -330,17 +337,19 @@ export const addNote = mutation({
     reason: v.optional(v.string()),
     ...testFieldsUpdateArgs,
     reviewDay: v.optional(v.number()),
+    driverUserId: v.optional(v.union(v.string(), v.null())),
+    // Older name for driverUserId, still accepted
     ownerUserId: v.optional(v.union(v.string(), v.null())),
     markets: v.optional(v.union(v.array(v.string()), v.null())),
   },
   handler: async (ctx, args) => {
     const { user, actor } = await requireTokenActor(ctx, args.accessToken);
     const { canvas } = await resolveCanvas(ctx, user, args.canvasId, true);
-    const { accessToken: _token, canvasId: _canvasId, reviewDay: _day, ownerUserId: _owner, ...fields } = args;
+    const { accessToken: _token, canvasId: _canvasId, reviewDay: _day, driverUserId: _driver, ownerUserId: _owner, ...fields } = args;
     const noteId = await addNoteForUser(ctx, actor, {
       ...fields,
       reviewDate: resolvePlanDate(canvas, args.reviewDate, args.reviewDay),
-      ownerId: resolveOwner(ctx, args.ownerUserId),
+      ownerId: resolveUser(ctx, driverArg(args)),
       canvasId: canvas._id,
     });
     return { noteId };
@@ -358,6 +367,8 @@ export const updateNote = mutation({
     link: v.optional(v.string()),
     ...testFieldsUpdateArgs,
     reviewDay: v.optional(v.number()),
+    driverUserId: v.optional(v.union(v.string(), v.null())),
+    // Older name for driverUserId, still accepted
     ownerUserId: v.optional(v.union(v.string(), v.null())),
     markets: v.optional(v.union(v.array(v.string()), v.null())),
   },
@@ -365,17 +376,17 @@ export const updateNote = mutation({
     const { user, actor } = await requireTokenActor(ctx, args.accessToken);
     const note = await resolveNote(ctx, user, args.noteId, true);
     const canvas = (await ctx.db.get(note.canvasId))!;
-    const { accessToken: _token, noteId: _noteId, reason, link, reviewDay: _day, ownerUserId: _owner, ...rest } = args;
+    const { accessToken: _token, noteId: _noteId, reason, link, reviewDay: _day, driverUserId: _driver, ownerUserId: _owner, ...rest } = args;
     const changes = {
       ...rest,
       reviewDate: resolvePlanDate(canvas, args.reviewDate, args.reviewDay),
-      ownerId: resolveOwner(ctx, args.ownerUserId),
+      ownerId: resolveUser(ctx, driverArg(args)),
     };
     const content = args.content?.trim();
     if (args.content !== undefined && !content) throw new ConvexError("content cannot be empty");
     if (Object.values(changes).every((value) => value === undefined)) {
       throw new ConvexError(
-        "Nothing to change: pass content, block, evidenceState, ownerUserId, measure, passMark, reviewDate or latestResult"
+        "Nothing to change: pass content, block, evidenceState, driverUserId, measure, passMark, reviewDate or latestResult"
       );
     }
     await updateNoteForUser(ctx, actor, note, { ...changes, content, reason, link });
@@ -466,7 +477,7 @@ export const requestDecision = mutation({
     if (!dueDate) throw new ConvexError("Pass dueDate (YYYY-MM-DD) or dueDay");
     await requestDecisionForUser(ctx, actor, note, {
       question: args.question,
-      deciderId: resolveOwner(ctx, args.deciderUserId)!,
+      deciderId: resolveUser(ctx, args.deciderUserId)!,
       dueDate,
       defaultOutcome: args.defaultOutcome,
       options: args.options,
@@ -629,7 +640,7 @@ export const answerCheckIn = mutation({
   },
   handler: async (ctx, args) => {
     const { user, actor } = await requireTokenActor(ctx, args.accessToken);
-    // Owners can be view-only; answering their own check-in is allowed
+    // Drivers can be view-only; answering their own check-in is allowed
     const note = await resolveNote(ctx, user, args.noteId, false);
     await answerCheckInForUser(ctx, actor, note._id, {
       hasEvidence: args.hasEvidence,

@@ -9,7 +9,7 @@ import type { EvidenceState, NoteItem } from "../types/canvas";
 interface EvidenceLegendProps {
   /** With a filter, the six states become toggles that focus the canvas on them. */
   filter?: EvidenceFilter;
-  /** The notes being counted (already narrowed by owner and market). */
+  /** The notes being counted (already narrowed by driver and market). */
   notes?: NoteItem[];
   onToggle?: (state: EvidenceState) => void;
   onShowNeedsEvidence?: () => void;

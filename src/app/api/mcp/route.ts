@@ -57,10 +57,10 @@ const LAUNCH_DATE_PROPERTY = {
     "Day 0 of the plan, as YYYY-MM-DD. Review dates then also read as days of the plan (reviewDay), e.g. day 30.",
 };
 
-const OWNER_PROPERTY = {
+const DRIVER_PROPERTY = {
   type: ["string", "null"],
   description:
-    "The one person responsible for the note: a userId from list_canvas_members (viewers can own notes too). null clears it.",
+    "The note's driver: the one person doing the work on it. A userId from list_canvas_members (viewers can be drivers too). null clears it.",
 };
 
 const MARKETS_PROPERTY = {
@@ -148,7 +148,7 @@ const TOOLS_MANIFEST = [
   {
     name: "get_canvas",
     description:
-      "Fetch a canvas (Lean or GTM) with all of its blocks and sticky notes, including each note's evidence state and, where set, its test (measure, passMark, reviewDate, latestResult). Each note shows its owner and market tags if it has them; pass ownerUserId to see one person's notes, or market to see what holds in one market. If the canvas has a launchDate, it also returns currentDay and each note's reviewDay (days since launch).",
+      "Fetch a canvas (Lean or GTM) with all of its blocks and sticky notes, including each note's evidence state and, where set, its test (measure, passMark, reviewDate, latestResult). Each note shows its driver (the person doing the work on it) and market tags if it has them; pass driverUserId to see the notes one person is driving, or market to see what holds in one market. If the canvas has a launchDate, it also returns currentDay and each note's reviewDay (days since launch).",
     inputSchema: {
       type: "object",
       properties: {
@@ -156,9 +156,9 @@ const TOOLS_MANIFEST = [
           type: "string",
           description: "The canvasId returned by list_canvases or create_canvas",
         },
-        ownerUserId: {
+        driverUserId: {
           type: "string",
-          description: "Only return notes owned by this userId, or 'unassigned' for notes with no owner",
+          description: "Only return notes this userId is driving, or 'unassigned' for notes with no driver",
         },
         market: {
           type: "string",
@@ -171,7 +171,7 @@ const TOOLS_MANIFEST = [
   {
     name: "list_canvas_members",
     description:
-      "List everyone with access to a canvas (userId, name, email, role). Use a userId as a note's owner in add_note or update_note, or to filter get_canvas.",
+      "List everyone with access to a canvas (userId, name, email, role). Use a userId as a note's driver in add_note or update_note, as a decider in request_decision, or to filter get_canvas.",
     inputSchema: {
       type: "object",
       properties: {
@@ -195,7 +195,7 @@ const TOOLS_MANIFEST = [
         },
         content: { type: "string" },
         evidenceState: { ...EVIDENCE_STATE_PROPERTY, default: "assumption" },
-        ownerUserId: OWNER_PROPERTY,
+        driverUserId: DRIVER_PROPERTY,
         markets: MARKETS_PROPERTY,
         ...TEST_FIELD_PROPERTIES,
         reason: REASON_PROPERTY,
@@ -206,7 +206,7 @@ const TOOLS_MANIFEST = [
   {
     name: "update_note",
     description:
-      "Reword a note, move it to another block of the same canvas, change its evidence state or owner, or set its test " +
+      "Reword a note, move it to another block of the same canvas, change its evidence state or driver, or set its test " +
       "(measure, passMark, reviewDate, latestResult). Pass only what changes; null clears a test field. " +
       "Tests go: plan (measure, passMark and reviewDate or reviewDay) → record what was seen at the review (latestResult with a verdict) → " +
       "act on it (a pass points to 'supported', a fail to 'contradicted'; set evidenceState with the result as the reason, in the same call if you like). " +
@@ -223,7 +223,7 @@ const TOOLS_MANIFEST = [
           description: "Move the note to this block (it goes to the end). Must belong to the canvas's template.",
         },
         evidenceState: EVIDENCE_STATE_PROPERTY,
-        ownerUserId: OWNER_PROPERTY,
+        driverUserId: DRIVER_PROPERTY,
         markets: MARKETS_PROPERTY,
         ...TEST_FIELD_PROPERTIES,
         reason: REASON_PROPERTY,
@@ -349,7 +349,7 @@ const TOOLS_MANIFEST = [
   {
     name: "compare_snapshots",
     description:
-      "Compare two snapshots, or a snapshot and the canvas now: which notes were added, removed, or changed (text, block, evidence state, test fields, owner, decision status), field by field.",
+      "Compare two snapshots, or a snapshot and the canvas now: which notes were added, removed, or changed (text, block, evidence state, test fields, driver, decision status), field by field.",
     inputSchema: {
       type: "object",
       properties: {
@@ -376,13 +376,13 @@ const TOOLS_MANIFEST = [
   {
     name: "list_check_ins",
     description:
-      "The weekly check-in questions waiting on you: for each note you own, has there been new evidence this week? Answer each with answer_check_in.",
+      "The weekly check-in questions waiting on you: for each note you're driving, has there been new evidence this week? Answer each with answer_check_in.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "answer_check_in",
     description:
-      "Answer a weekly check-in on a note you own (works with view-only access). hasEvidence false records 'no new evidence'. hasEvidence true needs a one-line text, which becomes the note's latest result. Both go into the note's history.",
+      "Answer a weekly check-in on a note you're driving (works with view-only access). hasEvidence false records 'no new evidence'. hasEvidence true needs a one-line text, which becomes the note's latest result. Both go into the note's history.",
     inputSchema: {
       type: "object",
       properties: {
@@ -402,7 +402,7 @@ const TOOLS_MANIFEST = [
   {
     name: "send_check_in",
     description:
-      "Send this week's check-in for a canvas now rather than waiting for the Monday email: each owner is emailed once about their notes. Notes already asked about this week are skipped.",
+      "Send this week's check-in for a canvas now rather than waiting for the Monday email: each note's driver is emailed once about the notes they're driving. Notes already asked about this week are skipped.",
     inputSchema: {
       type: "object",
       properties: { canvasId: { type: "string" } },
@@ -424,7 +424,7 @@ const TOOLS_MANIFEST = [
           enum: ["running", "due", "overdue", "result"],
           description: "Only tests at this stage ('due' includes overdue ones)",
         },
-        ownerUserId: { type: "string", description: "Only tests on notes this user owns, or 'unassigned'" },
+        driverUserId: { type: "string", description: "Only tests on notes this user is driving, or 'unassigned'" },
       },
       required: ["canvasId"],
     },
@@ -514,6 +514,11 @@ function nullableStr(value: unknown): string | null | undefined {
   return value === null ? null : optStr(value);
 }
 
+/** The driver an agent passed, under its current name or the older ownerUserId (still accepted). */
+function driverArg(args: Record<string, unknown>): unknown {
+  return args.driverUserId !== undefined ? args.driverUserId : args.ownerUserId;
+}
+
 /** An array of strings sets the tags, null clears them, anything else leaves them alone. */
 function marketsArg(value: unknown): string[] | null | undefined {
   if (value === null) return null;
@@ -577,7 +582,7 @@ async function listTests(accessToken: string, args: Record<string, unknown>) {
   const canvas = await fetchQuery(api.mcp.getCanvas, {
     accessToken,
     canvasId: str(args.canvasId),
-    ownerUserId: optStr(args.ownerUserId),
+    driverUserId: optStr(driverArg(args)),
   });
   const today = todayUtc();
   const only = optStr(args.stage);
@@ -595,7 +600,7 @@ async function listTests(accessToken: string, args: Record<string, unknown>) {
           block,
           text: n.text,
           evidenceState: n.evidenceState,
-          owner: n.owner,
+          driver: n.driver,
           stage,
           measure: n.measure,
           passMark: n.passMark,
@@ -627,7 +632,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
       return await fetchQuery(api.mcp.getCanvas, {
         accessToken,
         canvasId: str(args.canvasId),
-        ownerUserId: optStr(args.ownerUserId),
+        driverUserId: optStr(driverArg(args)),
         market: optStr(args.market),
       });
     case "list_canvas_members":
@@ -666,7 +671,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         content: str(args.content),
         evidenceState: (args.evidenceState as any) || undefined,
         reason: optStr(args.reason),
-        ownerUserId: nullableStr(args.ownerUserId),
+        driverUserId: nullableStr(driverArg(args)),
         markets: marketsArg(args.markets),
         ...testFieldArgs(args),
       });
@@ -679,7 +684,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         evidenceState: optStr(args.evidenceState) as any, // validated by Convex
         reason: optStr(args.reason),
         link: optStr(args.link),
-        ownerUserId: nullableStr(args.ownerUserId),
+        driverUserId: nullableStr(driverArg(args)),
         markets: marketsArg(args.markets),
         ...testFieldArgs(args),
       });

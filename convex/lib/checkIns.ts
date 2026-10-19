@@ -7,9 +7,9 @@ import { emailUser, siteUrl } from "./notify";
 import { checkDate, todayUtc, verdictValidator } from "./testFields";
 
 /**
- * Weekly check-ins: once a week each note's owner is asked whether there's new evidence on it.
+ * Weekly check-ins: once a week each note's driver (the person doing the work on it) is asked whether there's new evidence on it.
  * "Yes" plus a line becomes the note's latest result; either answer goes into its history.
- * Owners can be view-only; answering a check-in is one of the two things viewers can do.
+ * Drivers can be view-only; answering a check-in is one of the two things viewers can do.
  */
 
 /** Monday of the week containing `date` (YYYY-MM-DD, UTC). */
@@ -20,7 +20,7 @@ export function mondayOf(date: string) {
 }
 
 /**
- * Notes worth asking about: owned, not yet a decision, and either still unproven
+ * Notes worth asking about: with a driver, not yet a decision, and either still unproven
  * (unknown, assumption, observed) or carrying a test.
  */
 export function needsCheckIn(note: Doc<"notes">) {
@@ -31,7 +31,7 @@ export function needsCheckIn(note: Doc<"notes">) {
 }
 
 /**
- * Creates this week's check-in questions for a canvas and emails each owner once.
+ * Creates this week's check-in questions for a canvas and emails each driver once.
  * Older unanswered questions about the same notes expire, so nobody has a backlog.
  */
 export async function startCheckInForCanvas(ctx: MutationCtx, canvas: Doc<"canvases">, weekOf: string) {
@@ -40,44 +40,44 @@ export async function startCheckInForCanvas(ctx: MutationCtx, canvas: Doc<"canva
     .withIndex("by_canvas_block", (q) => q.eq("canvasId", canvas._id))
     .collect();
 
-  const perOwner = new Map<Id<"users">, Doc<"notes">[]>();
+  const perDriver = new Map<Id<"users">, Doc<"notes">[]>();
   for (const note of notes.filter(needsCheckIn)) {
-    const ownerId = note.ownerId!;
-    if (!(await getCanvasRole(ctx, canvas._id, ownerId))) continue;
+    const driverId = note.ownerId!;
+    if (!(await getCanvasRole(ctx, canvas._id, driverId))) continue;
 
     const pending = await ctx.db
       .query("checkInItems")
       .withIndex("by_note_and_status", (q) => q.eq("noteId", note._id).eq("status", "pending"))
       .collect();
-    if (pending.some((p) => p.weekOf === weekOf && p.userId === ownerId)) continue;
+    if (pending.some((p) => p.weekOf === weekOf && p.userId === driverId)) continue;
     for (const old of pending) await ctx.db.patch(old._id, { status: "expired" });
 
     await ctx.db.insert("checkInItems", {
-      userId: ownerId,
+      userId: driverId,
       canvasId: canvas._id,
       noteId: note._id,
       weekOf,
       status: "pending",
     });
-    perOwner.set(ownerId, [...(perOwner.get(ownerId) ?? []), note]);
+    perDriver.set(driverId, [...(perDriver.get(driverId) ?? []), note]);
   }
 
-  for (const [ownerId, owned] of perOwner) {
-    await emailUser(ctx, ownerId, {
-      subject: `Weekly check-in: ${owned.length} ${owned.length === 1 ? "note" : "notes"} on ${canvas.title}`,
+  for (const [driverId, driving] of perDriver) {
+    await emailUser(ctx, driverId, {
+      subject: `Weekly check-in: ${driving.length} ${driving.length === 1 ? "note" : "notes"} on ${canvas.title}`,
       text: [
-        `Any new evidence this week on the notes you own in "${canvas.title}"?`,
+        `Any new evidence this week on the notes you're driving in "${canvas.title}"?`,
         "",
-        ...owned.map((n) => `- ${n.content}`),
+        ...driving.map((n) => `- ${n.content}`),
         "",
         `Answer yes or no for each (a line if yes): ${siteUrl()}/check-in`,
       ].join("\n"),
     });
   }
-  return { questions: [...perOwner.values()].reduce((sum, list) => sum + list.length, 0), owners: perOwner.size };
+  return { questions: [...perDriver.values()].reduce((sum, list) => sum + list.length, 0), drivers: perDriver.size };
 }
 
-/** A user's unanswered check-in questions, skipping notes that were deleted or changed owner. */
+/** A user's unanswered check-in questions, skipping notes that were deleted or changed driver. */
 export async function listPendingCheckIns(ctx: QueryCtx, userId: Id<"users">) {
   const items = await ctx.db
     .query("checkInItems")
@@ -106,7 +106,7 @@ export async function listPendingCheckIns(ctx: QueryCtx, userId: Id<"users">) {
   return results.sort((a, b) => a.canvasTitle.localeCompare(b.canvasTitle) || a.block.localeCompare(b.block));
 }
 
-/** Records an owner's answer. "Yes" needs a line, which becomes the note's latest result. */
+/** Records a driver's answer. "Yes" needs a line, which becomes the note's latest result. */
 export async function answerCheckInForUser(
   ctx: MutationCtx,
   actor: Actor,

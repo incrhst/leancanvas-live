@@ -44,7 +44,7 @@ export async function buildReview(
       text: n.content,
       evidenceState: n.evidenceState,
       markets: n.markets,
-      owner: nameOf(n.ownerId),
+      driver: nameOf(n.ownerId),
       measure: n.measure,
       passMark: n.passMark,
       reviewDate: n.reviewDate,

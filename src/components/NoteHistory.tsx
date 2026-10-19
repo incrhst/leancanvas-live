@@ -56,8 +56,8 @@ export function describeChange(change: Change, blockTitleOf: (blockId: string) =
     return fromTo(DATE_FIELD_LABELS[change.field], date(change.from), date(change.to));
   }
   switch (change.field) {
-    case "owner":
-      return fromTo("Owner", change.from, change.to);
+    case "driver":
+      return fromTo("Driver", change.from, change.to);
     case "markets":
       return fromTo("Markets", change.from, change.to);
     case "decision.status": {

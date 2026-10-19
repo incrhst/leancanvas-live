@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarIcon, GavelIcon, MapPinIcon, SearchIcon, XIcon } from "lucide-react";
 import { BlockDef, EvidenceState, NoteItem } from "../types/canvas";
 import { EVIDENCE_CONFIG, EvidenceBadge } from "./EvidenceBadge";
-import { OwnerChip } from "./OwnerControls";
+import { DriverChip } from "./DriverControls";
 import { MembersContext } from "../utils/members";
 import { VERDICT_CONFIG, formatCalendarDate, isReviewOverdue } from "../utils/testFields";
 import { EVIDENCE_STATES } from "../utils/evidenceStates";
@@ -203,7 +203,7 @@ export function NoteSearch({ notes, blocks, onSelect, onClose }: NoteSearchProps
                       <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
                         <EvidenceBadge state={n.evidenceState || "assumption"} />
                         <span className="truncate">{highlight(blockTitle.get(n.block) ?? n.block, q)}</span>
-                        <OwnerChip ownerId={n.ownerId} />
+                        <DriverChip driverId={n.ownerId} />
                         {n.markets && n.markets.length > 0 && (
                           <span className="inline-flex items-center gap-1">
                             <MapPinIcon className="h-3 w-3" aria-hidden="true" />

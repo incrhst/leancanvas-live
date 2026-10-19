@@ -145,7 +145,7 @@ export async function annotateLatestChange(
 }
 
 /**
- * A note's history, newest first, with each author's display name. Owner changes are stored
+ * A note's history, newest first, with each author's display name. Driver changes are stored
  * as user ids and returned as names.
  */
 export async function listNoteHistory(ctx: QueryCtx, noteId: Id<"notes">) {
@@ -172,7 +172,7 @@ export async function listNoteHistory(ctx: QueryCtx, noteId: Id<"notes">) {
         row.changes.map(async (c) =>
           c.field === "ownerId" || c.field === "decision.deciderId"
             ? {
-                field: c.field === "ownerId" ? "owner" : "decision.decider",
+                field: c.field === "ownerId" ? "driver" : "decision.decider",
                 from: c.from === undefined ? undefined : await nameOf(c.from),
                 to: c.to === undefined ? undefined : await nameOf(c.to),
               }

@@ -140,7 +140,7 @@ export async function compareSnapshots(
       changes.map(async (c) =>
         c.field === "ownerId"
           ? {
-              field: "owner",
+              field: "driver",
               from: c.from === undefined ? undefined : await nameOf(c.from),
               to: c.to === undefined ? undefined : await nameOf(c.to),
             }

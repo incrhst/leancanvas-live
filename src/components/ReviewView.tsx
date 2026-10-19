@@ -19,7 +19,7 @@ export interface ReviewData {
     text: string;
     evidenceState: EvidenceState;
     markets?: string[];
-    owner?: string;
+    driver?: string;
     measure?: string;
     passMark?: string;
     reviewDate?: string;
@@ -139,7 +139,7 @@ export function ReviewView({
                         <EvidenceBadge state={t.evidenceState} />
                       </div>
                       <p className="text-xs text-muted">
-                        {blockLine(t.block, [t.markets?.length ? `${t.markets.join(", ")} only` : undefined, t.owner])}
+                        {blockLine(t.block, [t.markets?.length ? `${t.markets.join(", ")} only` : undefined, t.driver ? `Driver: ${t.driver}` : undefined])}
                       </p>
                     </div>
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-2">

@@ -6,7 +6,7 @@ import { EvidenceBadge, EVIDENCE_CONFIG, EVIDENCE_STATES } from "./EvidenceBadge
 import { NoteHistory } from "./NoteHistory";
 import { EditableField } from "./EditableField";
 import { NoteTestFields, TestFieldsPatch } from "./NoteTestFields";
-import { NoteOwnerField } from "./OwnerControls";
+import { NoteDriverField } from "./DriverControls";
 import { NoteDecisionSection } from "./NoteDecision";
 import { NoteMarketsField } from "./MarketControls";
 import { hasTest } from "../utils/testFields";
@@ -39,7 +39,7 @@ interface NoteDetailPanelProps {
   /** May return the save, so a result can attach its reason once the state has changed */
   onUpdateEvidence: (state: EvidenceState) => void | Promise<unknown>;
   onUpdateTest?: (patch: TestFieldsPatch) => void;
-  onUpdateOwner?: (ownerId: string | null) => void;
+  onUpdateDriver?: (driverId: string | null) => void;
   onUpdateMarkets?: (markets: string[] | null) => void;
   /** Market tags already used on the canvas, offered as suggestions */
   allMarkets?: string[];
@@ -62,7 +62,7 @@ export function NoteDetailPanel({
   onUpdate,
   onUpdateEvidence,
   onUpdateTest,
-  onUpdateOwner,
+  onUpdateDriver,
   onUpdateMarkets,
   allMarkets = [],
   onAddReason,
@@ -90,7 +90,7 @@ export function NoteDetailPanel({
   const decisionPrompt = note.evidenceState === "supported" || note.evidenceState === "contradicted";
   const testVisible = hasTest(note) || (testPrompt && showTest);
   const moreOpen = showMore ?? (!inline && !!(note.ownerId || note.markets?.length));
-  const moreTopic = inline && blockTitleOf ? "owner, markets and history" : "owner and markets";
+  const moreTopic = inline && blockTitleOf ? "driver, markets and history" : "driver and markets";
   const moreLabel = moreOpen ? `Hide ${moreTopic}` : moreTopic.charAt(0).toUpperCase() + moreTopic.slice(1);
 
   // Inline, keep the open note fully in view within its block (and the page)
@@ -133,7 +133,7 @@ export function NoteDetailPanel({
         changeState(EVIDENCE_STATES[index]);
       } else if (e.key === "t" && testPrompt) {
         setShowTest(true);
-      } else if (e.key === "o") {
+      } else if (e.key === "d") {
         setShowMore(!moreOpen);
       } else {
         return;
@@ -269,7 +269,7 @@ export function NoteDetailPanel({
                 {EVIDENCE_CONFIG[note.evidenceState].desc}.
               </p>
               <p className="hidden text-[11px] text-muted md:block">
-                Keys: 1–6 set the state{testPrompt && !testVisible ? ", T adds a test" : ""}, O owner and markets, Esc closes.
+                Keys: 1–6 set the state{testPrompt && !testVisible ? ", T adds a test" : ""}, D driver and markets, Esc closes.
               </p>
 
               {inline && (
@@ -367,7 +367,7 @@ export function NoteDetailPanel({
         {!canEdit && (
           <>
             <NoteDecisionSection note={note} canEdit={canEdit} />
-            <NoteOwnerField note={note} canEdit={canEdit} onChange={onUpdateOwner} />
+            <NoteDriverField note={note} canEdit={canEdit} onChange={onUpdateDriver} />
             <NoteMarketsField note={note} canEdit={canEdit} allMarkets={allMarkets} onChange={onUpdateMarkets} />
             <NoteTestFields note={note} canEdit={canEdit} onUpdate={onUpdateTest} />
           </>
@@ -386,7 +386,7 @@ export function NoteDetailPanel({
             </button>
             {moreOpen && (
               <div className="space-y-5">
-                <NoteOwnerField note={note} canEdit={canEdit} onChange={onUpdateOwner} />
+                <NoteDriverField note={note} canEdit={canEdit} onChange={onUpdateDriver} />
                 <NoteMarketsField note={note} canEdit={canEdit} allMarkets={allMarkets} onChange={onUpdateMarkets} />
                 {/* Inline, history lives behind the toggle to keep the open note short */}
                 {inline && blockTitleOf && <NoteHistory noteId={note._id} blockTitleOf={blockTitleOf} />}
