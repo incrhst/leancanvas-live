@@ -152,6 +152,7 @@ function TestRunning({ note, onEdit, onRecord }: { note: NoteItem; onEdit: () =>
         Test running{note.reviewDate ? ` · review ${review}` : " · no review date"}
       </TestHeading>
       <TestSentence note={note} />
+      {note.latestResult && <ResultLine note={note} />}
       <div className="-ml-2 flex flex-wrap gap-1">
         <button type="button" onClick={onEdit} className={textButton}>
           Edit
@@ -344,6 +345,11 @@ function ResultLine({ note }: { note: NoteItem }) {
     <p className="text-sm leading-relaxed text-ink/80">
       {conf && <strong className={`font-bold ${conf.text}`}>{conf.label} · </strong>}
       {result.text} <span className="text-muted">({formatPlanDate(launchDate, result.date)})</span>
+      {result.via === "link" && (
+        <span className="block text-xs text-muted">
+          Via link, no account{result.byName ? ` · from “${result.byName}”` : ""}
+        </span>
+      )}
     </p>
   );
 }

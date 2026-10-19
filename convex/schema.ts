@@ -2,7 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 import { blockValidator, canvasTemplateValidator } from "./lib/canvasTemplates";
-import { testFieldsSchema } from "./lib/testFields";
+import { testFieldsSchema, verdictValidator } from "./lib/testFields";
 import { decisionRequestValidator, decisionStatusValidator } from "./lib/decisions";
 
 const evidenceStateValidator = v.union(
@@ -146,7 +146,8 @@ export default defineSchema({
     noteId: v.id("notes"),
     userId: v.id("users"),
     // Where the change came from; an MCP token acts as its user, so this tells agent edits apart.
-    // "link" = a decision answered from its emailed link, without signing in (userId is the decider).
+    // "link" = a decision answered from its emailed link, without signing in (userId is the decider),
+    // or a result sent from a result link (userId is whoever the link stands for; see resultLinks).
     via: v.union(v.literal("ui"), v.literal("mcp"), v.literal("link")),
     clientName: v.optional(v.string()),
     kind: v.union(
@@ -156,7 +157,11 @@ export default defineSchema({
       v.literal("decision_requested"),
       v.literal("decision_answered"),
       v.literal("decision_withdrawn"),
-      v.literal("check_in")
+      v.literal("check_in"),
+      // A test result sent from a result link, waiting for an editor; then accepted or rejected
+      v.literal("result_submitted"),
+      v.literal("result_accepted"),
+      v.literal("result_rejected")
     ),
     changes: v.array(
       v.object({
@@ -211,6 +216,46 @@ export default defineSchema({
     .index("by_user_and_status", ["userId", "status"])
     .index("by_note_and_status", ["noteId", "status"])
     .index("by_canvas", ["canvasId"]),
+
+  // A link that sends a test result to a note without an account (/r/[token]). Either an editor's
+  // shareable link for the note, or one driver's link for one weekly check-in question.
+  resultLinks: defineTable({
+    canvasId: v.id("canvases"),
+    noteId: v.id("notes"),
+    // SHA-256 of the token in the URL
+    tokenHash: v.string(),
+    // The token itself, kept only on shareable note links so editors can copy them again
+    // (check-in links live only in the driver's email, like decision links)
+    token: v.optional(v.string()),
+    checkInItemId: v.optional(v.id("checkInItems")),
+    // Who the link stands for: the editor who made it, or the driver it was emailed to
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    revokedAt: v.optional(v.number()),
+    // Fixed-window throttle on results sent through this link
+    windowStart: v.optional(v.number()),
+    windowCount: v.optional(v.number()),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_note", ["noteId"]),
+
+  // A result sent from a result link. Never changes the note by itself: an editor accepts it
+  // (it becomes the note's latest result) or rejects it.
+  resultSubmissions: defineTable({
+    canvasId: v.id("canvases"),
+    noteId: v.id("notes"),
+    linkId: v.id("resultLinks"),
+    text: v.string(),
+    // What the sender thought, if they said; the editor can change it on accept
+    verdict: v.optional(verdictValidator),
+    // Who sent it, as they typed it
+    name: v.optional(v.string()),
+    // YYYY-MM-DD on the sender's calendar
+    date: v.string(),
+    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("rejected")),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+  }).index("by_note_and_status", ["noteId", "status"]),
 
   evidence: defineTable({
     noteId: v.id("notes"),

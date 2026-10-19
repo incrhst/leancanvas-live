@@ -8,13 +8,8 @@ import { api } from "../../../../convex/_generated/api";
 import { formatLongDate, isPastDue } from "../../../../convex/lib/decisionText";
 import { DecisionAnswer, DecisionDefault, outcomeLabel } from "../../../components/NoteDecision";
 import { todayLocal } from "../../../utils/testFields";
+import { convexErrorMessage } from "../../../utils/convexError";
 import { DecisionStatus } from "../../../types/canvas";
-
-function errorMessage(err: unknown) {
-  const data = (err as { data?: unknown })?.data;
-  if (typeof data === "string") return data;
-  return err instanceof Error ? err.message.replace(/^.*Uncaught (ConvexError|Error): /, "").split("\n")[0] : "Something went wrong";
-}
 
 const ANSWERED: Record<Exclude<DecisionAnswer, "choose">, string> = {
   approve: "You approved it.",
@@ -106,7 +101,7 @@ export default function DecisionLinkPage() {
       });
       setDone(answer === "choose" ? `You chose “${choice}”.` : ANSWERED[answer]);
     } catch (err) {
-      setError(errorMessage(err));
+      setError(convexErrorMessage(err));
     } finally {
       setBusy(false);
     }

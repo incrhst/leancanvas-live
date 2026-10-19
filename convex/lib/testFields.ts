@@ -12,6 +12,9 @@ export const latestResultValidator = v.object({
   text: v.string(),
   date: v.string(),
   verdict: v.optional(verdictValidator),
+  // Sent from a result link by someone without an account, and the name they gave, if any
+  via: v.optional(v.literal("link")),
+  byName: v.optional(v.string()),
 });
 
 export const testFieldsSchema = {

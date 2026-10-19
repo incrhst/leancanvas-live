@@ -489,7 +489,13 @@ export const getCanvasByPublicToken = query({
           measure: n.measure,
           passMark: n.passMark,
           reviewDate: n.reviewDate,
-          latestResult: n.latestResult,
+          // A result sent via link keeps that mark here, but not the name its sender typed
+          latestResult: n.latestResult && {
+            text: n.latestResult.text,
+            date: n.latestResult.date,
+            verdict: n.latestResult.verdict,
+            via: n.latestResult.via,
+          },
           markets: n.markets,
           decision: n.decision && {
             question: n.decision.question,
