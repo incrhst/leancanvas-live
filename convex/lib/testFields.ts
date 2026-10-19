@@ -105,7 +105,8 @@ export function testFieldsPatch(args: TestFieldsUpdate): TestFieldsPatch {
   return patch;
 }
 
-type TestFields = Partial<Pick<Doc<"notes">, "measure" | "passMark" | "reviewDate" | "latestResult">>;
+/** Only what testStage reads, so client-side notes fit too. */
+type TestFields = { measure?: string; passMark?: string; reviewDate?: string; latestResult?: { date: string } };
 
 /**
  * Where a note's test is, given today's date: "running" until its review date, then "due" until a

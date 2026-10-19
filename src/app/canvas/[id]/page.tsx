@@ -25,7 +25,14 @@ import { plainSummary, summaryFromNotes } from "../../../utils/plainSummary";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { ShareModal } from "../../../components/ShareModal";
 import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptionsView";
-import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/CanvasViewToggle";
+import {
+  CanvasView,
+  CanvasViewToggle,
+  canvasViewParam,
+  parseCanvasView,
+  riskRanksFor,
+} from "../../../components/CanvasViewToggle";
+import { DecidedCountChip, PlanStatusBoard } from "../../../components/PlanStatusBoard";
 import { useAuth } from "../../../components/ConvexClientProvider";
 import { NoteItem, BlockId, EvidenceState, StressTestResult } from "../../../types/canvas";
 import { NoteSearch, NoteSearchButton, useNoteSearchShortcut } from "../../../components/NoteSearch";
@@ -38,8 +45,6 @@ export default function CanvasEditorPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const setQueryParams = useSetQueryParams();
-  const view: CanvasView = searchParams.get("view") === "risks" ? "risks" : "canvas";
-  const setView = (next: CanvasView) => setQueryParams({ view: next === "risks" ? "risks" : null });
   // An export a link asked for, e.g. ?export=risks-pdf. The param is cleared once it has run.
   const exportRequest = parseExportRequest(searchParams.get("export"));
   const clearExportRequest = () => setQueryParams({ export: null });
@@ -50,11 +55,15 @@ export default function CanvasEditorPage() {
   const setNoteExpanded = (expanded: boolean) => setQueryParams({ noteView: expanded ? "modal" : null });
   // Wide screens open the note in its place on the board; phones (and the risks view) use the panel
   const isDesktop = useMediaQuery("(min-width: 768px)");
-  const noteInline = isDesktop && view === "canvas";
   const canvasId = (params?.id as string) as Id<"canvases">;
   const { user, isLoading } = useAuth();
 
   const data = useQuery(api.canvases.getCanvas, isLoading ? "skip" : { canvasId });
+  // Viewers (deciders and drivers who don't edit) start on the status view; editors on the canvas
+  const defaultView: CanvasView = data && data.currentUserRole === "viewer" ? "status" : "canvas";
+  const view = parseCanvasView(searchParams.get("view"), defaultView);
+  const setView = (next: CanvasView) => setQueryParams({ view: canvasViewParam(next, defaultView) });
+  const noteInline = isDesktop && view === "canvas";
   const latestStressTest = useQuery(api.stressTests.getLatestStressTest, data ? { canvasId } : "skip");
   const addNote = useMutation(api.notes.addNote);
   const updateNote = useMutation(api.notes.updateNote);
@@ -223,6 +232,7 @@ export default function CanvasEditorPage() {
               launchDate={canvas.launchDate}
               onChange={canEdit ? (launchDate) => void updateCanvasMeta({ canvasId, launchDate }) : undefined}
             />
+            <DecidedCountChip notes={notes} />
             {user && <DecisionsWaitingChip />}
             {user && <CheckInsWaitingChip />}
           </>
@@ -278,7 +288,18 @@ export default function CanvasEditorPage() {
                 onModeChange={evidence.setMode}
               />
               )}
-              {view === "risks" ? (
+              {view === "status" ? (
+                <PlanStatusBoard
+                  blocks={template.blocks}
+                  notes={notes}
+                  selectedId={selectedId}
+                  onOpenNote={(noteId) => {
+                    setSelectedId(noteId);
+                    setActivePanel("detail");
+                  }}
+                  onShowCanvas={() => setView("canvas")}
+                />
+              ) : view === "risks" ? (
                 <RiskiestAssumptionsView
                   blocks={template.blocks}
                   result={stressResult}

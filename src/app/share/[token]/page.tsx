@@ -14,7 +14,14 @@ import { LaunchDateContext } from "../../../utils/launchDate";
 import { useMediaQuery, useSetQueryParams } from "../../../utils/urlState";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptionsView";
-import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/CanvasViewToggle";
+import {
+  CanvasView,
+  CanvasViewToggle,
+  canvasViewParam,
+  parseCanvasView,
+  riskRanksFor,
+} from "../../../components/CanvasViewToggle";
+import { DecidedCountChip, PlanStatusBoard } from "../../../components/PlanStatusBoard";
 import { NoteItem, StressTestResult } from "../../../types/canvas";
 import { GlobeIcon, SparklesIcon, LogInIcon, FileTextIcon, DownloadIcon, LockIcon } from "lucide-react";
 import { NoteSearch, NoteSearchButton, useNoteSearchShortcut } from "../../../components/NoteSearch";
@@ -27,8 +34,9 @@ export default function PublicSharePage() {
   const token = (params?.token as string) || "";
   const searchParams = useSearchParams();
   const setQueryParams = useSetQueryParams();
-  const view: CanvasView = searchParams.get("view") === "risks" ? "risks" : "canvas";
-  const setView = (next: CanvasView) => setQueryParams({ view: next === "risks" ? "risks" : null });
+  // Guests start on the three-state status view; the full canvas is one tab away
+  const view = parseCanvasView(searchParams.get("view"), "status");
+  const setView = (next: CanvasView) => setQueryParams({ view: canvasViewParam(next, "status") });
   // The open note lives in the URL (?note=<id>) so it can be bookmarked and shared
   const selectedId = searchParams.get("note");
   // Opening or closing a note goes back to its usual place; ?noteView=modal expands it into a dialog
@@ -207,13 +215,14 @@ export default function PublicSharePage() {
       </div>
 
       {/* Header */}
-      <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-4">
-        <div className="flex items-center gap-3">
+      <header className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <h1 className="font-bold text-base text-ink">{data.canvas.title}</h1>
           <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-stone-100 text-stone-700 border border-stone-300">
             VIEWER (READ-ONLY)
           </span>
           <LaunchDayChip launchDate={data.canvas.launchDate} />
+          <DecidedCountChip notes={notes} />
         </div>
 
         <div className="flex items-center gap-2">
@@ -267,7 +276,18 @@ export default function PublicSharePage() {
                 onModeChange={evidence.setMode}
               />
             )}
-            {view === "risks" ? (
+            {view === "status" ? (
+              <PlanStatusBoard
+                blocks={template.blocks}
+                notes={notes}
+                selectedId={selectedId}
+                onOpenNote={(noteId) => {
+                  setShowStressTest(false);
+                  setSelectedId(noteId);
+                }}
+                onShowCanvas={() => setView("canvas")}
+              />
+            ) : view === "risks" ? (
               <RiskiestAssumptionsView
                 blocks={template.blocks}
                 result={publicStressTest}
