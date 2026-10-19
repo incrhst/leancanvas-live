@@ -26,38 +26,38 @@
     <!-- Pill Capsule Tag -->
     <rect x="0" y="0" width="360" height="42" rx="21" fill="#FFFFFF" fill-opacity="0.18" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="1.5"/>
     <text x="30" y="26" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" fill="#FFFFFF" letter-spacing="1">
-      SHAPE &amp; SHIP • BY INCREMENTIC
+      LEANON • BY INCREMENTIC
     </text>
 
     <!-- Main Title -->
     <text x="0" y="140" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="64" font-weight="800" fill="#FFFFFF" letter-spacing="-1.5">
-      LeanCanvas Live
+      Plans stall between meetings.
     </text>
 
     <!-- Subtitle -->
     <text x="0" y="210" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="500" fill="#FFFFFF" fill-opacity="0.95">
-      The shortest distance to your next validated business.
+      LeanOn sends the decider one question, with the default.
     </text>
 
     <text x="0" y="260" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="400" fill="#FFFFFF" fill-opacity="0.85">
-      Realtime Multiplayer • Ash Maurya 7-Dimension Stress Testing • Claude MCP
+      They answer on their phone, with no login. The plan keeps moving.
     </text>
 
     <!-- Visual Feature Badges at bottom -->
     <g transform="translate(0, 340)">
       <rect x="0" y="0" width="280" height="50" rx="12" fill="#FFFFFF" fill-opacity="0.15" stroke="#FFFFFF" stroke-opacity="0.25"/>
       <text x="24" y="31" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="600" fill="#FFFFFF">
-        ✓ Realtime Collaboration
+        ✓ No login to decide
       </text>
 
       <rect x="305" y="0" width="280" height="50" rx="12" fill="#FFFFFF" fill-opacity="0.15" stroke="#FFFFFF" stroke-opacity="0.25"/>
       <text x="329" y="31" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="600" fill="#FFFFFF">
-        ✓ 7-Dimension AI Test
+        ✓ The default, always visible
       </text>
 
       <rect x="610" y="0" width="280" height="50" rx="12" fill="#FFFFFF" fill-opacity="0.15" stroke="#FFFFFF" stroke-opacity="0.25"/>
       <text x="634" y="31" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="600" fill="#FFFFFF">
-        ✓ Anonymous Read Links
+        ✓ Tests agreed in advance
       </text>
     </g>
   </g>

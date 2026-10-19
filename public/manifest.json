@@ -1,7 +1,7 @@
 {
-  "name": "LeanCanvas Live",
-  "short_name": "LeanCanvas",
-  "description": "Realtime multiplayer Lean Canvas tool by Incrementic with AI stress testing.",
+  "name": "LeanOn",
+  "short_name": "LeanOn",
+  "description": "Lean and go-to-market plans that keep moving between meetings, by Incrementic.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FAFAFA",
