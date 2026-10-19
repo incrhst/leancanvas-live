@@ -7,7 +7,7 @@ const MCP_URL = "https://lean.incrementic.com/api/mcp";
 
 const ANTIGRAVITY_CONFIG = `{
   "mcpServers": {
-    "leancanvas": {
+    "leanon": {
       "serverUrl": "${MCP_URL}"
     }
   }
@@ -27,7 +27,7 @@ const AGENTS: { id: AgentId; label: string; steps: React.ReactNode[] }[] = [
       <>
         Add an <strong>HTTP</strong> MCP and paste the URL above.
       </>,
-      <>Sign in with your LeanCanvas account when ChatGPT asks you to authorize access.</>,
+      <>Sign in with your LeanOn account when ChatGPT asks you to authorize access.</>,
     ],
   },
   {
@@ -42,10 +42,10 @@ const AGENTS: { id: AgentId; label: string; steps: React.ReactNode[] }[] = [
         choose <strong>Register automatically</strong> for the OAuth client.
       </>,
       <>
-        Click <strong>Add</strong>, then sign in with your LeanCanvas account.
+        Click <strong>Add</strong>, then sign in with your LeanOn account.
       </>,
       <>
-        In a chat, click <strong>+</strong> and select <strong>Connectors</strong> to turn LeanCanvas on.
+        In a chat, click <strong>+</strong> and select <strong>Connectors</strong> to turn LeanOn on.
       </>,
     ],
   },
@@ -61,7 +61,7 @@ const AGENTS: { id: AgentId; label: string; steps: React.ReactNode[] }[] = [
         Scroll down and add a custom app with the URL above.
       </>,
       <>
-        Sign in with your LeanCanvas account if asked, then approve access. If Gemini shows{" "}
+        Sign in with your LeanOn account if asked, then approve access. If Gemini shows{" "}
         <em>&quot;Account linking is required to use this custom app. Please try again.&quot;</em>, try again. It
         connected on the second attempt when we tested it.
       </>,
@@ -83,7 +83,7 @@ const AGENTS: { id: AgentId; label: string; steps: React.ReactNode[] }[] = [
       </>,
       <>
         Open <strong>Agent Settings</strong>, go to the <strong>Customizations</strong> tab, and click{" "}
-        <strong>Authenticate</strong> next to LeanCanvas. Finish signing in, then paste the authorization code
+        <strong>Authenticate</strong> next to LeanOn. Finish signing in, then paste the authorization code
         back in and click <strong>Submit</strong>.
       </>,
     ],

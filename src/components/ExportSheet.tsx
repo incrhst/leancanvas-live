@@ -66,7 +66,7 @@ export function ExportSheet({
             <LayoutGridIcon size={16} aria-hidden="true" />
           </div>
           <div className="leading-tight">
-            <p className="font-display text-sm font-semibold text-ink">LeanCanvas Live</p>
+            <p className="font-display text-sm font-semibold text-ink">LeanOn</p>
             <p className="text-[11px] text-muted">by Incrementic</p>
           </div>
         </div>
@@ -92,7 +92,7 @@ export function ExportSheet({
       )}
 
       <footer className="mt-10 flex items-center justify-between border-t border-line pt-4 text-[11px] text-muted">
-        <span>Generated with LeanCanvas Live · lean.incrementic.com</span>
+        <span>Generated with LeanOn · lean.incrementic.com</span>
         <span className="font-mono">Incrementic</span>
       </footer>
     </div>

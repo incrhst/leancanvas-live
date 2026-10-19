@@ -1,4 +1,4 @@
-# LeanCanvas Live
+# LeanOn
 
 Realtime multiplayer collaborative canvases by **Incrementic** (`lean.incrementic.com`), powered by Next.js 15, Convex, and AI stress-testing. Choose a **Lean Canvas** or a **GTM Canvas** for each new canvas.
 
@@ -30,7 +30,7 @@ Both templates use the same 7 stress-test scores, so the stored results and the 
 
 ## Connecting to Claude (No-Code Connector URL)
 
-For non-technical users, connecting LeanCanvas to Claude takes just one click:
+For non-technical users, connecting LeanOn to Claude takes just one click:
 
 1. In Claude, go to **Settings › Connectors** (or **Add MCP Server**).
 2. Click **Add Connector**.

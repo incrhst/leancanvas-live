@@ -782,7 +782,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse(
       JSON.stringify({
         error: "unauthorized",
-        message: "Authentication required to access LeanCanvas MCP tools",
+        message: "Authentication required to access LeanOn MCP tools",
       }),
       {
         status: 401,
@@ -799,9 +799,9 @@ export async function GET(req: NextRequest) {
   // Discovery manifest including OAuth 2.1 authentication info
   return NextResponse.json(
     {
-      name: "leancanvas-live",
+      name: "leanon",
       version: "0.1.0",
-      description: "LeanCanvas Live Model Context Protocol endpoint for Claude Connectors",
+      description: "LeanOn Model Context Protocol endpoint for Claude Connectors",
       protocol: "mcp/sse",
       endpoints: {
         http: "https://lean.incrementic.com/api/mcp",
@@ -866,7 +866,7 @@ export async function POST(req: NextRequest) {
               tools: {},
             },
             serverInfo: {
-              name: "leancanvas-live",
+              name: "leanon",
               version: "0.1.0",
             },
           },

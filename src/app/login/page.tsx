@@ -51,9 +51,9 @@ function LoginForm() {
     <div className="w-full max-w-sm rounded-2xl bg-surface border border-line p-8 shadow-sm space-y-6">
       <div className="text-center space-y-1">
         <div className="inline-flex w-10 h-10 rounded-xl bg-accent text-white font-bold items-center justify-center text-lg mb-2">
-          LC
+          LO
         </div>
-        <h1 className="text-xl font-bold text-ink">Sign in to LeanCanvas</h1>
+        <h1 className="text-xl font-bold text-ink">Sign in to LeanOn</h1>
         <p className="text-xs text-muted">
           Enter your email and we&apos;ll send you a magic sign-in link
         </p>

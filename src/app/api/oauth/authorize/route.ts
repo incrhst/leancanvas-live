@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // The user must be signed in to LeanCanvas to grant access to their canvases.
+  // The user must be signed in to LeanOn to grant access to their canvases.
   const token = await convexAuthNextjsToken();
   const email = token ? await getSignedInEmail(token) : null;
   if (!email) {
@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Authorize Claude — LeanCanvas Live by Incrementic</title>
+  <title>Authorize Claude — LeanOn by Incrementic</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
@@ -215,7 +215,7 @@ export async function GET(req: NextRequest) {
     <div class="badge">
       <span>●</span> OAUTH 2.1 PKCE
     </div>
-    <h1>Connect ${clientName} to LeanCanvas</h1>
+    <h1>Connect ${clientName} to LeanOn</h1>
     <p>
       ${clientName} is requesting permission to view your Lean and GTM canvases, add sticky notes, and run AI stress testing on your business models.
     </p>
