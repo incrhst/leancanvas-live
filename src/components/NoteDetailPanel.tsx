@@ -8,6 +8,7 @@ import { EditableField } from "./EditableField";
 import { NoteTestFields, TestFieldsPatch } from "./NoteTestFields";
 import { NoteDriverField } from "./DriverControls";
 import { NoteDecisionSection } from "./NoteDecision";
+import { NoteResultLink } from "./NoteResultLink";
 import { NoteMarketsField } from "./MarketControls";
 import { hasTest } from "../utils/testFields";
 
@@ -360,6 +361,7 @@ export function NoteDetailPanel({
                 }}
               />
             )}
+            {hasTest(note) && <NoteResultLink note={note} />}
             {(decisionPrompt || note.decision) && <NoteDecisionSection note={note} canEdit={canEdit} />}
           </section>
         )}

@@ -13,6 +13,7 @@ import {
 } from "./lib/history";
 import { TestFieldsUpdate, testFieldsPatch, testFieldsUpdateArgs } from "./lib/testFields";
 import { normalizeMarkets } from "./lib/markets";
+import { deleteResultLinksForNote } from "./lib/resultLinks";
 
 type EvidenceState = Doc<"notes">["evidenceState"];
 type Block = Doc<"notes">["block"];
@@ -173,6 +174,7 @@ export async function deleteNoteForUser(
     await ctx.db.delete(item._id);
   }
 
+  await deleteResultLinksForNote(ctx, note._id);
   await ctx.db.delete(note._id);
   await ctx.db.patch(note.canvasId, { updatedAt: now });
   await recordNoteHistory(ctx, actor, note, "deleted", diffFields(trackedFields(note), {}), opts);

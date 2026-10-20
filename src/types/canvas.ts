@@ -86,6 +86,9 @@ export interface LatestResult {
   /** YYYY-MM-DD */
   date: string;
   verdict?: Verdict;
+  /** Sent from a result link by someone without an account */
+  via?: "link";
+  byName?: string;
 }
 
 export type DecisionStatus = "open" | "approved" | "rejected" | "changes_requested" | "decided";

@@ -5,6 +5,7 @@ import { getCanvasRole } from "./auth";
 import { Actor, diffFields, recordNoteHistory, trackedFields } from "./history";
 import { emailUser, siteUrl } from "./notify";
 import { checkDate, todayUtc, verdictValidator } from "./testFields";
+import { createCheckInLink, resultLinkUrl } from "./resultLinks";
 
 /**
  * Weekly check-ins: once a week each note's driver (the person doing the work on it) is asked whether there's new evidence on it.
@@ -40,7 +41,8 @@ export async function startCheckInForCanvas(ctx: MutationCtx, canvas: Doc<"canva
     .withIndex("by_canvas_block", (q) => q.eq("canvasId", canvas._id))
     .collect();
 
-  const perDriver = new Map<Id<"users">, Doc<"notes">[]>();
+  // Each question carries its own answer link, so drivers can answer from the email without signing in
+  const perDriver = new Map<Id<"users">, { note: Doc<"notes">; token: string }[]>();
   for (const note of notes.filter(needsCheckIn)) {
     const driverId = note.ownerId!;
     if (!(await getCanvasRole(ctx, canvas._id, driverId))) continue;
@@ -52,14 +54,15 @@ export async function startCheckInForCanvas(ctx: MutationCtx, canvas: Doc<"canva
     if (pending.some((p) => p.weekOf === weekOf && p.userId === driverId)) continue;
     for (const old of pending) await ctx.db.patch(old._id, { status: "expired" });
 
-    await ctx.db.insert("checkInItems", {
+    const itemId = await ctx.db.insert("checkInItems", {
       userId: driverId,
       canvasId: canvas._id,
       noteId: note._id,
       weekOf,
       status: "pending",
     });
-    perDriver.set(driverId, [...(perDriver.get(driverId) ?? []), note]);
+    const token = await createCheckInLink(ctx, (await ctx.db.get(itemId))!);
+    perDriver.set(driverId, [...(perDriver.get(driverId) ?? []), { note, token }]);
   }
 
   for (const [driverId, driving] of perDriver) {
@@ -68,9 +71,14 @@ export async function startCheckInForCanvas(ctx: MutationCtx, canvas: Doc<"canva
       text: [
         `Any new evidence this week on the notes you're driving in "${canvas.title}"?`,
         "",
-        ...driving.map((n) => `- ${n.content}`),
+        ...driving.flatMap(({ note, token }) => [
+          `- ${note.content}`,
+          `  Answer from your phone, no sign-in: ${resultLinkUrl(token)}`,
+        ]),
         "",
-        `Answer yes or no for each (a line if yes): ${siteUrl()}/check-in`,
+        `Or answer them all at once, signed in: ${siteUrl()}/check-in`,
+        "",
+        "Each link answers one question this week, then stops working.",
       ].join("\n"),
     });
   }

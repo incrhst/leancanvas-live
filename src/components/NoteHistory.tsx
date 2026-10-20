@@ -113,6 +113,21 @@ function describeEntry(kind: string, changes: Change[], blockTitleOf: (blockId: 
     ];
   }
   if (kind === "decision_withdrawn") return ["Withdrew the decision request"];
+  if (kind === "result_submitted" || kind === "result_accepted" || kind === "result_rejected") {
+    const text = value("result.text")?.to ?? value("result.text")?.from ?? value("latestResult.text")?.to ?? "";
+    const verdict = value("result.verdict")?.to ?? value("latestResult.verdict")?.to;
+    const verdictLabel = verdict ? ` (${VERDICT_CONFIG[verdict as Verdict]?.label ?? verdict})` : "";
+    const from = value("result.name")?.to ?? value("result.name")?.from;
+    const lead = {
+      result_submitted: value("checkIn") ? "Weekly check-in: sent a result" : "Sent a result",
+      result_accepted: "Accepted a result sent via link",
+      result_rejected: "Rejected a result sent via link",
+    }[kind];
+    return [
+      `${lead}: “${truncate(text, 80)}”${verdictLabel}`,
+      ...(from && kind !== "result_submitted" ? [`From “${truncate(from, 60)}”`] : []),
+    ];
+  }
   if (kind === "check_in") {
     if (value("checkIn")?.to === "no new evidence") return ["Weekly check-in: no new evidence"];
     const result = value("latestResult.text")?.to;
@@ -124,6 +139,15 @@ function describeEntry(kind: string, changes: Change[], blockTitleOf: (blockId: 
     ];
   }
   return changes.map((c) => describeChange(c, blockTitleOf));
+}
+
+/**
+ * Who made a change. A result from a shared link names whoever typed it, not the member the link
+ * belongs to; a check-in link is the driver's own, so it keeps their name.
+ */
+function whoChanged(entry: { kind: string; userName: string; changes: Change[] }) {
+  if (entry.kind !== "result_submitted" || entry.changes.some((c) => c.field === "checkIn")) return entry.userName;
+  return entry.changes.find((c) => c.field === "result.name")?.to ?? "Someone";
 }
 
 function isSafeLink(link: string) {
@@ -147,9 +171,10 @@ export function NoteHistory({ noteId, blockTitleOf }: NoteHistoryProps) {
           {history.map((entry) => (
             <li key={entry._id} className="text-[11px] leading-snug">
               <p className="text-muted">
-                <span className="font-semibold text-ink">{entry.userName}</span>
+                <span className="font-semibold text-ink">{whoChanged(entry)}</span>
                 {entry.via === "mcp" && <> via {entry.clientName || "an agent"}</>}
-                {entry.via === "link" && <> from the emailed link</>} · {formatRelative(entry.at)}
+                {entry.via === "link" && (entry.kind === "result_submitted" ? <> via link, no account</> : <> from the emailed link</>)}{" "}
+                · {formatRelative(entry.at)}
               </p>
               {describeEntry(entry.kind, entry.changes, blockTitleOf).map((line, i) => (
                 <p key={i} className="text-ink break-words">

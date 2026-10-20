@@ -74,7 +74,7 @@ When configured, Claude has access to:
 
 | Actor | View Canvas | Edit Canvas | Comment | Invite Others | Run Stress Test | Answer Decisions / Check-ins |
 |---|---|---|---|---|---|---|
-| **Anonymous** | Yes (via `/share/[token]`) | **No** | No | No | No | Only with the decider's emailed link (`/d/[token]`), for that one decision |
+| **Anonymous** | Yes (via `/share/[token]`) | **No** | No | No | No | Only with the decider's emailed link (`/d/[token]`), for that one decision. Can send a test result with a note's result link or a driver's check-in link (`/r/[token]`); it waits for an editor to accept it |
 | **Authenticated Viewer** | Yes | No | Yes | No | No | Yes, when they're the named decider (decisions) or the note's driver (check-ins) |
 | **Authenticated Editor** | Yes | Yes | Yes | Yes (Editor / Viewer) | Yes | Yes, when they're the named decider (decisions) or the note's driver (check-ins) |
 | **Owner** | Yes | Yes | Yes | Yes | Yes | Yes, when they're the named decider (decisions) or the note's driver (check-ins) |
@@ -90,6 +90,7 @@ When configured, Claude has access to:
 - `/share/[token]`: Public read-only view for anonymous users (editing and stress-test triggers strictly disabled)
 - `/decisions`: The signed-in user's open decisions, across canvases
 - `/d/[token]`: Public answer page for one decision, from the request email. No sign-in. The token is stored hashed, works for that one request only, and stops working once the request is answered or withdrawn, when an editor sends a new link or turns it off, or when the decider leaves the canvas
+- `/r/[token]`: Public result page for one note's test: what we watch, the pass mark, a box for the result (a number or a line), an optional "did it pass?" and name. No account or sign-in. Two kinds of link open it: a shareable link an editor gets from the note (copy, or share to WhatsApp or email), which takes results as often as the test needs until an editor makes a new one or turns it off; and one link per question in the weekly check-in email, which answers that question once (a result, or "nothing new") and stops. A result sent this way never changes the note by itself: it waits on the note, marked "via link, no account", and the operator is emailed. An editor accepts it (it becomes the latest result; the evidence state is still theirs to change) or rejects it. Each link takes at most 10 results an hour, and a note stops taking more once 20 are waiting
 - `/invite/[token]`: Magic invite acceptance flow (requires authentication before joining)
 
 ---
@@ -103,6 +104,8 @@ When configured, Claude has access to:
 - `notes:addNote`, `updateNote`, `deleteNote`, `reorderNotes`: Editor+ only mutations
 - `stressTests:runStressTest`: Convex action running 7-dimension scoring & riskiest assumption analysis
 - `invites:createInvite`, `acceptInvite`: Magic link generation and authenticated acceptance
+- `resultLinks:replaceLink`, `forNote`, `accept`, `reject`: A note's result link and the results waiting on it (Editor+ only)
+- `resultLinks:getByLink`, `submitByLink`: The public result page; no sign-in
 
 ---
 
