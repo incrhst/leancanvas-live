@@ -1,7 +1,20 @@
 import React from "react";
-import { LayoutGridIcon, ShieldAlertIcon } from "lucide-react";
+import { Columns3Icon, LayoutGridIcon, ShieldAlertIcon } from "lucide-react";
 
-export type CanvasView = "canvas" | "risks";
+export type CanvasView = "canvas" | "status" | "risks";
+
+/**
+ * The view in the URL (?view=), or the default when there's none. Operators (editors) start on the
+ * canvas; viewers and guests on the share link start on the three-state status view.
+ */
+export function parseCanvasView(param: string | null, defaultView: CanvasView): CanvasView {
+  return param === "canvas" || param === "status" || param === "risks" ? param : defaultView;
+}
+
+/** The ?view= value for a view: none for the default, so plain links stay plain. */
+export function canvasViewParam(view: CanvasView, defaultView: CanvasView): string | null {
+  return view === defaultView ? null : view;
+}
 
 interface CanvasViewToggleProps {
   view: CanvasView;
@@ -27,12 +40,24 @@ export function CanvasViewToggle({ view, riskCount, onChange }: CanvasViewToggle
       <button
         type="button"
         role="tab"
+        aria-selected={view === "status"}
+        onClick={() => onChange("status")}
+        title="The plan in three columns: needs a call, testing, agreed"
+        className={`${base} ${view === "status" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
+      >
+        <Columns3Icon className="h-3.5 w-3.5" />
+        Status
+      </button>
+      <button
+        type="button"
+        role="tab"
         aria-selected={view === "risks"}
         onClick={() => onChange("risks")}
         className={`${base} ${view === "risks" ? "bg-rose-600 text-white" : "text-muted hover:text-rose-700"}`}
       >
         <ShieldAlertIcon className="h-3.5 w-3.5" />
-        Riskiest assumptions
+        <span className="sm:hidden">Risks</span>
+        <span className="hidden sm:inline">Riskiest assumptions</span>
         {riskCount > 0 && (
           <span
             className={`rounded-full px-1.5 text-[10px] font-semibold ${
