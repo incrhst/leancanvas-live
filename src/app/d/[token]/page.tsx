@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { CheckCircle2Icon, GavelIcon, LinkIcon, MessageSquareIcon } from "lucide-react";
 import { api } from "../../../../convex/_generated/api";
 import { formatLongDate, isPastDue } from "../../../../convex/lib/decisionText";
-import { DecisionAnswer, DecisionDefault, outcomeLabel } from "../../../components/NoteDecision";
+import { DecisionAnswer, DecisionDefault, isDeferral, outcomeLabel } from "../../../components/NoteDecision";
 import { todayLocal } from "../../../utils/testFields";
 import { convexErrorMessage } from "../../../utils/convexError";
 import { DecisionStatus } from "../../../types/canvas";
@@ -76,7 +76,7 @@ export default function DecisionLinkPage() {
           <p className="text-xs font-medium uppercase tracking-wide text-muted">Already answered</p>
           <h1 className="text-lg font-semibold leading-snug text-ink">{decision.question}</h1>
           <p className="text-[15px] font-semibold text-ink">
-            {outcomeLabel({ status: decision.status as DecisionStatus, choice: decision.choice })}
+            {outcomeLabel({ status: decision.status as DecisionStatus, choice: decision.choice, deferOptions: decision.deferOptions })}
           </p>
           <p className="text-sm text-muted">There's nothing more to do here.</p>
         </div>
@@ -99,7 +99,13 @@ export default function DecisionLinkPage() {
         comment: comment.trim() || undefined,
         name: name.trim() || undefined,
       });
-      setDone(answer === "choose" ? `You chose “${choice}”.` : ANSWERED[answer]);
+      setDone(
+        answer !== "choose"
+          ? ANSWERED[answer]
+          : isDeferral(decision, choice)
+            ? `You chose “${choice}”. The note stays open until it's decided.`
+            : `You chose “${choice}”.`
+      );
     } catch (err) {
       setError(convexErrorMessage(err));
     } finally {
@@ -113,10 +119,15 @@ export default function DecisionLinkPage() {
   const secondary =
     "w-full min-h-[52px] rounded-xl border border-line bg-surface px-4 py-3 text-base font-medium text-ink transition-colors hover:bg-surface-2 disabled:opacity-50";
   const choices = decision.options
-    ? decision.options.map((option) => ({ label: option, answer: "choose" as const, choice: option }))
+    ? decision.options.map((option) => ({
+        label: option,
+        answer: "choose" as const,
+        choice: option,
+        defer: isDeferral(decision, option),
+      }))
     : [
-        { label: "Approve", answer: "approve" as const, choice: undefined },
-        { label: "Reject", answer: "reject" as const, choice: undefined },
+        { label: "Approve", answer: "approve" as const, choice: undefined, defer: false },
+        { label: "Reject", answer: "reject" as const, choice: undefined, defer: false },
       ];
 
   return (
@@ -156,9 +167,10 @@ export default function DecisionLinkPage() {
             type="button"
             disabled={busy}
             onClick={() => void send(c.answer, c.choice)}
-            className={i === 0 ? primary : secondary}
+            className={i === 0 && !c.defer ? primary : secondary}
           >
             {c.label}
+            {c.defer && <span className="block text-sm font-normal text-muted">Puts it off; the note stays open</span>}
           </button>
         ))}
 

@@ -94,6 +94,7 @@ function describeEntry(kind: string, changes: Change[], blockTitleOf: (blockId: 
       `Asked ${value("decision.decider")?.to ?? "someone"} for a decision, due ${formatCalendarDate(value("decision.dueDate")?.to ?? "")}`,
       `“${truncate(value("decision.question")?.to ?? "", 80)}”`,
       ...(value("decision.options") ? [`Options: ${value("decision.options")!.to}`] : []),
+      ...(value("decision.deferOptions") ? [`Puts it off: ${value("decision.deferOptions")!.to}`] : []),
       ...(value("decision.defaultOutcome") ? [`If nobody decides: ${truncate(value("decision.defaultOutcome")!.to ?? "", 80)}`] : []),
     ];
   }
@@ -103,7 +104,9 @@ function describeEntry(kind: string, changes: Change[], blockTitleOf: (blockId: 
       approved: "Approved",
       rejected: "Rejected",
       changes_requested: "Asked for a change on",
-      decided: `Chose “${truncate(choice ?? "", 60)}” on`,
+      decided: value("decision.deferred")
+        ? `Put off (“${truncate(choice ?? "", 60)}”)`
+        : `Chose “${truncate(choice ?? "", 60)}” on`,
     }[value("decision.status")?.to ?? ""];
     const comment = value("decision.comment")?.to;
     const signed = value("decision.answeredByName")?.to;

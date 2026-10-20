@@ -57,7 +57,7 @@ async function latestLinkToken(t: ReturnType<typeof convexTest>, to: string) {
   return match[1];
 }
 
-async function askDaren(s: Awaited<ReturnType<typeof setup>>, extra: { options?: string[] } = {}) {
+async function askDaren(s: Awaited<ReturnType<typeof setup>>, extra: { options?: string[]; deferOptions?: string[] } = {}) {
   await s.asCeline.mutation(api.decisions.requestDecision, {
     noteId: s.noteId,
     question: "How do we start marketing Afforrd?",
@@ -306,6 +306,96 @@ describe("asking for a decision", () => {
     await expect(ask(["Agency", "agency"])).rejects.toThrow(/different/);
     await ask(["  Agency ", "In-house", ""]);
     expect((await noteOf(s)).decision!.options).toEqual(["Agency", "In-house"]);
+  });
+});
+
+describe("asking yourself", () => {
+  test("emails you the answer link on the first request, like Send a new link does", async () => {
+    const s = await setup();
+    await s.asCeline.mutation(api.decisions.requestDecision, {
+      noteId: s.noteId,
+      question: "Do we sign the agency?",
+      deciderId: s.celine,
+      dueDate: "2099-11-01",
+    });
+    const first = await latestLinkToken(s.t, "celine@example.com");
+    expect(await s.t.query(api.decisions.getByLink, { token: first })).toMatchObject({ status: "open", deciderName: "Celine" });
+
+    await s.asCeline.mutation(api.decisions.replaceDecisionLink, { noteId: s.noteId });
+    const second = await latestLinkToken(s.t, "celine@example.com");
+    expect(second).not.toBe(first);
+    expect(await s.t.query(api.decisions.getByLink, { token: first })).toBeNull();
+
+    await s.t.mutation(api.decisions.answerByLink, { token: second, answer: "approve" });
+    expect((await noteOf(s)).evidenceState).toBe("decision");
+    // No "you answered your own request" email back to yourself
+    expect((await sentEmails(s.t)).filter((e) => e.to === "celine@example.com")).toHaveLength(2);
+  });
+});
+
+describe("options that put the decision off", () => {
+  const options = ["Sign the agency", "Build in-house", "Decide after Roti Day 3"];
+
+  test("choosing one records the answer but leaves the note's evidence state alone", async () => {
+    const s = await setup();
+    const token = await askDaren(s, { options, deferOptions: ["decide after roti day 3"] });
+    const note = await noteOf(s);
+    expect(note.decision!.deferOptions).toEqual(["Decide after Roti Day 3"]);
+    expect((await sentEmails(s.t)).at(-1)!.text).toContain("Decide after Roti Day 3 (puts it off)");
+    expect(await s.t.query(api.decisions.getByLink, { token })).toMatchObject({ deferOptions: ["Decide after Roti Day 3"] });
+
+    await s.t.mutation(api.decisions.answerByLink, { token, answer: "choose", choice: "Decide after Roti Day 3" });
+    const answered = await noteOf(s);
+    expect(answered.evidenceState).toBe("supported");
+    expect(answered.decision).toMatchObject({ status: "decided", choice: "Decide after Roti Day 3", answeredVia: "link" });
+
+    const history = await s.t.run((ctx) =>
+      ctx.db
+        .query("noteHistory")
+        .withIndex("by_note", (q) => q.eq("noteId", s.noteId))
+        .collect()
+    );
+    const entry = history.find((h) => h.kind === "decision_answered")!;
+    expect(entry.changes).toContainEqual({ field: "decision.choice", to: "Decide after Roti Day 3" });
+    expect(entry.changes).toContainEqual({ field: "decision.deferred", to: "yes" });
+    expect(entry.changes.some((c) => c.field === "evidenceState")).toBe(false);
+
+    const toCeline = (await sentEmails(s.t)).filter((e) => e.to === "celine@example.com").at(-1)!;
+    expect(toCeline.subject).toContain("deferred your request");
+    expect(toCeline.text).toContain("Their answer: Decide after Roti Day 3");
+  });
+
+  test("choosing an option that doesn't defer still makes the note a decision", async () => {
+    const s = await setup();
+    await askDaren(s, { options, deferOptions: ["Decide after Roti Day 3"] });
+    await s.asDaren.mutation(api.decisions.answerDecision, { noteId: s.noteId, answer: "choose", choice: "Build in-house" });
+    expect((await noteOf(s)).evidenceState).toBe("decision");
+  });
+
+  test("must be among the options, and at least one option must decide", async () => {
+    const s = await setup();
+    const ask = (extra: { options?: string[]; deferOptions: string[] }) =>
+      s.asCeline.mutation(api.decisions.requestDecision, {
+        noteId: s.noteId,
+        question: "Which route?",
+        deciderId: s.daren,
+        dueDate: "2099-11-01",
+        ...extra,
+      });
+    await expect(ask({ options, deferOptions: ["Hybrid"] })).rejects.toThrow(/must be one of the options/);
+    await expect(ask({ options: ["Later", "Much later"], deferOptions: ["Later", "Much later"] })).rejects.toThrow(
+      /At least one option must make the decision/
+    );
+    await expect(ask({ deferOptions: ["Later"] })).rejects.toThrow(/Only a request with options/);
+    expect((await noteOf(s)).decision).toBeUndefined();
+  });
+
+  test("requests stored before deferOptions existed answer as before", async () => {
+    const s = await setup();
+    await askDaren(s, { options: ["Sign the agency", "Build in-house"] });
+    expect((await noteOf(s)).decision!.deferOptions).toBeUndefined();
+    await s.asDaren.mutation(api.decisions.answerDecision, { noteId: s.noteId, answer: "choose", choice: "Sign the agency" });
+    expect((await noteOf(s)).evidenceState).toBe("decision");
   });
 });
 
