@@ -2,10 +2,11 @@ import { ConvexError, Infer, v } from "convex/values";
 import { MutationCtx, QueryCtx } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
 import { getCanvasRole, sha256Hex } from "./auth";
-import { Actor, NoteChange, recordNoteHistory } from "./history";
+import { Actor, HistoryActor, isPersonActor, NoteChange, recordNoteHistory } from "./history";
 import { displayName } from "./members";
 import { checkDate, todayUtc } from "./testFields";
 import { emailUser, siteUrl } from "./notify";
+import { emailPerson, requireAskablePerson, resolveDecider } from "./people";
 import { defaultOutcomeLine, formatLongDate } from "./decisionText";
 
 /** A request for someone to decide on a note. Stays on the note after it's answered, as the record. */
@@ -20,7 +21,9 @@ export const decisionStatusValidator = v.union(
 
 export const decisionRequestValidator = v.object({
   question: v.string(),
-  deciderId: v.id("users"),
+  // Who decides: a canvas member, or a person without an account (exactly one is set)
+  deciderId: v.optional(v.id("users")),
+  deciderPersonId: v.optional(v.id("people")),
   dueDate: v.string(),
   // What happens if nobody decides by dueDate, e.g. "We sign the agency". Shown, never applied for them.
   defaultOutcome: v.optional(v.string()),
@@ -65,16 +68,40 @@ export const MAX_OPTIONS = 4;
 export const MAX_OPTION_LENGTH = 60;
 const MAX_NAME_LENGTH = 80;
 
-async function touch(ctx: MutationCtx, note: Doc<"notes">, actor: Actor, message: string) {
+async function touch(ctx: MutationCtx, note: Doc<"notes">, actor: HistoryActor, message: string) {
   const now = Date.now();
   await ctx.db.patch(note.canvasId, { updatedAt: now });
+  // People have no account, so their activity names them in the message instead
+  const person = isPersonActor(actor) ? await ctx.db.get(actor.personId) : null;
   await ctx.db.insert("activity", {
     canvasId: note.canvasId,
-    userId: actor.userId,
+    userId: isPersonActor(actor) ? undefined : actor.userId,
     type: "decision",
-    message,
+    message: person ? `${person.name} ${message}` : message,
     createdAt: now,
   });
+}
+
+/**
+ * Who a decision is waiting on, if they can still answer it: a member still on the canvas, or a
+ * person still on it. Null when the member has left or the person is gone.
+ */
+async function deciderOf(ctx: QueryCtx, note: Doc<"notes">, decision: Decision) {
+  if (decision.deciderId) {
+    if (!(await getCanvasRole(ctx, note.canvasId, decision.deciderId))) return null;
+    const user = await ctx.db.get(decision.deciderId);
+    return user ? { kind: "user" as const, user, name: displayName(user) } : null;
+  }
+  const person = decision.deciderPersonId ? await ctx.db.get(decision.deciderPersonId) : null;
+  if (!person || person.canvasId !== note.canvasId) return null;
+  return { kind: "person" as const, person, name: person.name };
+}
+
+/** The decider's name for display, whether or not they can still answer. */
+export async function deciderNameOf(ctx: QueryCtx, decision: { deciderId?: Id<"users">; deciderPersonId?: Id<"people"> }) {
+  if (decision.deciderId) return displayName(await ctx.db.get(decision.deciderId));
+  const person = decision.deciderPersonId ? await ctx.db.get(decision.deciderPersonId) : null;
+  return person?.name ?? "Unknown person";
 }
 
 /** A fresh unguessable answer token (256 bits), and the hash that's stored. */
@@ -142,7 +169,7 @@ async function emailDecider(
   const today = todayUtc();
   const by = formatLongDate(decision.dueDate, Number(today.slice(0, 4)));
   const fallback = defaultOutcomeLine(decision, today);
-  await emailUser(ctx, decision.deciderId, {
+  const message = {
     subject: `${opts.reminder ? "New link: " : ""}Decision needed by ${by}: ${decision.question}`,
     text: [
       `${displayName(requester)} has asked you to decide on a note in "${canvas?.title ?? "a canvas"}".`,
@@ -159,13 +186,24 @@ async function emailDecider(
       "",
       "The link is just for this decision. It stops working once the decision is made or withdrawn.",
       ...(opts.reminder ? ["Any earlier link for this decision no longer works."] : []),
+      // People without an account can't change settings anywhere else, so the link stops the emails too
+      ...(decision.deciderPersonId
+        ? ["", `Don't want emails like this from "${canvas?.title ?? "this canvas"}"? Open the link and choose "Stop these emails".`]
+        : []),
     ].join("\n"),
-  });
+  };
+  if (decision.deciderId) {
+    await emailUser(ctx, decision.deciderId, message);
+  } else if (decision.deciderPersonId) {
+    await emailPerson(ctx, await requireAskablePerson(ctx, note.canvasId, decision.deciderPersonId), message);
+  }
 }
 
 /**
- * Asks one canvas member to decide on a note, and emails them a link that answers it without
- * signing in. Caller must have verified editor access.
+ * Asks someone to decide on a note, and emails them a link that answers it without signing in.
+ * The decider is a canvas member (`deciderId`), a person already on the canvas (`deciderPersonId`),
+ * or someone named by name and email (`decider`), who becomes a person unless they're a member.
+ * Caller must have verified editor access.
  */
 export async function requestDecisionForUser(
   ctx: MutationCtx,
@@ -173,7 +211,9 @@ export async function requestDecisionForUser(
   note: Doc<"notes">,
   args: {
     question: string;
-    deciderId: Id<"users">;
+    deciderId?: Id<"users">;
+    deciderPersonId?: Id<"people">;
+    decider?: { name: string; email: string };
     dueDate: string;
     defaultOutcome?: string;
     options?: string[];
@@ -190,15 +230,27 @@ export async function requestDecisionForUser(
   const defaultOutcome = checkDefaultOutcome(args.defaultOutcome);
   const options = checkOptions(args.options);
   const deferOptions = checkDeferOptions(args.deferOptions, options);
-  if (!(await getCanvasRole(ctx, note.canvasId, args.deciderId))) {
+
+  if ([args.deciderId, args.deciderPersonId, args.decider].filter(Boolean).length !== 1) {
+    throw new ConvexError("Name one decider: a canvas member, or someone's name and email");
+  }
+  const who = args.decider
+    ? await resolveDecider(ctx, note.canvasId, actor.userId, args.decider)
+    : args.deciderId
+      ? { userId: args.deciderId }
+      : { personId: args.deciderPersonId! };
+  if ("userId" in who && !(await getCanvasRole(ctx, note.canvasId, who.userId))) {
     throw new ConvexError("The decider must be a member of this canvas");
   }
+  // Checked here too (emailDecider also checks), so the error comes before anything is written
+  const person = "personId" in who ? await requireAskablePerson(ctx, note.canvasId, who.personId) : null;
 
   const now = Date.now();
   const link = await newLinkToken();
   const decision: Decision = {
     question,
-    deciderId: args.deciderId,
+    deciderId: "userId" in who ? who.userId : undefined,
+    deciderPersonId: person?._id,
     dueDate,
     defaultOutcome,
     options,
@@ -212,7 +264,9 @@ export async function requestDecisionForUser(
 
   const changes: NoteChange[] = [
     { field: "decision.question", to: question },
-    { field: "decision.deciderId", to: args.deciderId },
+    person
+      ? { field: "decision.deciderPersonId", to: person._id }
+      : { field: "decision.deciderId", to: decision.deciderId },
     { field: "decision.dueDate", to: dueDate },
   ];
   if (defaultOutcome) changes.push({ field: "decision.defaultOutcome", to: defaultOutcome });
@@ -220,8 +274,7 @@ export async function requestDecisionForUser(
   if (deferOptions) changes.push({ field: "decision.deferOptions", to: deferOptions.join(" / ") });
   await recordNoteHistory(ctx, actor, note, "decision_requested", changes);
 
-  const decider = await ctx.db.get(args.deciderId);
-  await touch(ctx, note, actor, `asked ${displayName(decider)} for a decision`);
+  await touch(ctx, note, actor, `asked ${await deciderNameOf(ctx, decision)} for a decision`);
 
   // Sent even when you ask yourself, so the link works the same as "Send a new link" (and solo dry runs work)
   await emailDecider(ctx, note, decision, link.token);
@@ -262,7 +315,7 @@ function answerPhrase(status: Decision["status"], choice?: string, deferred = fa
  */
 async function recordAnswer(
   ctx: MutationCtx,
-  actor: Actor,
+  actor: HistoryActor,
   note: Doc<"notes">,
   decision: Decision,
   args: { answer: DecisionAnswer; choice?: string; comment?: string; name?: string }
@@ -301,9 +354,9 @@ async function recordAnswer(
   const label = answerPhrase(status, choice, deferred);
   await touch(ctx, note, actor, `${label} a decision request${viaLink ? " from the answer link" : ""}`);
 
-  if (decision.requestedBy !== actor.userId) {
+  if (isPersonActor(actor) || decision.requestedBy !== actor.userId) {
     const canvas = await ctx.db.get(note.canvasId);
-    const decider = displayName(await ctx.db.get(actor.userId));
+    const decider = await deciderNameOf(ctx, decision);
     const who = name && name !== decider ? `${decider} (signed “${name}”)` : decider;
     await emailUser(ctx, decision.requestedBy, {
       subject: `${decider} ${label} your request: ${decision.question}`,
@@ -330,8 +383,12 @@ export async function answerDecisionForUser(
   const decision = note.decision;
   if (!decision || decision.status !== "open") throw new ConvexError("This note has no open decision request");
   if (decision.deciderId !== actor.userId || !(await getCanvasRole(ctx, note.canvasId, actor.userId))) {
-    const decider = await ctx.db.get(decision.deciderId);
-    throw new ConvexError(`Only ${displayName(decider)} can answer this decision request`);
+    const decider = await deciderNameOf(ctx, decision);
+    throw new ConvexError(
+      decision.deciderPersonId
+        ? `Only ${decider} can answer this decision request, from the link they were emailed`
+        : `Only ${decider} can answer this decision request`
+    );
   }
   await recordAnswer(ctx, actor, note, decision, args);
 }
@@ -362,8 +419,27 @@ export async function answerDecisionByLink(
   const decision = note?.decision;
   if (!note || !decision) throw new ConvexError(LINK_DEAD);
   if (decision.status !== "open") throw new ConvexError("This decision has already been made.");
-  if (!(await getCanvasRole(ctx, note.canvasId, decision.deciderId))) throw new ConvexError(LINK_DEAD);
-  await recordAnswer(ctx, { userId: decision.deciderId, via: "link" }, note, decision, args);
+  const decider = await deciderOf(ctx, note, decision);
+  if (!decider) throw new ConvexError(LINK_DEAD);
+  const actor: HistoryActor =
+    decider.kind === "user" ? { userId: decider.user._id, via: "link" } : { personId: decider.person._id, via: "link" };
+  await recordAnswer(ctx, actor, note, decision, args);
+}
+
+/**
+ * Stops emails from this canvas to the person a decision link was sent to. It's how someone
+ * without an account says "no more": they have nowhere else to change it. Works whether or not
+ * the decision is still open. Members manage email by leaving the canvas, so it's people only.
+ */
+export async function stopEmailsByLink(ctx: MutationCtx, token: string) {
+  const note = await noteForLink(ctx, token);
+  const decision = note?.decision;
+  const decider = note && decision ? await deciderOf(ctx, note, decision) : null;
+  if (!note || !decider) throw new ConvexError(LINK_DEAD);
+  if (decider.kind !== "person") throw new ConvexError("Only someone without an account can stop emails here");
+  if (decider.person.stoppedAt) return;
+  await ctx.db.patch(decider.person._id, { stoppedAt: Date.now() });
+  await touch(ctx, note, { personId: decider.person._id, via: "link" }, "stopped emails from this canvas");
 }
 
 /**
@@ -375,7 +451,8 @@ export async function getDecisionByLink(ctx: QueryCtx, token: string) {
   const note = await noteForLink(ctx, token);
   const decision = note?.decision;
   if (!note || !decision) return null;
-  if (!(await getCanvasRole(ctx, note.canvasId, decision.deciderId))) return null;
+  const decider = await deciderOf(ctx, note, decision);
+  if (!decider) return null;
   const canvas = await ctx.db.get(note.canvasId);
   return {
     canvasTitle: canvas?.title ?? "",
@@ -385,7 +462,10 @@ export async function getDecisionByLink(ctx: QueryCtx, token: string) {
     defaultOutcome: decision.defaultOutcome,
     options: decision.options,
     deferOptions: decision.deferOptions,
-    deciderName: displayName(await ctx.db.get(decision.deciderId)),
+    deciderName: decider.name,
+    // Someone without an account, who can stop emails from this page (and whether they already have)
+    withoutAccount: decider.kind === "person",
+    emailsStopped: decider.kind === "person" && !!decider.person.stoppedAt,
     requestedBy: displayName(await ctx.db.get(decision.requestedBy)),
     status: decision.status,
     choice: decision.choice,

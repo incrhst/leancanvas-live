@@ -9,6 +9,7 @@ import { Doc, Id } from "./_generated/dataModel";
 import { getCanvasRole, getUserFromAccessToken, requireTokenActor, requireTokenUser } from "./lib/auth";
 import { listNoteHistory } from "./lib/history";
 import { listCanvasMembers } from "./lib/members";
+import { listPeople } from "./lib/people";
 import { compareSnapshots, createSnapshotForUser, listSnapshots } from "./lib/snapshots";
 import { buildReview } from "./lib/review";
 import { answerCheckInForUser, listPendingCheckIns, mondayOf, startCheckInForCanvas } from "./lib/checkIns";
@@ -39,18 +40,28 @@ function canvasUrl(canvasId: Id<"canvases">) {
   return `${process.env.SITE_URL ?? "https://lean.incrementic.com"}/canvas/${canvasId}`;
 }
 
-type CanvasContext = { launchDate?: string; memberNames: Map<Id<"users">, string> };
+type CanvasContext = {
+  launchDate?: string;
+  memberNames: Map<Id<"users">, string>;
+  // Deciders without an account
+  personNames: Map<string, string>;
+};
 
 async function canvasContext(ctx: QueryCtx, canvas: Doc<"canvases">): Promise<CanvasContext> {
   const members = await listCanvasMembers(ctx, canvas);
-  return { launchDate: canvas.launchDate, memberNames: new Map(members.map((m) => [m.userId, m.name])) };
+  const people = await listPeople(ctx, canvas._id, { withEmail: false });
+  return {
+    launchDate: canvas.launchDate,
+    memberNames: new Map(members.map((m) => [m.userId, m.name])),
+    personNames: new Map(people.map((p) => [p.id, p.name])),
+  };
 }
 
 /**
  * A note as agents see it. Test fields and driver appear only when set; reviewDay only when the
  * canvas has a launch date.
  */
-function noteForAgent(n: Doc<"notes">, { launchDate, memberNames }: CanvasContext) {
+function noteForAgent(n: Doc<"notes">, { launchDate, memberNames, personNames }: CanvasContext) {
   return {
     noteId: n._id,
     block: n.block,
@@ -64,10 +75,12 @@ function noteForAgent(n: Doc<"notes">, { launchDate, memberNames }: CanvasContex
       ? {
           question: n.decision.question,
           status: n.decision.status,
-          decider: {
-            userId: n.decision.deciderId,
-            name: memberNames.get(n.decision.deciderId) ?? "Former member",
-          },
+          decider: n.decision.deciderId
+            ? { userId: n.decision.deciderId, name: memberNames.get(n.decision.deciderId) ?? "Former member" }
+            : {
+                name: personNames.get(n.decision.deciderPersonId ?? "") ?? "Unknown person",
+                withoutAccount: true,
+              },
           dueDate: n.decision.dueDate,
           defaultOutcome: n.decision.defaultOutcome,
           options: n.decision.options,
@@ -464,7 +477,10 @@ export const requestDecision = mutation({
     accessToken: v.string(),
     noteId: v.string(),
     question: v.string(),
-    deciderUserId: v.string(),
+    // A canvas member, or someone without an account by name and email
+    deciderUserId: v.optional(v.string()),
+    deciderName: v.optional(v.string()),
+    deciderEmail: v.optional(v.string()),
     dueDate: v.optional(v.string()),
     dueDay: v.optional(v.number()),
     defaultOutcome: v.optional(v.string()),
@@ -477,9 +493,17 @@ export const requestDecision = mutation({
     const canvas = (await ctx.db.get(note.canvasId))!;
     const dueDate = resolvePlanDate(canvas, args.dueDate, args.dueDay, { date: "dueDate", day: "dueDay" });
     if (!dueDate) throw new ConvexError("Pass dueDate (YYYY-MM-DD) or dueDay");
+    const byContact = args.deciderName !== undefined || args.deciderEmail !== undefined;
+    if (byContact === (args.deciderUserId !== undefined)) {
+      throw new ConvexError("Pass deciderUserId for a canvas member, or deciderName and deciderEmail for someone without an account");
+    }
+    if (byContact && (!args.deciderName || !args.deciderEmail)) {
+      throw new ConvexError("Pass both deciderName and deciderEmail");
+    }
     await requestDecisionForUser(ctx, actor, note, {
       question: args.question,
-      deciderId: resolveUser(ctx, args.deciderUserId)!,
+      deciderId: args.deciderUserId !== undefined ? resolveUser(ctx, args.deciderUserId)! : undefined,
+      decider: byContact ? { name: args.deciderName!, email: args.deciderEmail! } : undefined,
       dueDate,
       defaultOutcome: args.defaultOutcome,
       options: args.options,

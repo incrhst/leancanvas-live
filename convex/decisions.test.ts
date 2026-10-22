@@ -142,6 +142,8 @@ describe("answering from the link, signed out", () => {
       defaultOutcome: "We sign the agency",
       options: ["Sign the agency", "Build in-house", "Ask me Friday"],
       deciderName: "Daren",
+      withoutAccount: false,
+      emailsStopped: false,
       requestedBy: "Celine",
       status: "open",
       choice: undefined,

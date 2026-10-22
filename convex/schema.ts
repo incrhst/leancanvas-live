@@ -106,6 +106,22 @@ export default defineSchema({
     .index("by_public_token", ["publicViewToken"])
     .index("by_creator", ["createdBy"]),
 
+  // Someone a canvas can ask to decide without giving them an account: a name and an email,
+  // added inline by an editor. They answer only from links; they never see the canvas.
+  people: defineTable({
+    canvasId: v.id("canvases"),
+    name: v.string(),
+    // Lowercased
+    email: v.string(),
+    // They asked not to be emailed from this canvas again (from the link in an email)
+    stoppedAt: v.optional(v.number()),
+    // Fixed-window throttle on emails sent to them
+    windowStart: v.optional(v.number()),
+    windowCount: v.optional(v.number()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_canvas_and_email", ["canvasId", "email"]),
+
   // Membership at canvas level
   canvasMembers: defineTable({
     canvasId: v.id("canvases"),
@@ -144,7 +160,9 @@ export default defineSchema({
   noteHistory: defineTable({
     canvasId: v.id("canvases"),
     noteId: v.id("notes"),
-    userId: v.id("users"),
+    // Who made the change: a user, or (for a decision answered from its link) a person without an account
+    userId: v.optional(v.id("users")),
+    personId: v.optional(v.id("people")),
     // Where the change came from; an MCP token acts as its user, so this tells agent edits apart.
     // "link" = a decision answered from its emailed link, without signing in (userId is the decider),
     // or a result sent from a result link (userId is whoever the link stands for; see resultLinks).

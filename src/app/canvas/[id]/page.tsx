@@ -17,7 +17,7 @@ import { noteMatchesEvidence, useEvidenceFilter } from "../../../utils/evidenceF
 import { EvidenceLegend } from "../../../components/EvidenceLegend";
 import { matchesDriverFilter, DriverFilter, DriverFilterValue } from "../../../components/DriverControls";
 import { MarketFilter, marketsOf, matchesMarketFilter } from "../../../components/MarketControls";
-import { CanvasMember, MembersContext } from "../../../utils/members";
+import { CanvasMember, CanvasPerson, MembersContext, PeopleContext } from "../../../utils/members";
 import { todayLocal } from "../../../utils/testFields";
 import { LaunchDateContext } from "../../../utils/launchDate";
 import { useMediaQuery, useSetQueryParams } from "../../../utils/urlState";
@@ -95,6 +95,10 @@ export default function CanvasEditorPage() {
   const members = useMemo(
     () => new Map<string, CanvasMember>((data?.members ?? []).map((m) => [m.id, m])),
     [data?.members]
+  );
+  const people = useMemo<CanvasPerson[]>(
+    () => (data?.people ?? []).map((p) => ({ ...p, id: p.id as string })),
+    [data?.people]
   );
   const allMarkets = marketsOf(notes);
   const visibleNotes = notes.filter(
@@ -258,6 +262,7 @@ export default function CanvasEditorPage() {
       />
 
       <MembersContext.Provider value={members}>
+      <PeopleContext.Provider value={people}>
         <LaunchDateContext.Provider value={canvas.launchDate}>
           <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
             {/* Board */}
@@ -387,10 +392,12 @@ export default function CanvasEditorPage() {
             </NoteModal>
           )}
         </LaunchDateContext.Provider>
+      </PeopleContext.Provider>
       </MembersContext.Provider>
 
       {isSearchOpen && (
         <MembersContext.Provider value={members}>
+      <PeopleContext.Provider value={people}>
         <NoteSearch
           notes={notes}
           blocks={template.blocks}
@@ -414,7 +421,8 @@ export default function CanvasEditorPage() {
             }, 80);
           }}
         />
-        </MembersContext.Provider>
+        </PeopleContext.Provider>
+      </MembersContext.Provider>
       )}
 
       {/* Share Modal */}

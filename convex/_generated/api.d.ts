@@ -27,6 +27,8 @@ import type * as lib_markets from "../lib/markets.js";
 import type * as lib_members from "../lib/members.js";
 import type * as lib_notify from "../lib/notify.js";
 import type * as lib_password from "../lib/password.js";
+import type * as lib_people from "../lib/people.js";
+import type * as lib_planStatus from "../lib/planStatus.js";
 import type * as lib_resultLinks from "../lib/resultLinks.js";
 import type * as lib_review from "../lib/review.js";
 import type * as lib_snapshots from "../lib/snapshots.js";
@@ -67,6 +69,8 @@ declare const fullApi: ApiFromModules<{
   "lib/members": typeof lib_members;
   "lib/notify": typeof lib_notify;
   "lib/password": typeof lib_password;
+  "lib/people": typeof lib_people;
+  "lib/planStatus": typeof lib_planStatus;
   "lib/resultLinks": typeof lib_resultLinks;
   "lib/review": typeof lib_review;
   "lib/snapshots": typeof lib_snapshots;
