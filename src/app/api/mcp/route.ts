@@ -259,13 +259,18 @@ const TOOLS_MANIFEST = [
   {
     name: "request_decision",
     description:
-      "Ask one canvas member to decide on a note. They're emailed a link that answers it from their phone with no sign-in, even with view-only access; it works only for this decision and stops once it's made or withdrawn. Give a defaultOutcome so they see what happens if nobody decides by the due date (it is shown, never applied for them), and options to offer named choices instead of approve / reject. Name any option that only puts the decision off (e.g. 'Decide after day 3') in deferOptions: choosing it answers the request but leaves the note's evidence state as it was, so the canvas doesn't claim it's settled. A note can have one open request at a time.",
+      "Ask someone to decide on a note: a canvas member (deciderUserId), or anyone without an account by deciderName and deciderEmail (they never see the canvas, only this question; if the email belongs to a member, the member is asked). They're emailed a link that answers it from their phone with no sign-in, even with view-only access; it works only for this decision and stops once it's made or withdrawn. Give a defaultOutcome so they see what happens if nobody decides by the due date (it is shown, never applied for them), and options to offer named choices instead of approve / reject. Name any option that only puts the decision off (e.g. 'Decide after day 3') in deferOptions: choosing it answers the request but leaves the note's evidence state as it was, so the canvas doesn't claim it's settled. A note can have one open request at a time.",
     inputSchema: {
       type: "object",
       properties: {
         noteId: { type: "string" },
         question: { type: "string", description: "The yes/no question to decide, in one line" },
-        deciderUserId: { type: "string", description: "Who decides: a userId from list_canvas_members" },
+        deciderUserId: { type: "string", description: "Who decides, if they're on the canvas: a userId from list_canvas_members" },
+        deciderName: {
+          type: "string",
+          description: "Who decides, if they have no account: their name. Pass with deciderEmail instead of deciderUserId",
+        },
+        deciderEmail: { type: "string", description: "Where to email the answer link for someone without an account" },
         dueDate: { type: "string", description: "When it's needed by, as YYYY-MM-DD" },
         dueDay: {
           type: "integer",
@@ -289,7 +294,7 @@ const TOOLS_MANIFEST = [
             "Which of options put the decision off instead of making it, e.g. ['Ask me Friday']. Choosing one records the answer but doesn't mark the note as a decision. At least one option must not defer.",
         },
       },
-      required: ["noteId", "question", "deciderUserId"],
+      required: ["noteId", "question"],
     },
   },
   {
@@ -707,7 +712,9 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         accessToken,
         noteId: str(args.noteId),
         question: str(args.question),
-        deciderUserId: str(args.deciderUserId),
+        deciderUserId: optStr(args.deciderUserId),
+        deciderName: optStr(args.deciderName),
+        deciderEmail: optStr(args.deciderEmail),
         dueDate: optStr(args.dueDate),
         dueDay: typeof args.dueDay === "number" ? args.dueDay : undefined,
         defaultOutcome: optStr(args.defaultOutcome),

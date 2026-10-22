@@ -215,14 +215,16 @@ const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "request_decision",
-    summary: "Ask someone on the canvas to decide on a note.",
+    summary: "Ask someone to decide on a note, on the canvas or without an account.",
     detail:
-      "They get an email with a link that answers it from their phone, no sign-in needed, even with view-only access. Give a due date (YYYY-MM-DD) or dueDay from the launch date, a default for if nobody decides by then, and up to 4 options instead of approve / reject. Mark any option that only puts the decision off in deferOptions, so choosing it doesn't mark the note as decided.",
+      "Name a canvas member by deciderUserId, or anyone else by deciderName and deciderEmail: they need no account and see only this question. They get an email with a link that answers it from their phone, no sign-in needed, even with view-only access. Give a due date (YYYY-MM-DD) or dueDay from the launch date, a default for if nobody decides by then, and up to 4 options instead of approve / reject. Mark any option that only puts the decision off in deferOptions, so choosing it doesn't mark the note as decided.",
     changesCanvas: true,
     inputs: [
       { name: "noteId", required: true },
       { name: "question", required: true },
-      { name: "deciderUserId", required: true },
+      { name: "deciderUserId", required: false },
+      { name: "deciderName", required: false },
+      { name: "deciderEmail", required: false },
       { name: "dueDate", required: false },
       { name: "dueDay", required: false },
       { name: "defaultOutcome", required: false },

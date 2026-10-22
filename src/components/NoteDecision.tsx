@@ -5,7 +5,7 @@ import { Clock3Icon, GavelIcon, LinkIcon, PlusIcon, XIcon } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { DecisionStatus, NoteItem } from "../types/canvas";
-import { MembersContext } from "../utils/members";
+import { MembersContext, PeopleContext } from "../utils/members";
 import { formatCalendarDate, formatPlanDate, todayLocal } from "../utils/testFields";
 import { LaunchDateContext } from "../utils/launchDate";
 import { useAuth } from "./ConvexClientProvider";
@@ -86,7 +86,7 @@ export function DecisionSummary({ note }: { note: NoteItem }) {
   const decision = note.decision;
   if (!decision || (decision.status !== "open" && decision.status !== "changes_requested")) return null;
 
-  const decider = members.get(decision.deciderId)?.name ?? decision.deciderName;
+  const decider = members.get(decision.deciderId ?? "")?.name ?? decision.deciderName;
   const overdue = decision.status === "open" && isPastDue(decision.dueDate, todayLocal());
   const fallback = defaultOutcomeLine(decision, todayLocal());
   return (
@@ -218,13 +218,17 @@ export function DecisionAnswerForm({
  */
 export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit: boolean }) {
   const members = useContext(MembersContext);
+  const people = useContext(PeopleContext);
   const { user } = useAuth();
   const requestDecision = useMutation(api.decisions.requestDecision);
   const withdrawDecision = useMutation(api.decisions.withdrawDecision);
   const replaceDecisionLink = useMutation(api.decisions.replaceDecisionLink);
   const [asking, setAsking] = useState(false);
   const [question, setQuestion] = useState("");
-  const [deciderId, setDeciderId] = useState("");
+  // "user:<id>", "person:<id>", or "new" for someone without an account, named below
+  const [decider, setDecider] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [defaultOutcome, setDefaultOutcome] = useState("");
   // null = approve / reject; otherwise the decider picks one of these. `defer` = it only puts the decision off.
@@ -243,11 +247,18 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
   // The public link has no member list: show the request read-only, without who asked
   if (members.size === 0) return decision ? <PublicDecision decision={decision} /> : null;
   const nameOf = (id: string) => members.get(id)?.name ?? "Former member";
-  const isDecider = !!user && decision?.deciderId === user.id;
+  const isDecider = !!user && !!decision?.deciderId && decision.deciderId === user.id;
+  // Members by their current name; people without an account by the name the server sends
+  const deciderName = decision
+    ? (members.get(decision.deciderId ?? "")?.name ?? decision.deciderName ?? "Former member")
+    : "";
+  const withoutAccount = !!decision?.deciderPersonId;
 
   const startAsking = () => {
     setQuestion(note.content);
-    setDeciderId("");
+    setDecider("");
+    setNewName("");
+    setNewEmail("");
     setDueDate("");
     setDefaultOutcome("");
     setOptions(null);
@@ -261,7 +272,11 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
       await requestDecision({
         noteId: note._id as Id<"notes">,
         question,
-        deciderId: deciderId as Id<"users">,
+        ...(decider === "new"
+          ? { decider: { name: newName, email: newEmail } }
+          : decider.startsWith("person:")
+            ? { deciderPersonId: decider.slice("person:".length) as Id<"people"> }
+            : { deciderId: decider.slice("user:".length) as Id<"users"> }),
         dueDate,
         defaultOutcome: defaultOutcome.trim() || undefined,
         options: options ? options.map((o) => o.label.trim()).filter(Boolean) : undefined,
@@ -277,7 +292,13 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
     setLinkNotice(null);
     try {
       await replaceDecisionLink({ noteId: note._id as Id<"notes">, off });
-      setLinkNotice(off ? "Link turned off. They can still answer in the app." : "New link emailed. The old one no longer works.");
+      setLinkNotice(
+        off
+          ? withoutAccount
+            ? "Link turned off. They have no account, so they can't answer until you send a new link."
+            : "Link turned off. They can still answer in the app."
+          : "New link emailed. The old one no longer works."
+      );
     } catch (err) {
       setLinkNotice(errorMessage(err));
     }
@@ -297,7 +318,7 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
         <div className="space-y-1 rounded-lg border border-line bg-surface-2 p-3 text-xs">
           <p className="text-sm font-semibold text-ink">{decision.question}</p>
           <p className="text-muted">
-            {nameOf(decision.requestedBy)} asked {isDecider ? "you" : nameOf(decision.deciderId)} · due{" "}
+            {nameOf(decision.requestedBy)} asked {isDecider ? "you" : deciderName} · due{" "}
             {formatCalendarDate(decision.dueDate)}
           </p>
           {decision.options && <p className="text-muted">Options: {optionsLine(decision)}</p>}
@@ -309,9 +330,13 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
             {!isDecider && (
               <p className="flex items-center gap-1.5 text-[11px] text-muted">
                 <LinkIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-                {decision.linkTokenHash
-                  ? "Their emailed link answers without signing in."
-                  : "No answer link. They answer in the app."}
+                {withoutAccount
+                  ? decision.linkTokenHash
+                    ? "No account: they answer from the emailed link."
+                    : "No account and no link: send a link so they can answer."
+                  : decision.linkTokenHash
+                    ? "Their emailed link answers without signing in."
+                    : "No answer link. They answer in the app."}
               </p>
             )}
             <div className="flex flex-wrap gap-x-3 gap-y-1">
@@ -346,14 +371,14 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
       {decision && (
         <div className="space-y-1 rounded-lg border border-line bg-surface-2 p-3 text-xs">
           <p className="font-semibold text-ink">
-            {outcomeLabel(decision)} by {nameOf(decision.deciderId)}
+            {outcomeLabel(decision)} by {deciderName}
           </p>
           <p className="text-muted">{decision.question}</p>
           {decision.comment && <p className="italic text-ink">“{decision.comment}”</p>}
           {decision.answeredVia === "link" && (
             <p className="text-muted">
               Answered from the emailed link
-              {decision.answeredByName && decision.answeredByName !== nameOf(decision.deciderId)
+              {decision.answeredByName && decision.answeredByName !== deciderName
                 ? `, signed “${decision.answeredByName}”`
                 : ""}
             </p>
@@ -379,20 +404,34 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
                 <span className="text-[11px] font-medium text-muted">Who decides</span>
                 <select
                   required
-                  value={deciderId}
-                  onChange={(e) => setDeciderId(e.target.value)}
+                  value={decider}
+                  onChange={(e) => setDecider(e.target.value)}
                   className="w-full rounded-lg border border-line bg-surface p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
                 >
                   <option value="" disabled>
                     Choose…
                   </option>
-                  {[...members.values()]
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                      </option>
-                    ))}
+                  <optgroup label="On this canvas">
+                    {[...members.values()]
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((m) => (
+                        <option key={m.id} value={`user:${m.id}`}>
+                          {m.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                  {people.some((p) => !p.stopped) && (
+                    <optgroup label="No account">
+                      {people
+                        .filter((p) => !p.stopped)
+                        .map((p) => (
+                          <option key={p.id} value={`person:${p.id}`}>
+                            {p.name}
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
+                  <option value="new">Someone new…</option>
                 </select>
               </label>
               <label className="block space-y-1">
@@ -407,6 +446,39 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
                 />
               </label>
             </div>
+            {decider === "new" && (
+              <div className="space-y-2 rounded-lg bg-surface-2 p-2.5">
+                <div className="space-y-2">
+                  <label className="block space-y-1">
+                    <span className="text-[11px] font-medium text-muted">Their name</span>
+                    <input
+                      type="text"
+                      required
+                      autoFocus
+                      value={newName}
+                      maxLength={80}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="e.g. Daren Brown"
+                      className="w-full rounded-lg border border-line bg-surface p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-[11px] font-medium text-muted">Their email</span>
+                    <input
+                      type="email"
+                      required
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="daren@example.com"
+                      className="w-full rounded-lg border border-line bg-surface p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+                  </label>
+                </div>
+                <p className="text-[11px] text-muted">
+                  They don't need an account and never see the canvas: just this question, from a link in their email.
+                </p>
+              </div>
+            )}
             <label className="block space-y-1">
               <span className="text-[11px] font-medium text-muted">If nobody decides by then (optional)</span>
               <input

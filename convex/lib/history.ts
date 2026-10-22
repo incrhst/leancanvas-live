@@ -10,6 +10,16 @@ export type Actor = {
   clientName?: string;
 };
 
+/** A person without an account, acting from a link they were emailed. */
+export type PersonActor = { personId: Id<"people">; via: "link" };
+
+/** Anyone whose change can go in a note's history. */
+export type HistoryActor = Actor | PersonActor;
+
+export function isPersonActor(actor: HistoryActor): actor is PersonActor {
+  return "personId" in actor;
+}
+
 export type NoteChange = Doc<"noteHistory">["changes"][number];
 
 // Edits by the same person within this window fold into one row, so clicking through
@@ -62,7 +72,7 @@ export function diffFields(
 
 export async function recordNoteHistory(
   ctx: MutationCtx,
-  actor: Actor,
+  actor: HistoryActor,
   note: { _id: Id<"notes">; canvasId: Id<"canvases"> },
   kind: Doc<"noteHistory">["kind"],
   changes: NoteChange[],
@@ -83,6 +93,7 @@ export async function recordNoteHistory(
     const canFold =
       last &&
       last.kind === "updated" &&
+      !isPersonActor(actor) &&
       last.userId === actor.userId &&
       last.via === actor.via &&
       !last.reason &&
@@ -109,9 +120,9 @@ export async function recordNoteHistory(
   await ctx.db.insert("noteHistory", {
     canvasId: note.canvasId,
     noteId: note._id,
-    userId: actor.userId,
-    via: actor.via,
-    clientName: actor.clientName,
+    ...(isPersonActor(actor)
+      ? { personId: actor.personId, via: actor.via }
+      : { userId: actor.userId, via: actor.via, clientName: actor.clientName }),
     kind,
     changes,
     reason,
@@ -156,21 +167,24 @@ export async function listNoteHistory(ctx: QueryCtx, noteId: Id<"notes">) {
     .collect();
 
   const names = new Map<string, string>();
-  const nameOf = async (userId: string) => {
-    if (!names.has(userId)) {
-      const id = ctx.db.normalizeId("users", userId);
-      names.set(userId, displayName(id ? await ctx.db.get(id) : null));
+  // A user id, or a person's id (people have no account; their history rows carry personId)
+  const nameOf = async (id: string) => {
+    if (!names.has(id)) {
+      const userId = ctx.db.normalizeId("users", id);
+      const personId = userId ? null : ctx.db.normalizeId("people", id);
+      const person = personId ? await ctx.db.get(personId) : null;
+      names.set(id, person ? person.name : displayName(userId ? await ctx.db.get(userId) : null));
     }
-    return names.get(userId)!;
+    return names.get(id)!;
   };
 
   return await Promise.all(
     rows.map(async (row) => ({
       ...row,
-      userName: await nameOf(row.userId),
+      userName: await nameOf(row.userId ?? row.personId ?? ""),
       changes: await Promise.all(
         row.changes.map(async (c) =>
-          c.field === "ownerId" || c.field === "decision.deciderId"
+          c.field === "ownerId" || c.field === "decision.deciderId" || c.field === "decision.deciderPersonId"
             ? {
                 field: c.field === "ownerId" ? "driver" : "decision.decider",
                 from: c.from === undefined ? undefined : await nameOf(c.from),

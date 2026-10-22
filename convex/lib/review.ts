@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import { QueryCtx } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
 import { listCanvasMembers } from "./members";
+import { listPeople } from "./people";
 import { compareSnapshots, listSnapshots } from "./snapshots";
 import { todayUtc } from "./testFields";
 
@@ -35,6 +36,10 @@ export async function buildReview(
   const members = await listCanvasMembers(ctx, canvas);
   const nameOf = (id: Id<"users"> | undefined) =>
     id ? (members.find((m) => m.userId === id)?.name ?? "Former member") : undefined;
+  // Deciders without an account
+  const people = await listPeople(ctx, canvas._id, { withEmail: false });
+  const deciderOf = (d: NonNullable<Doc<"notes">["decision"]>) =>
+    d.deciderId ? nameOf(d.deciderId)! : (people.find((p) => p.id === d.deciderPersonId)?.name ?? "Unknown person");
 
   const tests = notes
     .filter((n) => n.measure || n.passMark || n.reviewDate || n.latestResult)
@@ -67,7 +72,7 @@ export async function buildReview(
       text: n.content,
       question: n.decision!.question,
       deciderId: n.decision!.deciderId,
-      decider: nameOf(n.decision!.deciderId)!,
+      decider: deciderOf(n.decision!),
       requestedBy: nameOf(n.decision!.requestedBy)!,
       dueDate: n.decision!.dueDate,
       defaultOutcome: n.decision!.defaultOutcome,

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useParams } from "next/navigation";
-import { CheckCircle2Icon, GavelIcon, LinkIcon, MessageSquareIcon } from "lucide-react";
+import { BellOffIcon, CheckCircle2Icon, GavelIcon, LinkIcon, MessageSquareIcon } from "lucide-react";
 import { api } from "../../../../convex/_generated/api";
 import { formatLongDate, isPastDue } from "../../../../convex/lib/decisionText";
 import { DecisionAnswer, DecisionDefault, isDeferral, outcomeLabel } from "../../../components/NoteDecision";
@@ -48,6 +48,7 @@ export default function DecisionLinkPage() {
           {decision && <p className="text-sm text-emerald-900">{decision.requestedBy} can see it on the plan now.</p>}
         </div>
         <p className="text-center text-xs text-muted">You can close this page. The link has done its job and won't work again.</p>
+        {decision?.withoutAccount && <StopEmails token={token} stopped={decision.emailsStopped} canvasTitle={decision.canvasTitle} />}
       </Shell>
     );
   }
@@ -80,6 +81,7 @@ export default function DecisionLinkPage() {
           </p>
           <p className="text-sm text-muted">There's nothing more to do here.</p>
         </div>
+        {decision.withoutAccount && <StopEmails token={token} stopped={decision.emailsStopped} canvasTitle={decision.canvasTitle} />}
       </Shell>
     );
   }
@@ -215,6 +217,7 @@ export default function DecisionLinkPage() {
         Sent to {decision.deciderName}. No login needed: this link answers only this question, and stops working once
         it's answered.
       </p>
+      {decision.withoutAccount && <StopEmails token={token} stopped={decision.emailsStopped} canvasTitle={decision.canvasTitle} />}
     </Shell>
   );
 }
@@ -232,6 +235,39 @@ function Shell({ title, from, children }: { title?: string; from?: string; child
         </span>
       </header>
       <main className="mx-auto max-w-md space-y-5 px-4 pb-10 pt-5">{children}</main>
+    </div>
+  );
+}
+
+/**
+ * For someone without an account, this page is the only place to say "no more emails", so it's
+ * offered on every state of the page. Stopping doesn't touch the answer.
+ */
+function StopEmails({ token, stopped, canvasTitle }: { token: string; stopped: boolean; canvasTitle: string }) {
+  const stopEmails = useMutation(api.decisions.stopEmails);
+  const [error, setError] = useState<string | null>(null);
+  if (stopped) {
+    return (
+      <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted">
+        <BellOffIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        You won't get more emails from {canvasTitle || "this plan"}.
+      </p>
+    );
+  }
+  return (
+    <div className="text-center">
+      <button
+        type="button"
+        onClick={() => {
+          setError(null);
+          stopEmails({ token }).catch((err) => setError(convexErrorMessage(err)));
+        }}
+        className="inline-flex min-h-[44px] items-center gap-1.5 px-3 text-xs text-muted underline-offset-4 hover:text-ink hover:underline"
+      >
+        <BellOffIcon className="h-3.5 w-3.5" aria-hidden="true" />
+        Stop these emails
+      </button>
+      {error && <p className="text-xs text-rose-700">{error}</p>}
     </div>
   );
 }
