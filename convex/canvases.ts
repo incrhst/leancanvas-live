@@ -4,7 +4,7 @@ import { hashPassword, verifyPassword } from "./lib/password";
 import { checkDate } from "./lib/testFields";
 import { displayName } from "./lib/members";
 import { deleteSnapshotRows } from "./lib/snapshots";
-import { deciderNameOf } from "./lib/decisions";
+import { deciderNameOf, deciderUserOf } from "./lib/decisions";
 import { deletePeople, listPeople } from "./lib/people";
 import { requireAuth, requireOwner, requireEditor, getCurrentUser, getCanvasRole, Role, sha256Hex } from "./lib/auth";
 import { Doc, Id } from "./_generated/dataModel";
@@ -278,7 +278,16 @@ export const getCanvas = query({
     // Deciders without an account aren't members, so every decision carries its decider's name
     const withDeciderNames = await Promise.all(
       notes.map(async (n) =>
-        n.decision ? { ...n, decision: { ...n.decision, deciderName: await deciderNameOf(ctx, n.decision) } } : n
+        n.decision
+          ? {
+              ...n,
+              decision: {
+                ...n.decision,
+                deciderName: await deciderNameOf(ctx, n.decision),
+                deciderUserId: await deciderUserOf(ctx, n.decision),
+              },
+            }
+          : n
       )
     );
 

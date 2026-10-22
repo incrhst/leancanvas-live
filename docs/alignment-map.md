@@ -202,6 +202,7 @@ Everything that names a person (`ownerId`, `deciderId`, check-in `userId`, histo
 - A person is a name plus one way to reach them: `people` (`canvasId`, `name`, `email?`, `phone?`, `userId?`, `stoppedAt?`).
 - The operator adds people inline at the moment they are needed ("Who decides?": a name and a number). There is no invite, no joining step and no role to pick.
 - Owners and deciders point to a person. A person with an account is linked through `userId`. When someone signs up with a verified email that matches a person, link them automatically; their history comes with them.
+  - Built (deciders): `people.userId` is set when someone signs in with that email verified (Convex Auth `afterUserCreatedOrUpdated` in `convex/auth.ts`), joins the canvas from an invite, or is asked by email while already having an account. See `linkPeopleToUser` in `convex/lib/people.ts`. We link rather than convert: decisions keep `deciderPersonId` and history rows keep `personId`, so open answer links keep working and history keeps the name they were asked by, with nothing rewritten. The linked account sees those decisions on /decisions (even without canvas access) and answers as the person. A different or unverified email links nothing.
 - A canvas counts as a team canvas when it has two or more people, with or without accounts.
 
 ### The link is the login

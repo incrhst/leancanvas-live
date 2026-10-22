@@ -6,7 +6,7 @@ import { Actor, HistoryActor, isPersonActor, NoteChange, recordNoteHistory } fro
 import { displayName } from "./members";
 import { checkDate, todayUtc } from "./testFields";
 import { emailUser, siteUrl } from "./notify";
-import { emailPerson, requireAskablePerson, resolveDecider } from "./people";
+import { emailPerson, linkedPeopleOf, requireAskablePerson, resolveDecider } from "./people";
 import { defaultOutcomeLine, formatLongDate } from "./decisionText";
 
 /** A request for someone to decide on a note. Stays on the note after it's answered, as the record. */
@@ -102,6 +102,13 @@ export async function deciderNameOf(ctx: QueryCtx, decision: { deciderId?: Id<"u
   if (decision.deciderId) return displayName(await ctx.db.get(decision.deciderId));
   const person = decision.deciderPersonId ? await ctx.db.get(decision.deciderPersonId) : null;
   return person?.name ?? "Unknown person";
+}
+
+/** The account that can answer a decision in the app: the member, or the account its person is linked to. */
+export async function deciderUserOf(ctx: QueryCtx, decision: { deciderId?: Id<"users">; deciderPersonId?: Id<"people"> }) {
+  if (decision.deciderId) return decision.deciderId;
+  const person = decision.deciderPersonId ? await ctx.db.get(decision.deciderPersonId) : null;
+  return person?.userId;
 }
 
 /** A fresh unguessable answer token (256 bits), and the hash that's stored. */
@@ -373,7 +380,11 @@ async function recordAnswer(
   }
 }
 
-/** Only the named decider can answer in the app, whatever their role on the canvas (view-only included). */
+/**
+ * Only the named decider can answer in the app, whatever their role on the canvas (view-only
+ * included). A person without an account can too, once linked to the signed-in account, and
+ * needn't be a member: they were asked by email, and the link would let them answer anyway.
+ */
 export async function answerDecisionForUser(
   ctx: MutationCtx,
   actor: Actor,
@@ -382,6 +393,12 @@ export async function answerDecisionForUser(
 ) {
   const decision = note.decision;
   if (!decision || decision.status !== "open") throw new ConvexError("This note has no open decision request");
+  // A person linked to this account answers as that person, so the history keeps the name they were asked by
+  const person = decision.deciderPersonId ? await ctx.db.get(decision.deciderPersonId) : null;
+  if (person && person.canvasId === note.canvasId && person.userId === actor.userId) {
+    await recordAnswer(ctx, { personId: person._id, via: actor.via, clientName: actor.clientName }, note, decision, args);
+    return;
+  }
   if (decision.deciderId !== actor.userId || !(await getCanvasRole(ctx, note.canvasId, actor.userId))) {
     const decider = await deciderNameOf(ctx, decision);
     throw new ConvexError(
@@ -513,22 +530,39 @@ export async function withdrawDecisionForUser(
   await touch(ctx, note, actor, "withdrew a decision request");
 }
 
-/** The open decisions waiting on a user, across every canvas they can still see, soonest due first. */
+/**
+ * The open decisions waiting on a user, soonest due first: as a member, across every canvas they
+ * can still see, and as a person linked to their account (see lib/people.ts), on any canvas.
+ */
 export async function listOpenDecisionsFor(ctx: QueryCtx, userId: Id<"users">) {
-  const notes = await ctx.db
+  const asMember = await ctx.db
     .query("notes")
     .withIndex("by_decider_and_status", (q) => q.eq("decision.deciderId", userId).eq("decision.status", "open"))
     .collect();
+  const asPerson: Doc<"notes">[] = [];
+  for (const person of await linkedPeopleOf(ctx, userId)) {
+    const notes = await ctx.db
+      .query("notes")
+      .withIndex("by_decider_person_and_status", (q) =>
+        q.eq("decision.deciderPersonId", person._id).eq("decision.status", "open")
+      )
+      .collect();
+    asPerson.push(...notes.filter((n) => n.canvasId === person.canvasId));
+  }
 
   const results = [];
-  for (const note of notes) {
+  for (const note of [...asMember, ...asPerson]) {
     const canvas = await ctx.db.get(note.canvasId);
-    if (!canvas || !(await getCanvasRole(ctx, canvas._id, userId))) continue;
+    if (!canvas) continue;
+    const onCanvas = !!(await getCanvasRole(ctx, canvas._id, userId));
+    if (note.decision!.deciderId && !onCanvas) continue;
     const decision = note.decision!;
     results.push({
       noteId: note._id,
       canvasId: canvas._id,
       canvasTitle: canvas.title,
+      // Whether they can open the canvas; a linked person who isn't a member sees only the decision
+      onCanvas,
       block: note.block,
       noteText: note.content,
       evidenceState: note.evidenceState,

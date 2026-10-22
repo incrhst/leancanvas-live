@@ -32,7 +32,8 @@ export interface ReviewData {
     block: string;
     text: string;
     question: string;
-    deciderId: string;
+    deciderId?: string;
+    deciderUserId?: string;
     decider: string;
     requestedBy: string;
     dueDate: string;
@@ -106,7 +107,7 @@ export function ReviewView({
                 </p>
                 <p className="text-xs text-muted">{blockLine(d.block)}: {d.text}</p>
                 <DecisionDefault decision={{ ...d, status: "open" }} />
-                {currentUserId === d.deciderId && (
+                {!!currentUserId && currentUserId === d.deciderUserId && (
                   <Link href="/decisions" className="inline-block text-xs font-semibold text-accent underline">
                     Answer it
                   </Link>

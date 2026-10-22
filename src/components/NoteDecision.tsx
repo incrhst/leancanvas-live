@@ -247,12 +247,14 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
   // The public link has no member list: show the request read-only, without who asked
   if (members.size === 0) return decision ? <PublicDecision decision={decision} /> : null;
   const nameOf = (id: string) => members.get(id)?.name ?? "Former member";
-  const isDecider = !!user && !!decision?.deciderId && decision.deciderId === user.id;
+  const answeringUserId = decision?.deciderId ?? decision?.deciderUserId;
+  const isDecider = !!user && !!answeringUserId && answeringUserId === user.id;
   // Members by their current name; people without an account by the name the server sends
   const deciderName = decision
     ? (members.get(decision.deciderId ?? "")?.name ?? decision.deciderName ?? "Former member")
     : "";
-  const withoutAccount = !!decision?.deciderPersonId;
+  // Asked without an account and hasn't signed up with that email since
+  const withoutAccount = !!decision?.deciderPersonId && !decision.deciderUserId;
 
   const startAsking = () => {
     setQuestion(note.content);
@@ -632,6 +634,8 @@ export interface WaitingDecision {
   noteId: string;
   canvasId: string;
   canvasTitle: string;
+  /** False when they were asked by email and aren't a member, so the canvas won't open for them */
+  onCanvas?: boolean;
   noteText: string;
   question: string;
   dueDate: string;
@@ -654,9 +658,13 @@ export function DecisionCard({
     <article className="space-y-3 rounded-xl border border-line bg-surface p-4 shadow-sm">
       <div className="space-y-1">
         <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
-          <Link href={`/canvas/${d.canvasId}`} className="hover:underline">
-            {d.canvasTitle}
-          </Link>
+          {d.onCanvas === false ? (
+            d.canvasTitle
+          ) : (
+            <Link href={`/canvas/${d.canvasId}`} className="hover:underline">
+              {d.canvasTitle}
+            </Link>
+          )}
         </p>
         <h2 className="text-base font-semibold leading-snug text-ink">{d.question}</h2>
         <p className={`text-xs ${overdue ? "font-semibold text-rose-700" : "text-muted"}`}>

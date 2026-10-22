@@ -120,6 +120,8 @@ export interface DecisionRequest {
   linkTokenHash?: string;
   /** The decider's name, from the server (members and people without accounts alike) */
   deciderName?: string;
+  /** The account that can answer in the app: the member, or the account a person has been linked to */
+  deciderUserId?: string;
 }
 
 export interface NoteItem {
