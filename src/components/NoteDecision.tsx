@@ -454,13 +454,13 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
                       />
                       <label
                         title="Choosing this only puts the decision off: the note isn't marked as decided"
-                        className="flex shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap px-1 text-[11px] text-muted"
+                        className="flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs text-muted hover:bg-surface-2 hover:text-ink"
                       >
                         <input
                           type="checkbox"
                           checked={option.defer}
                           onChange={(e) => setOptions(options.map((o, j) => (j === i ? { ...o, defer: e.target.checked } : o)))}
-                          className="h-3.5 w-3.5 accent-ink"
+                          className="h-4 w-4 accent-ink"
                         />
                         Puts it off
                       </label>
@@ -474,6 +474,8 @@ export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit
                           <XIcon className="h-3.5 w-3.5" />
                         </button>
                       )}
+                      {/* Keeps the "Puts it off" column lined up with the rows that have a remove button */}
+                      {i < 2 && options.length > 2 && <span className="w-8 shrink-0" aria-hidden="true" />}
                     </div>
                   ))}
                   {options.length < MAX_OPTIONS && (
