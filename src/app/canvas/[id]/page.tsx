@@ -59,8 +59,8 @@ export default function CanvasEditorPage() {
   const { user, isLoading } = useAuth();
 
   const data = useQuery(api.canvases.getCanvas, isLoading ? "skip" : { canvasId });
-  // Viewers (deciders and drivers who don't edit) start on the status view; editors on the canvas
-  const defaultView: CanvasView = data && data.currentUserRole === "viewer" ? "status" : "canvas";
+  // Everyone starts on the status view; the canvas is one tab over
+  const defaultView: CanvasView = "status";
   const view = parseCanvasView(searchParams.get("view"), defaultView);
   const setView = (next: CanvasView) => setQueryParams({ view: canvasViewParam(next, defaultView) });
   const noteInline = isDesktop && view === "canvas";

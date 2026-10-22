@@ -4,8 +4,8 @@ import { Columns3Icon, LayoutGridIcon, ShieldAlertIcon } from "lucide-react";
 export type CanvasView = "canvas" | "status" | "risks";
 
 /**
- * The view in the URL (?view=), or the default when there's none. Operators (editors) start on the
- * canvas; viewers and guests on the share link start on the three-state status view.
+ * The view in the URL (?view=), or the default when there's none. Everyone starts on the
+ * three-state status view, with the canvas next.
  */
 export function parseCanvasView(param: string | null, defaultView: CanvasView): CanvasView {
   return param === "canvas" || param === "status" || param === "risks" ? param : defaultView;
@@ -30,16 +30,6 @@ export function CanvasViewToggle({ view, riskCount, onChange }: CanvasViewToggle
       <button
         type="button"
         role="tab"
-        aria-selected={view === "canvas"}
-        onClick={() => onChange("canvas")}
-        className={`${base} ${view === "canvas" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
-      >
-        <LayoutGridIcon className="h-3.5 w-3.5" />
-        Canvas
-      </button>
-      <button
-        type="button"
-        role="tab"
         aria-selected={view === "status"}
         onClick={() => onChange("status")}
         title="The plan in three columns: needs a call, testing, agreed"
@@ -47,6 +37,16 @@ export function CanvasViewToggle({ view, riskCount, onChange }: CanvasViewToggle
       >
         <Columns3Icon className="h-3.5 w-3.5" />
         Status
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "canvas"}
+        onClick={() => onChange("canvas")}
+        className={`${base} ${view === "canvas" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
+      >
+        <LayoutGridIcon className="h-3.5 w-3.5" />
+        Canvas
       </button>
       <button
         type="button"
