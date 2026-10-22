@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import { QueryCtx } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
+import { deciderUserOf } from "./decisions";
 import { listCanvasMembers } from "./members";
 import { listPeople } from "./people";
 import { compareSnapshots, listSnapshots } from "./snapshots";
@@ -64,14 +65,21 @@ export async function buildReview(
         (a.reviewDate ?? "9999").localeCompare(b.reviewDate ?? "9999")
     );
 
-  const openDecisions = notes
-    .filter((n) => n.decision?.status === "open")
-    .map((n) => ({
+  const openDecisions = (
+    await Promise.all(
+      notes
+        .filter((n) => n.decision?.status === "open")
+        .map(async (n) => ({ n, deciderUserId: await deciderUserOf(ctx, n.decision!) }))
+    )
+  )
+    .map(({ n, deciderUserId }) => ({
       noteId: n._id,
       block: n.block,
       text: n.content,
       question: n.decision!.question,
       deciderId: n.decision!.deciderId,
+      // Who can answer in the app: the member, or the account a person without one has since been linked to
+      deciderUserId,
       decider: deciderOf(n.decision!),
       requestedBy: nameOf(n.decision!.requestedBy)!,
       dueDate: n.decision!.dueDate,

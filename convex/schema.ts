@@ -113,6 +113,9 @@ export default defineSchema({
     name: v.string(),
     // Lowercased
     email: v.string(),
+    // Their account, once someone signs up or joins with this email verified (lib/people.ts
+    // linkPeopleToUser). Decisions and history keep pointing at the person; this lets them answer in the app.
+    userId: v.optional(v.id("users")),
     // They asked not to be emailed from this canvas again (from the link in an email)
     stoppedAt: v.optional(v.number()),
     // Fixed-window throttle on emails sent to them
@@ -120,7 +123,10 @@ export default defineSchema({
     windowCount: v.optional(v.number()),
     createdBy: v.id("users"),
     createdAt: v.number(),
-  }).index("by_canvas_and_email", ["canvasId", "email"]),
+  })
+    .index("by_canvas_and_email", ["canvasId", "email"])
+    .index("by_email", ["email"])
+    .index("by_user", ["userId"]),
 
   // Membership at canvas level
   canvasMembers: defineTable({
@@ -154,6 +160,7 @@ export default defineSchema({
   })
     .index("by_canvas_block", ["canvasId", "block"])
     .index("by_decider_and_status", ["decision.deciderId", "decision.status"])
+    .index("by_decider_person_and_status", ["decision.deciderPersonId", "decision.status"])
     .index("by_decision_link", ["decision.linkTokenHash"]),
 
   // One row per change to a note. Rows outlive the note, so a deleted note's history stays readable.

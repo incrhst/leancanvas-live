@@ -10,8 +10,11 @@ export type Actor = {
   clientName?: string;
 };
 
-/** A person without an account, acting from a link they were emailed. */
-export type PersonActor = { personId: Id<"people">; via: "link" };
+/**
+ * A person asked to decide without an account, acting from the link they were emailed, or (once
+ * linked to an account, see lib/people.ts) from the app as themselves.
+ */
+export type PersonActor = { personId: Id<"people">; via: Doc<"noteHistory">["via"]; clientName?: string };
 
 /** Anyone whose change can go in a note's history. */
 export type HistoryActor = Actor | PersonActor;
@@ -121,7 +124,7 @@ export async function recordNoteHistory(
     canvasId: note.canvasId,
     noteId: note._id,
     ...(isPersonActor(actor)
-      ? { personId: actor.personId, via: actor.via }
+      ? { personId: actor.personId, via: actor.via, clientName: actor.clientName }
       : { userId: actor.userId, via: actor.via, clientName: actor.clientName }),
     kind,
     changes,

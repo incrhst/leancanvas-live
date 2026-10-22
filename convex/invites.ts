@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { requireEditor, requireAuth, getCurrentUser, getCanvasRole } from "./lib/auth";
 import { displayName } from "./lib/members";
 import { emailUser, siteUrl } from "./lib/notify";
+import { linkPeopleToUser } from "./lib/people";
 
 /**
  * Creates an invite token (magic link or email) for a canvas.
@@ -123,6 +124,9 @@ export const acceptInvite = mutation({
       });
       change = "joined";
     }
+
+    // If they were asked to decide before they had an account, those decisions are theirs in the app now
+    await linkPeopleToUser(ctx, user._id);
 
     // Mark single-use or record acceptance
     await ctx.db.patch(invite._id, { usedAt: Date.now() });

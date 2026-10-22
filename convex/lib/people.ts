@@ -7,6 +7,12 @@ import { getCanvasRole } from "./auth";
 /**
  * People are who a canvas can ask to decide without giving them an account: a name and an email.
  * They answer only from the link they're emailed, and can stop the emails from that same link.
+ *
+ * When someone with that email verified signs up or joins a canvas, the person is linked to their
+ * account (`userId`) rather than converted into one. Their decisions stay on `deciderPersonId` and
+ * their history rows keep `personId`, so open links keep working, history keeps the name they were
+ * asked by, and nothing has to be rewritten. The link only adds: the account can answer those
+ * decisions in the app too (from /decisions, or on the canvas if they're also a member).
  */
 
 export const MAX_PERSON_NAME_LENGTH = 80;
@@ -49,7 +55,10 @@ export async function resolveDecider(
     .query("people")
     .withIndex("by_canvas_and_email", (q) => q.eq("canvasId", canvasId).eq("email", email))
     .unique();
-  if (existing) return { personId: existing._id };
+  if (existing) {
+    if (!existing.userId && isVerified(user)) await ctx.db.patch(existing._id, { userId: user._id });
+    return { personId: existing._id };
+  }
 
   const count = (
     await ctx.db
@@ -60,8 +69,53 @@ export async function resolveDecider(
   if (count >= MAX_PEOPLE_PER_CANVAS) {
     throw new ConvexError(`A canvas can ask at most ${MAX_PEOPLE_PER_CANVAS} people without accounts`);
   }
-  const personId = await ctx.db.insert("people", { canvasId, name, email, createdBy, createdAt: Date.now() });
+  const personId = await ctx.db.insert("people", {
+    canvasId,
+    name,
+    email,
+    // Someone with an account who isn't on this canvas: still a person here, but linked to it
+    userId: isVerified(user) ? user._id : undefined,
+    createdBy,
+    createdAt: Date.now(),
+  });
   return { personId };
+}
+
+function isVerified(user: Doc<"users"> | null): user is Doc<"users"> {
+  return !!user?.email && user.emailVerificationTime !== undefined;
+}
+
+// More than one person per canvas can't share an email, so this is a generous cap on canvases
+const MAX_LINKS_PER_USER = 200;
+
+/**
+ * Links every person with this user's email, on any canvas, to the user's account. Only for a
+ * verified email (Convex Auth sets emailVerificationTime once the magic link is used), so nobody
+ * gets someone else's decisions by typing their address. People already linked are left alone.
+ * Returns how many were linked.
+ */
+export async function linkPeopleToUser(ctx: MutationCtx, userId: Id<"users">) {
+  const user = await ctx.db.get(userId);
+  if (!isVerified(user)) return 0;
+  const people = await ctx.db
+    .query("people")
+    .withIndex("by_email", (q) => q.eq("email", normalizeEmail(user.email!)))
+    .take(MAX_LINKS_PER_USER);
+  let linked = 0;
+  for (const person of people) {
+    if (person.userId) continue;
+    await ctx.db.patch(person._id, { userId });
+    linked++;
+  }
+  return linked;
+}
+
+/** The people linked to a user's account, on every canvas. */
+export async function linkedPeopleOf(ctx: QueryCtx, userId: Id<"users">) {
+  return await ctx.db
+    .query("people")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .take(MAX_LINKS_PER_USER);
 }
 
 /** A person who can still be asked on this canvas, or an error saying why not. */
