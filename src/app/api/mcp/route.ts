@@ -8,6 +8,12 @@ import { EVIDENCE_GLOSSARY, EVIDENCE_STATES } from "../../../utils/evidenceState
 import { plainSummary, SummaryNote } from "../../../utils/plainSummary";
 import { todayLocal } from "../../../utils/testFields";
 import { VERDICT_EVIDENCE, daysBetween, testStage, todayUtc } from "../../../../convex/lib/testFields";
+import {
+  DECISION_BASES,
+  ITEM_STATE_MEANINGS,
+  ITEM_STATES,
+  LOOK_BACK_ANSWERS,
+} from "../../../../convex/lib/goalModel";
 
 const ALL_BLOCK_IDS = [...new Set([...LEAN_BLOCK_IDS, ...GTM_BLOCK_IDS])];
 const EVIDENCE_STATE_PROPERTY = {
@@ -490,6 +496,137 @@ const TOOLS_MANIFEST = [
       required: ["canvasId"],
     },
   },
+  {
+    name: "list_goals",
+    description:
+      "The heart of a canvas: its goals, each with a headline count of items (open, testing, decided, done) and the items under it. " +
+      `Item states: ${ITEM_STATES.map((st) => `${st} = ${ITEM_STATE_MEANINGS[st]}`).join("; ")}. ` +
+      "Each item shows its test (if any), linked canvas notes, its current decision record (what was decided, basis, who, when, review date, look-back outcome) and earlier, superseded decisions. " +
+      "Also returns lookBacksDue (done items whose review date has come and nobody has said whether it panned out) and basisStats (how often each kind of basis panned out).",
+    inputSchema: { type: "object", properties: { canvasId: { type: "string" } }, required: ["canvasId"] },
+  },
+  {
+    name: "create_goal",
+    description: "Add a goal to a canvas: a big outcome the team is working toward, e.g. 'Launch Afforrd'.",
+    inputSchema: {
+      type: "object",
+      properties: { canvasId: { type: "string" }, title: { type: "string" } },
+      required: ["canvasId", "title"],
+    },
+  },
+  {
+    name: "update_goal",
+    description: "Rename a goal.",
+    inputSchema: {
+      type: "object",
+      properties: { goalId: { type: "string" }, title: { type: "string" } },
+      required: ["goalId", "title"],
+    },
+  },
+  {
+    name: "delete_goal",
+    description: "Delete a goal that has no items. Move or delete its items first.",
+    inputSchema: { type: "object", properties: { goalId: { type: "string" } }, required: ["goalId"] },
+  },
+  {
+    name: "add_item",
+    description:
+      "Add an item under a goal: something that needs a decision before the goal can be reached. It starts open, or testing if you give it a test (measure, passMark, reviewDate, latestResult).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        goalId: { type: "string" },
+        title: { type: "string", description: "The question or choice, in plain words, e.g. 'Which channel do we launch on?'" },
+        detail: { type: "string" },
+        driverUserId: { ...DRIVER_PROPERTY, description: "The one person doing the work on it. A userId from list_canvas_members." },
+        contextNoteIds: { type: "array", items: { type: "string" }, description: "Canvas notes to keep with it as context or evidence" },
+        ...TEST_FIELD_PROPERTIES,
+      },
+      required: ["goalId", "title"],
+    },
+  },
+  {
+    name: "update_item",
+    description:
+      "Change an item's title, detail, driver, linked notes or test, or move it to another goal (goalId). Pass only what changes; null clears a field. An undecided item follows its test: adding one makes it testing, clearing it makes it open. To decide, use decide_item.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string" },
+        goalId: { type: "string", description: "Move the item to this goal (same canvas)" },
+        title: { type: "string" },
+        detail: { type: ["string", "null"] },
+        driverUserId: DRIVER_PROPERTY,
+        contextNoteIds: { type: "array", items: { type: "string" }, description: "Replaces the linked notes; [] clears them" },
+        ...TEST_FIELD_PROPERTIES,
+      },
+      required: ["itemId"],
+    },
+  },
+  {
+    name: "delete_item",
+    description: "Delete an item and its decision records. Linked canvas notes stay.",
+    inputSchema: { type: "object", properties: { itemId: { type: "string" } }, required: ["itemId"] },
+  },
+  {
+    name: "decide_item",
+    description:
+      "Make the call on an open or testing item. Writes its decision record and moves it to decided. Testing is optional: an item can go straight from open to decided. Judgment calls are valid.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string" },
+        decision: { type: "string", description: "What was decided, in a line or two" },
+        basis: {
+          type: "string",
+          enum: [...DECISION_BASES],
+          description: "What the call rests on: test (needs the item's test to have a result), data (existing data), expert (an expert's view), judgment (a judgment call)",
+        },
+        basisNote: { type: "string", description: "Optional line on the basis, e.g. which data or whose view" },
+        linkedNoteIds: { type: "array", items: { type: "string" }, description: "Canvas notes that informed it" },
+        decidedByUserId: { type: "string", description: "Who made the call, if not you. A userId from list_canvas_members." },
+        decidedByName: { type: "string", description: "Who made the call, for someone without an account" },
+        reviewDate: { type: "string", description: "When to ask whether it panned out, YYYY-MM-DD. Defaults to 30 days from today." },
+        reviewDay: { type: "integer", description: "Alternative to reviewDate: a day of the plan, counted from the canvas's launchDate" },
+      },
+      required: ["itemId", "decision", "basis"],
+    },
+  },
+  {
+    name: "mark_item_done",
+    description: "The decision on a decided item has been acted on. Moves it to done.",
+    inputSchema: { type: "object", properties: { itemId: { type: "string" } }, required: ["itemId"] },
+  },
+  {
+    name: "reopen_item",
+    description:
+      "Take a decided or done item back to open (or testing, if it has a test). Its decision record stays as an earlier decision.",
+    inputSchema: { type: "object", properties: { itemId: { type: "string" } }, required: ["itemId"] },
+  },
+  {
+    name: "record_look_back",
+    description:
+      "Say whether a done item's decision panned out: yes, no or partly, with an optional note. Ask this once its review date has come (list_goals shows lookBacksDue).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string" },
+        outcome: { type: "string", enum: [...LOOK_BACK_ANSWERS] },
+        note: { type: "string" },
+      },
+      required: ["itemId", "outcome"],
+    },
+  },
+  {
+    name: "convert_note_to_item",
+    description:
+      "Turn a canvas note into an item under a goal. Its test and driver carry over and the note stays linked as context. If the note's decision request was answered, that answer becomes the item's decision record and the item is decided.",
+    inputSchema: {
+      type: "object",
+      properties: { noteId: { type: "string" }, goalId: { type: "string" } },
+      required: ["noteId", "goalId"],
+    },
+  },
 ];
 
 const UNAUTHORIZED_HEADERS = {
@@ -533,6 +670,11 @@ function driverArg(args: Record<string, unknown>): unknown {
 /** An array of strings sets the tags, null clears them, anything else leaves them alone. */
 function marketsArg(value: unknown): string[] | null | undefined {
   if (value === null) return null;
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : undefined;
+}
+
+/** An array of strings, or undefined for anything else. */
+function strArray(value: unknown): string[] | undefined {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : undefined;
 }
 
@@ -788,6 +930,75 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         view: (str(args.view) || "canvas") as any, // validated by Convex
         format: (str(args.format) || "pdf") as any, // validated by Convex
       });
+    case "list_goals":
+      return await fetchQuery(api.mcp.listGoals, { accessToken, canvasId: str(args.canvasId) });
+    case "create_goal":
+      return await fetchMutation(api.mcp.createGoalForAgent, {
+        accessToken,
+        canvasId: str(args.canvasId),
+        title: str(args.title),
+      });
+    case "update_goal":
+      return await fetchMutation(api.mcp.updateGoalForAgent, {
+        accessToken,
+        goalId: str(args.goalId),
+        title: str(args.title),
+      });
+    case "delete_goal":
+      return await fetchMutation(api.mcp.deleteGoalForAgent, { accessToken, goalId: str(args.goalId) });
+    case "add_item":
+      return await fetchMutation(api.mcp.addItemForAgent, {
+        accessToken,
+        goalId: str(args.goalId),
+        title: str(args.title),
+        detail: nullableStr(args.detail),
+        driverUserId: nullableStr(args.driverUserId),
+        contextNoteIds: strArray(args.contextNoteIds),
+        ...testFieldArgs(args),
+      });
+    case "update_item":
+      return await fetchMutation(api.mcp.updateItemForAgent, {
+        accessToken,
+        itemId: str(args.itemId),
+        goalId: optStr(args.goalId),
+        title: optStr(args.title),
+        detail: nullableStr(args.detail),
+        driverUserId: nullableStr(args.driverUserId),
+        contextNoteIds: strArray(args.contextNoteIds),
+        ...testFieldArgs(args),
+      });
+    case "delete_item":
+      return await fetchMutation(api.mcp.deleteItemForAgent, { accessToken, itemId: str(args.itemId) });
+    case "decide_item":
+      return await fetchMutation(api.mcp.decideItemForAgent, {
+        accessToken,
+        itemId: str(args.itemId),
+        decision: str(args.decision),
+        basis: args.basis as any, // validated by Convex
+        basisNote: optStr(args.basisNote),
+        linkedNoteIds: strArray(args.linkedNoteIds),
+        decidedByUserId: optStr(args.decidedByUserId),
+        decidedByName: optStr(args.decidedByName),
+        reviewDate: optStr(args.reviewDate),
+        reviewDay: typeof args.reviewDay === "number" ? args.reviewDay : undefined,
+      });
+    case "mark_item_done":
+      return await fetchMutation(api.mcp.markItemDoneForAgent, { accessToken, itemId: str(args.itemId) });
+    case "reopen_item":
+      return await fetchMutation(api.mcp.reopenItemForAgent, { accessToken, itemId: str(args.itemId) });
+    case "record_look_back":
+      return await fetchMutation(api.mcp.recordLookBackForAgent, {
+        accessToken,
+        itemId: str(args.itemId),
+        outcome: args.outcome as any, // validated by Convex
+        note: optStr(args.note),
+      });
+    case "convert_note_to_item":
+      return await fetchMutation(api.mcp.convertNoteForAgent, {
+        accessToken,
+        noteId: str(args.noteId),
+        goalId: str(args.goalId),
+      });
     default:
       return undefined;
   }
@@ -888,6 +1099,11 @@ export async function POST(req: NextRequest) {
               name: "leanon",
               version: "0.1.0",
             },
+            instructions:
+              "LeanOn revolves around decisions. Each canvas has goals; each goal has items that need a decision before the goal is reached. " +
+              "Items move open -> testing (optional, while a test runs) -> decided -> done. Start with list_goals. " +
+              "Record calls with decide_item (basis: test, data, expert or judgment), mark them done once acted on, and on the review date ask whether they panned out (record_look_back). " +
+              "Canvas notes are context and evidence; convert_note_to_item turns one into an item.",
           },
         },
         { headers: CORS_HEADERS }

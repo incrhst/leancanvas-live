@@ -33,6 +33,7 @@ import {
   riskRanksFor,
 } from "../../../components/CanvasViewToggle";
 import { DecidedCountChip, PlanStatusBoard } from "../../../components/PlanStatusBoard";
+import { GoalsBoard } from "../../../components/GoalsBoard";
 import { useAuth } from "../../../components/ConvexClientProvider";
 import { NoteItem, BlockId, EvidenceState, StressTestResult } from "../../../types/canvas";
 import { NoteSearch, NoteSearchButton, useNoteSearchShortcut } from "../../../components/NoteSearch";
@@ -59,11 +60,12 @@ export default function CanvasEditorPage() {
   const { user, isLoading } = useAuth();
 
   const data = useQuery(api.canvases.getCanvas, isLoading ? "skip" : { canvasId });
-  // Everyone starts on the status view; the canvas is one tab over
-  const defaultView: CanvasView = "status";
+  // Everyone starts on goals; the status board and canvas are a tab over
+  const defaultView: CanvasView = "goals";
   const view = parseCanvasView(searchParams.get("view"), defaultView);
   const setView = (next: CanvasView) => setQueryParams({ view: canvasViewParam(next, defaultView) });
   const noteInline = isDesktop && view === "canvas";
+  const goalsView = useQuery(api.goals.view, data && view === "goals" ? { canvasId } : "skip");
   const latestStressTest = useQuery(api.stressTests.getLatestStressTest, data ? { canvasId } : "skip");
   const addNote = useMutation(api.notes.addNote);
   const updateNote = useMutation(api.notes.updateNote);
@@ -293,7 +295,14 @@ export default function CanvasEditorPage() {
                 onModeChange={evidence.setMode}
               />
               )}
-              {view === "status" ? (
+              {view === "goals" ? (
+                <GoalsBoard
+                  view={goalsView}
+                  canEdit={canEdit}
+                  canvasId={canvasId}
+                  notes={notes.map((n) => ({ _id: n._id, content: n.content }))}
+                />
+              ) : view === "status" ? (
                 <PlanStatusBoard
                   blocks={template.blocks}
                   notes={notes}

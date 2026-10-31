@@ -1,14 +1,14 @@
 import React from "react";
-import { Columns3Icon, LayoutGridIcon, ShieldAlertIcon } from "lucide-react";
+import { Columns3Icon, LayoutGridIcon, ShieldAlertIcon, TargetIcon } from "lucide-react";
 
-export type CanvasView = "canvas" | "status" | "risks";
+export type CanvasView = "goals" | "canvas" | "status" | "risks";
 
 /**
- * The view in the URL (?view=), or the default when there's none. Everyone starts on the
- * three-state status view, with the canvas next.
+ * The view in the URL (?view=), or the default when there's none. Everyone starts on goals, the
+ * decisions each one is waiting on; the status board and canvas hold the notes behind them.
  */
 export function parseCanvasView(param: string | null, defaultView: CanvasView): CanvasView {
-  return param === "canvas" || param === "status" || param === "risks" ? param : defaultView;
+  return param === "goals" || param === "canvas" || param === "status" || param === "risks" ? param : defaultView;
 }
 
 /** The ?view= value for a view: none for the default, so plain links stay plain. */
@@ -27,6 +27,17 @@ export function CanvasViewToggle({ view, riskCount, onChange }: CanvasViewToggle
     "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors";
   return (
     <div role="tablist" aria-label="Canvas view" className="inline-flex rounded-lg border border-line bg-surface p-0.5">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "goals"}
+        onClick={() => onChange("goals")}
+        title="Goals and what each one is waiting on: open, testing, decided, done"
+        className={`${base} ${view === "goals" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
+      >
+        <TargetIcon className="h-3.5 w-3.5" />
+        Goals
+      </button>
       <button
         type="button"
         role="tab"

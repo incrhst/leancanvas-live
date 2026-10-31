@@ -334,7 +334,7 @@ async function recordFailure(
  * Checks a viewing pass issued by unlockPublicView. Passes are invalidated whenever the
  * link password is changed or removed (publicViewPasswordSetAt changes).
  */
-async function isValidGrant(ctx: QueryCtx, canvas: Doc<"canvases">, grant?: string) {
+export async function isValidGrant(ctx: QueryCtx, canvas: Doc<"canvases">, grant?: string) {
   if (!grant) return false;
   const grantHash = await sha256Hex(grant);
   const grantDoc = await ctx.db
