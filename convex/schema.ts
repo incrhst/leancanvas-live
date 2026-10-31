@@ -215,6 +215,8 @@ export default defineSchema({
     title: v.string(),
     detail: v.optional(v.string()),
     state: itemStateValidator,
+    // When the call should be made by (YYYY-MM-DD), if there's a date to aim for
+    decideBy: v.optional(v.string()),
     order: v.number(),
     // The one person doing the work on it; any canvas member
     ownerId: v.optional(v.id("users")),

@@ -82,6 +82,21 @@ describe("items", () => {
     expect(view!.goals[0].reached).toBe(false);
   });
 
+  test("keeps a decide-by date, checks it, and clears it", async () => {
+    const s = await setup();
+    const itemId = await s.asCeline.mutation(api.goals.addItem, {
+      goalId: s.goalId,
+      title: "Launch price",
+      decideBy: "2026-11-06",
+    });
+    expect((await itemOf(s, itemId)).decideBy).toBe("2026-11-06");
+    await expect(s.asCeline.mutation(api.goals.editItem, { itemId, decideBy: "next week" })).rejects.toThrow(
+      /decideBy must be a date/
+    );
+    await s.asCeline.mutation(api.goals.editItem, { itemId, decideBy: null });
+    expect((await itemOf(s, itemId)).decideBy).toBeUndefined();
+  });
+
   test("can go straight from open to decided on a judgment call", async () => {
     const s = await setup();
     const itemId = await s.asCeline.mutation(api.goals.addItem, { goalId: s.goalId, title: "Brand name" });

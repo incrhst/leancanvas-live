@@ -831,6 +831,8 @@ export const deleteGoalForAgent = mutation({
 const itemFieldArgs = {
   title: v.optional(v.string()),
   detail: v.optional(v.union(v.string(), v.null())),
+  decideBy: v.optional(v.union(v.string(), v.null())),
+  decideByDay: v.optional(v.number()),
   driverUserId: v.optional(v.union(v.string(), v.null())),
   contextNoteIds: v.optional(v.array(v.string())),
   ...testFieldsUpdateArgs,
@@ -842,9 +844,10 @@ export const addItemForAgent = mutation({
   handler: async (ctx, args) => {
     const { user, actor } = await requireTokenActor(ctx, args.accessToken);
     const { goal, canvas } = await resolveGoal(ctx, user, args.goalId, true);
-    const { accessToken: _t, goalId: _g, reviewDay: _d, driverUserId, contextNoteIds, ...fields } = args;
+    const { accessToken: _t, goalId: _g, reviewDay: _d, decideByDay: _dd, driverUserId, contextNoteIds, ...fields } = args;
     const itemId = await createItem(ctx, actor, goal, {
       ...fields,
+      decideBy: resolvePlanDate(canvas, args.decideBy, args.decideByDay, { date: "decideBy", day: "decideByDay" }),
       reviewDate: resolvePlanDate(canvas, args.reviewDate, args.reviewDay),
       ownerId: resolveUser(ctx, driverUserId),
       contextNoteIds: resolveNoteIds(ctx, contextNoteIds),
@@ -858,11 +861,12 @@ export const updateItemForAgent = mutation({
   handler: async (ctx, args) => {
     const { user } = await requireTokenActor(ctx, args.accessToken);
     const { item, canvas } = await resolveItem(ctx, user, args.itemId);
-    const { accessToken: _t, itemId: _i, reviewDay: _d, driverUserId, contextNoteIds, goalId, ...fields } = args;
+    const { accessToken: _t, itemId: _i, reviewDay: _d, decideByDay: _dd, driverUserId, contextNoteIds, goalId, ...fields } = args;
     let targetGoal: Id<"goals"> | undefined;
     if (goalId !== undefined) targetGoal = (await resolveGoal(ctx, user, goalId, true)).goal._id;
     await updateItem(ctx, item, {
       ...fields,
+      decideBy: resolvePlanDate(canvas, args.decideBy, args.decideByDay, { date: "decideBy", day: "decideByDay" }),
       reviewDate: resolvePlanDate(canvas, args.reviewDate, args.reviewDay),
       ownerId: resolveUser(ctx, driverUserId),
       contextNoteIds: resolveNoteIds(ctx, contextNoteIds),

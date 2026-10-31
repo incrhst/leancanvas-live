@@ -29,6 +29,7 @@ import {
   LOOK_BACK_LABELS,
   LookBack,
 } from "../../convex/lib/goalModel";
+import { daysBetween, testStage } from "../../convex/lib/testFields";
 import { EditableField } from "./EditableField";
 import { formatCalendarDate, localDate, todayLocal, VERDICT_CONFIG } from "../utils/testFields";
 
@@ -36,11 +37,17 @@ type Goal = GoalsView["goals"][number];
 type Item = Goal["items"][number];
 type Decision = NonNullable<Item["decision"]>;
 
-const STATE_STYLE: Record<ItemState, { icon: React.ElementType; chip: string; bar: string }> = {
-  open: { icon: CircleDashedIcon, chip: "border-stone-300 bg-stone-100 text-stone-700", bar: "bg-stone-300" },
-  testing: { icon: FlaskConicalIcon, chip: "border-amber-300 bg-amber-50 text-amber-900", bar: "bg-amber-400" },
-  decided: { icon: CircleCheckIcon, chip: "border-teal-300 bg-teal-50 text-teal-900", bar: "bg-teal-500" },
-  done: { icon: CheckCheckIcon, chip: "border-emerald-300 bg-emerald-50 text-emerald-900", bar: "bg-emerald-600" },
+const STATE_STYLE: Record<ItemState, { icon: React.ElementType; chip: string; bar: string; dot: string }> = {
+  open: {
+    icon: CircleDashedIcon,
+    chip: "border-stone-300 bg-stone-100 text-stone-700",
+    // The open part of a goal's bar looks foggy: a dashed, hazy patch rather than a solid fill
+    bar: "border border-dashed border-stone-400 bg-stone-200/70",
+    dot: "border-2 border-stone-400 bg-transparent",
+  },
+  testing: { icon: FlaskConicalIcon, chip: "border-amber-300 bg-amber-50 text-amber-900", bar: "bg-amber-400/70", dot: "bg-amber-400" },
+  decided: { icon: CircleCheckIcon, chip: "border-teal-300 bg-teal-50 text-teal-900", bar: "bg-teal-500/70", dot: "bg-teal-500" },
+  done: { icon: CheckCheckIcon, chip: "border-emerald-300 bg-emerald-50 text-emerald-900", bar: "bg-emerald-600/80", dot: "bg-emerald-600" },
 };
 
 /**
@@ -48,18 +55,18 @@ const STATE_STYLE: Record<ItemState, { icon: React.ElementType; chip: string; ba
  * and done ones are sharp. The haze lifts on hover or focus so nothing is ever hard to read.
  */
 const FOG: Record<ItemState, string> = {
-  open: "bg-gradient-to-r from-stone-100 via-surface to-stone-100 [&_.fog-text]:blur-[0.7px] [&_.fog-text]:opacity-60",
-  testing: "bg-gradient-to-r from-amber-50/60 via-surface to-surface [&_.fog-text]:blur-[0.3px] [&_.fog-text]:opacity-80",
-  decided: "bg-surface",
-  done: "bg-surface",
+  open: "[&_.fog-text]:blur-[0.6px] [&_.fog-text]:opacity-60",
+  testing: "[&_.fog-text]:blur-[0.25px] [&_.fog-text]:opacity-80",
+  decided: "",
+  done: "",
 };
 
 const inputClass =
   "w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-ink placeholder:text-subtle focus:border-accent focus:outline-none";
 const buttonClass =
-  "inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface-2 disabled:opacity-50";
+  "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface-2 disabled:opacity-50";
 const primaryButtonClass =
-  "inline-flex items-center gap-1.5 rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-surface hover:opacity-90 disabled:opacity-50";
+  "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-surface hover:opacity-90 disabled:opacity-50";
 
 export function StateChip({ state }: { state: ItemState }) {
   const { icon: Icon, chip } = STATE_STYLE[state];
@@ -74,33 +81,44 @@ export function StateChip({ state }: { state: ItemState }) {
   );
 }
 
-/** "3 open, 1 testing, 5 decided, 2 done" as chips, with a bar that fills as items are decided. */
+/** "due in 6 days", "due today", "2 days late" */
+function dueIn(date: string) {
+  const days = daysBetween(todayLocal(), date);
+  if (days === 0) return "due today";
+  if (days === 1) return "due tomorrow";
+  if (days > 0) return `due in ${days} days`;
+  return days === -1 ? "1 day late" : `${-days} days late`;
+}
+
+/** The bar fills by state, open first; the open part looks foggy. Then the counts in words. */
 function GoalHeadline({ goal }: { goal: Goal }) {
   const total = ITEM_STATES.reduce((sum, s) => sum + goal.counts[s], 0);
   return (
-    <div className="space-y-1.5">
-      <div className="flex flex-wrap items-center gap-1.5" aria-label={goal.headline}>
-        {ITEM_STATES.map((s) => (
-          <span key={s} className="text-xs text-muted">
-            <span className="font-semibold tabular-nums text-ink">{goal.counts[s]}</span> {s}
-            {s !== "done" && <span className="text-subtle">,</span>}
-          </span>
+    <div className="space-y-2">
+      {total > 0 && (
+        <div className="flex h-4 w-full gap-px overflow-hidden rounded" aria-hidden="true">
+          {ITEM_STATES.map((s) =>
+            goal.counts[s] ? (
+              <div key={s} className={`${STATE_STYLE[s].bar} first:rounded-l last:rounded-r`} style={{ width: `${(goal.counts[s] / total) * 100}%` }} />
+            ) : null
+          )}
+        </div>
+      )}
+      <p className="flex flex-wrap items-center gap-x-1.5 text-sm text-ink" aria-label={goal.headline}>
+        {ITEM_STATES.map((s, i) => (
+          <React.Fragment key={s}>
+            {i > 0 && <span className="text-subtle">·</span>}
+            <span>
+              <span className="font-semibold tabular-nums">{goal.counts[s]}</span> {s}
+            </span>
+          </React.Fragment>
         ))}
         {goal.reached && (
           <span className="ml-1 inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-900">
             <CheckCheckIcon size={12} aria-hidden="true" /> Reached
           </span>
         )}
-      </div>
-      {total > 0 && (
-        <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-2" aria-hidden="true">
-          {ITEM_STATES.map((s) =>
-            goal.counts[s] ? (
-              <div key={s} className={STATE_STYLE[s].bar} style={{ width: `${(goal.counts[s] / total) * 100}%` }} />
-            ) : null
-          )}
-        </div>
-      )}
+      </p>
     </div>
   );
 }
@@ -328,28 +346,56 @@ function TestFields({ item, canEdit }: { item: Item; canEdit: boolean }) {
   );
 }
 
-function ItemRow({ item, goals, canEdit }: { item: Item; goals: Goal[]; canEdit: boolean }) {
-  const [expanded, setExpanded] = useState(false);
+/** The line on the right of an item: who and when for open ones, the test date, or the basis. */
+function itemMeta(item: Item, today: string) {
+  if (item.state === "open") {
+    const parts = [item.driver ?? (item.decideBy ? undefined : "unassigned"), item.decideBy && `decide by ${formatCalendarDate(item.decideBy)}`];
+    return parts.filter(Boolean).join(" · ");
+  }
+  if (item.state === "testing") {
+    if (testStage(item, today) === "result") return "result in, ready to decide";
+    return item.reviewDate ? `test reports ${formatCalendarDate(item.reviewDate)}` : "test running";
+  }
+  return item.decision ? `based on: ${DECISION_BASIS_LABELS[item.decision.basis as DecisionBasis].toLowerCase()}` : "";
+}
+
+function ItemRow({
+  item,
+  goals,
+  canEdit,
+  expanded,
+  onToggle,
+}: {
+  item: Item;
+  goals: Goal[];
+  canEdit: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   const [deciding, setDeciding] = useState(false);
   const editItem = useMutation(api.goals.editItem);
   const markDone = useMutation(api.goals.markDone);
   const reopen = useMutation(api.goals.reopen);
   const removeItem = useMutation(api.goals.removeItem);
   const undecided = item.state === "open" || item.state === "testing";
+  const meta = itemMeta(item, todayLocal());
 
   return (
-    <li className={`group rounded-md border border-line transition-colors focus-within:[&_.fog-text]:blur-0 focus-within:[&_.fog-text]:opacity-100 hover:[&_.fog-text]:blur-0 hover:[&_.fog-text]:opacity-100 ${FOG[item.state]}`}>
+    <li
+      id={`item-${item.itemId}`}
+      className={`rounded-md ${expanded ? "border border-line bg-surface" : ""} focus-within:[&_.fog-text]:opacity-100 focus-within:[&_.fog-text]:blur-0 hover:[&_.fog-text]:opacity-100 hover:[&_.fog-text]:blur-0 ${FOG[item.state]}`}
+    >
       <button
         type="button"
-        onClick={() => setExpanded(!expanded)}
+        onClick={onToggle}
         aria-expanded={expanded}
-        className="flex w-full items-start gap-2 px-2.5 py-2 text-left"
+        className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-surface-2"
       >
-        {expanded ? <ChevronDownIcon size={14} className="mt-0.5 shrink-0 text-muted" /> : <ChevronRightIcon size={14} className="mt-0.5 shrink-0 text-muted" />}
+        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${STATE_STYLE[item.state].dot}`} aria-hidden="true" />
         <span className="fog-text min-w-0 flex-1 text-sm text-ink transition-[filter,opacity] duration-300">
           {item.title}
-          {item.decision && !expanded && (
-            <span className="mt-0.5 block text-xs text-muted">→ {item.decision.text}</span>
+          {item.decision && item.decision.text !== item.title && (
+            <span className="text-muted">: {item.decision.text}</span>
           )}
         </span>
         {item.lookBackDue && (
@@ -357,12 +403,16 @@ function ItemRow({ item, goals, canEdit }: { item: Item; goals: Goal[]; canEdit:
             <HistoryIcon size={12} aria-hidden="true" /> Look back
           </span>
         )}
-        {item.driver && <span className="hidden text-[11px] text-muted sm:inline">{item.driver}</span>}
-        <StateChip state={item.state} />
+        {meta && <span className="hidden shrink-0 text-xs text-muted sm:inline">{meta}</span>}
+        {expanded ? <ChevronDownIcon size={14} className="shrink-0 text-muted" /> : <ChevronRightIcon size={14} className="shrink-0 text-muted" />}
       </button>
 
       {expanded && (
         <div className="space-y-2.5 border-t border-line px-2.5 py-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <StateChip state={item.state} />
+            {meta && <span className="text-xs text-muted sm:hidden">{meta}</span>}
+          </div>
           {canEdit ? (
             <EditableField
               className={inputClass}
@@ -374,6 +424,18 @@ function ItemRow({ item, goals, canEdit }: { item: Item; goals: Goal[]; canEdit:
             />
           ) : (
             item.detail && <p className="text-sm text-ink">{item.detail}</p>
+          )}
+
+          {canEdit && undecided && (
+            <label className="flex items-center gap-2 whitespace-nowrap text-xs text-muted">
+              Decide by
+              <EditableField
+                type="date"
+                className="w-40 rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink"
+                value={item.decideBy ?? ""}
+                onCommit={(v) => editItem({ itemId: item.itemId, decideBy: v || null })}
+              />
+            </label>
           )}
 
           <TestFields item={item} canEdit={canEdit} />
@@ -454,16 +516,85 @@ function ItemRow({ item, goals, canEdit }: { item: Item; goals: Goal[]; canEdit:
 
 type CanvasNote = { _id: string; content: string };
 
+// Decided items past this many fold behind "+ N more decided"
+const DECIDED_SHOWN = 2;
+
+/** One state's items under its heading. Done starts collapsed; decided shows the first few. */
+function StateGroup({
+  state,
+  items,
+  goals,
+  canEdit,
+  openItemId,
+  setOpenItemId,
+}: {
+  state: ItemState;
+  items: Item[];
+  goals: Goal[];
+  canEdit: boolean;
+  openItemId: string | null;
+  setOpenItemId: (id: string | null) => void;
+}) {
+  const holdsOpenItem = items.some((i) => i.itemId === openItemId);
+  const [showAll, setShowAll] = useState(false);
+  const collapsed = state === "done" && !showAll && !holdsOpenItem;
+  const folded = state === "decided" && !showAll && !holdsOpenItem && items.length > DECIDED_SHOWN + 1;
+  const shown = collapsed ? [] : folded ? items.slice(0, DECIDED_SHOWN) : items;
+  const label = ITEM_STATE_LABELS[state].toUpperCase();
+
+  return (
+    <div className="py-2 first:pt-0 last:pb-0">
+      {state === "done" ? (
+        <button
+          type="button"
+          onClick={() => setShowAll(!showAll)}
+          aria-expanded={!collapsed}
+          className="mb-1 flex items-center gap-1 text-[11px] font-semibold tracking-wide text-muted hover:text-ink"
+        >
+          {collapsed ? <ChevronRightIcon size={12} /> : <ChevronDownIcon size={12} />}
+          {label} · {items.length} {items.length === 1 ? "item" : "items"}
+          {collapsed && ", collapsed"}
+        </button>
+      ) : (
+        <h3 className="mb-1 text-[11px] font-semibold tracking-wide text-muted">{label}</h3>
+      )}
+      {shown.length > 0 && (
+        <ul className="space-y-0.5">
+          {shown.map((item) => (
+            <ItemRow
+              key={item.itemId}
+              item={item}
+              goals={goals}
+              canEdit={canEdit}
+              expanded={openItemId === item.itemId}
+              onToggle={() => setOpenItemId(openItemId === item.itemId ? null : item.itemId)}
+            />
+          ))}
+        </ul>
+      )}
+      {folded && (
+        <button type="button" onClick={() => setShowAll(true)} className="ml-7 mt-0.5 text-xs text-muted hover:text-ink">
+          + {items.length - DECIDED_SHOWN} more decided
+        </button>
+      )}
+    </div>
+  );
+}
+
 function GoalSection({
   goal,
   goals,
   canEdit,
   notesToConvert,
+  openItemId,
+  setOpenItemId,
 }: {
   goal: Goal;
   goals: Goal[];
   canEdit: boolean;
   notesToConvert: CanvasNote[];
+  openItemId: string | null;
+  setOpenItemId: (id: string | null) => void;
 }) {
   const addItem = useMutation(api.goals.addItem);
   const renameGoal = useMutation(api.goals.renameGoalTitle);
@@ -472,8 +603,8 @@ function GoalSection({
   const [title, setTitle] = useState("");
 
   return (
-    <section className="space-y-2.5 rounded-lg border border-line bg-surface p-3">
-      <header className="space-y-2">
+    <section className="space-y-3">
+      <header className="space-y-3 rounded-lg border border-line bg-surface p-4">
         <div className="flex items-start gap-2">
           {canEdit ? (
             <EditableField
@@ -495,145 +626,255 @@ function GoalSection({
         <GoalHeadline goal={goal} />
       </header>
 
-      {goal.items.length > 0 ? (
-        <ul className="space-y-1.5">
-          {goal.items.map((item) => (
-            <ItemRow key={item.itemId} item={item} goals={goals} canEdit={canEdit} />
-          ))}
-        </ul>
-      ) : (
-        <p className="text-xs text-muted">Nothing here yet. What needs deciding before this goal is reached?</p>
-      )}
+      <div className="rounded-lg border border-line bg-surface p-4">
+        <h2 className="mb-2 text-sm font-semibold text-ink">Items</h2>
+        {goal.items.length > 0 ? (
+          <div className="divide-y divide-line">
+            {ITEM_STATES.map((state) => {
+              const items = goal.items.filter((i) => i.state === state);
+              return items.length ? (
+                <StateGroup
+                  key={state}
+                  state={state}
+                  items={items}
+                  goals={goals}
+                  canEdit={canEdit}
+                  openItemId={openItemId}
+                  setOpenItemId={setOpenItemId}
+                />
+              ) : null;
+            })}
+          </div>
+        ) : (
+          <p className="text-xs text-muted">Nothing here yet. What needs deciding before this goal is reached?</p>
+        )}
 
-      {canEdit && (
-        <div className="flex flex-wrap items-center gap-2">
-          <form
-            className="flex min-w-[14rem] flex-1 gap-1.5"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (!title.trim()) return;
-              await addItem({ goalId: goal.goalId, title });
-              setTitle("");
-            }}
-          >
-            <input className={inputClass} placeholder="Something that needs deciding…" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <button type="submit" className={buttonClass} disabled={!title.trim()}>
-              <PlusIcon size={13} /> Add
-            </button>
-          </form>
-          {notesToConvert.length > 0 && (
-            <select
-              aria-label="Add from a canvas note"
-              className="max-w-[16rem] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-muted"
-              value=""
-              onChange={(e) => e.target.value && convertNote({ noteId: e.target.value as Id<"notes">, goalId: goal.goalId })}
+        {canEdit && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+            <form
+              className="flex min-w-[14rem] flex-1 gap-1.5"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!title.trim()) return;
+                await addItem({ goalId: goal.goalId, title });
+                setTitle("");
+              }}
             >
-              <option value="">Add from a canvas note…</option>
-              {notesToConvert.map((n) => (
-                <option key={n._id} value={n._id}>
-                  {n.content.length > 70 ? `${n.content.slice(0, 70)}…` : n.content}
-                </option>
-              ))}
-            </select>
+              <input className={inputClass} placeholder="Something that needs deciding…" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <button type="submit" className={buttonClass} disabled={!title.trim()}>
+                <PlusIcon size={13} /> Add
+              </button>
+            </form>
+            {notesToConvert.length > 0 && (
+              <select
+                aria-label="Add from a canvas note"
+                className="max-w-[16rem] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-muted"
+                value=""
+                onChange={(e) => e.target.value && convertNote({ noteId: e.target.value as Id<"notes">, goalId: goal.goalId })}
+              >
+                <option value="">Add from a canvas note…</option>
+                {notesToConvert.map((n) => (
+                  <option key={n._id} value={n._id}>
+                    {n.content.length > 70 ? `${n.content.slice(0, 70)}…` : n.content}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * What needs the viewer now, across every goal: calls to make (soonest first), decisions to look
+ * back on, and tests whose result is in. Items with no driver count as everyone's.
+ */
+function NeedsYou({
+  view,
+  viewerId,
+  canEdit,
+  onOpenItem,
+}: {
+  view: GoalsView;
+  viewerId: string;
+  canEdit: boolean;
+  onOpenItem: (itemId: string) => void;
+}) {
+  const lookBack = useMutation(api.goals.lookBack);
+  const today = todayLocal();
+  const mine = (i: Item) => !i.ownerId || i.ownerId === viewerId;
+  const items = view.goals.flatMap((g) => g.items).filter(mine);
+  const toDecide = items
+    .filter((i) => (i.state === "open" || i.state === "testing") && i.decideBy && testStage(i, today) !== "result")
+    .sort((a, b) => a.decideBy!.localeCompare(b.decideBy!));
+  const resultsIn = items.filter((i) => i.state === "testing" && testStage(i, today) === "result");
+  const lookBacks = items.filter((i) => i.lookBackDue);
+  const empty = toDecide.length + resultsIn.length + lookBacks.length === 0;
+
+  const entry = (key: string, item: Item, lead: string, sub: React.ReactNode) => (
+    <li key={key}>
+      <button type="button" onClick={() => onOpenItem(item.itemId)} className="w-full text-left text-sm text-ink hover:underline">
+        {lead}: {item.title}
+      </button>
+      <div className="text-xs text-muted">{sub}</div>
+    </li>
+  );
+
+  return (
+    <section className="rounded-lg border-2 border-accent/60 bg-accent-soft/40 p-4">
+      <h2 className="text-sm font-semibold text-ink">Needs you</h2>
+      {empty ? (
+        <p className="mt-2 text-xs text-muted">Nothing right now.</p>
+      ) : (
+        <ul className="mt-2.5 space-y-3">
+          {toDecide.map((i) => entry(`d-${i.itemId}`, i, "Decide", dueIn(i.decideBy!)))}
+          {resultsIn.map((i) => entry(`r-${i.itemId}`, i, "Test result in", "ready to decide"))}
+          {lookBacks.map((i) =>
+            entry(
+              `l-${i.itemId}`,
+              i,
+              "Review",
+              canEdit ? (
+                <span className="flex items-center gap-1">
+                  Did it pan out?
+                  {LOOK_BACK_ANSWERS.map((a) => (
+                    <button
+                      key={a}
+                      type="button"
+                      onClick={() => lookBack({ itemId: i.itemId, outcome: a })}
+                      className="rounded border border-line bg-surface px-1.5 text-[11px] text-ink hover:bg-surface-2"
+                    >
+                      {LOOK_BACK_LABELS[a]}
+                    </button>
+                  ))}
+                </span>
+              ) : (
+                "did it pan out?"
+              )
+            )
           )}
-        </div>
+        </ul>
       )}
     </section>
   );
 }
 
-function BasisStats({ stats }: { stats: GoalsView["basisStats"] }) {
+const TRACK_LABELS: Record<DecisionBasis, string> = { test: "Tested", data: "Data", expert: "Expert", judgment: "Judgment" };
+
+/** How often each kind of decision panned out: yes fills the bar, partly fills it lighter. */
+function TrackRecord({ stats }: { stats: GoalsView["basisStats"] }) {
   const rows = DECISION_BASES.filter((b) => stats[b]);
-  if (rows.length === 0) return null;
   return (
-    <section className="rounded-lg border border-line bg-surface p-3">
-      <h2 className="text-sm font-semibold text-ink">How our calls panned out</h2>
-      <table className="mt-2 w-full text-xs">
-        <thead>
-          <tr className="text-left text-muted">
-            <th className="py-1 font-medium">Based on</th>
-            {LOOK_BACK_ANSWERS.map((a) => (
-              <th key={a} className="py-1 text-right font-medium">{LOOK_BACK_LABELS[a]}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((b) => (
-            <tr key={b} className="border-t border-line">
-              <td className="py-1 text-ink">{DECISION_BASIS_LABELS[b]}</td>
-              {LOOK_BACK_ANSWERS.map((a) => (
-                <td key={a} className="py-1 text-right tabular-nums text-ink">{stats[b]![a]}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <section className="rounded-lg border border-line bg-surface p-4">
+      <h2 className="text-sm font-semibold text-ink">Track record</h2>
+      <p className="text-xs text-muted">How often decisions panned out</p>
+      {rows.length === 0 ? (
+        <p className="mt-3 text-xs text-muted">
+          Nothing to look back on yet. Once a decision is done and its review date comes, you&apos;ll see how each kind panned out.
+        </p>
+      ) : (
+        <dl className="mt-3 space-y-2.5">
+          {rows.map((b) => {
+            const { yes, no, partly } = stats[b]!;
+            const total = yes + no + partly;
+            return (
+              <div key={b} className="grid grid-cols-[4.5rem_1fr] items-center gap-x-2">
+                <dt className="text-sm text-ink">{TRACK_LABELS[b]}</dt>
+                <dd>
+                  <div
+                    className="flex h-3 overflow-hidden rounded-sm bg-surface-2"
+                    role="img"
+                    aria-label={`${yes} yes, ${partly} partly, ${no} no`}
+                  >
+                    <div className="bg-emerald-500/80" style={{ width: `${(yes / total) * 100}%` }} />
+                    <div className="bg-emerald-300/70" style={{ width: `${(partly / total) * 100}%` }} />
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-muted">
+                    {yes} of {total} yes{partly ? `, ${partly} partly` : ""}
+                  </p>
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
+      )}
     </section>
   );
 }
 
 interface GoalsBoardProps {
-  view: GoalsView | null | undefined;
+  view: (GoalsView & { viewerId: string | null }) | null | undefined;
   canEdit: boolean;
   canvasId: Id<"canvases">;
   /** Canvas notes, so an editor can turn one into an item */
   notes?: CanvasNote[];
 }
 
-/** The centre of a canvas: goals, the items that need deciding under each, and their decisions. */
+/**
+ * The dashboard: each goal's card and its items by state, beside what needs you now and how past
+ * decisions panned out.
+ */
 export function GoalsBoard({ view, canEdit, canvasId, notes = [] }: GoalsBoardProps) {
   const addGoal = useMutation(api.goals.addGoal);
   const [goalTitle, setGoalTitle] = useState("");
+  const [openItemId, setOpenItemId] = useState<string | null>(null);
 
-  if (view === undefined) return <p className="text-xs text-muted">Loading goals…</p>;
+  if (view === undefined) return <p className="text-xs text-muted">Loading…</p>;
   if (view === null) return <p className="text-xs text-muted">Goals aren&apos;t available.</p>;
 
   const converted = new Set<string>(view.convertedNoteIds);
   const notesToConvert = notes.filter((n) => !converted.has(n._id));
+  const openItem = (itemId: string) => {
+    setOpenItemId(itemId);
+    requestAnimationFrame(() => document.getElementById(`item-${itemId}`)?.scrollIntoView({ block: "center", behavior: "smooth" }));
+  };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-3">
-      {view.lookBacksDue.length > 0 && (
-        <div className="flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm text-violet-950">
-          <HistoryIcon size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-          <p>
-            {view.lookBacksDue.length === 1 ? "One call is" : `${view.lookBacksDue.length} calls are`} ready to look back on:{" "}
-            {view.lookBacksDue.map((i) => i.title).join("; ")}. Open {view.lookBacksDue.length === 1 ? "it" : "each"} to say whether it panned out.
-          </p>
-        </div>
-      )}
+    <div className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+      <div className="space-y-6">
+        {view.goals.length === 0 && (
+          <div className="rounded-lg border border-line bg-surface p-4 text-sm text-muted">
+            <p className="font-medium text-ink">What are you working toward?</p>
+            <p className="mt-1">Add a goal, like &ldquo;Launch the product&rdquo;. Then list what needs deciding before you get there.</p>
+          </div>
+        )}
 
-      {view.goals.length === 0 && (
-        <div className="rounded-lg border border-line bg-surface p-4 text-sm text-muted">
-          <p className="font-medium text-ink">What are you working toward?</p>
-          <p className="mt-1">
-            Add a goal, like &ldquo;Launch the product&rdquo;. Then list what needs deciding before you get there.
-          </p>
-        </div>
-      )}
+        {view.goals.map((goal) => (
+          <GoalSection
+            key={goal.goalId}
+            goal={goal}
+            goals={view.goals}
+            canEdit={canEdit}
+            notesToConvert={notesToConvert}
+            openItemId={openItemId}
+            setOpenItemId={setOpenItemId}
+          />
+        ))}
 
-      {view.goals.map((goal) => (
-        <GoalSection key={goal.goalId} goal={goal} goals={view.goals} canEdit={canEdit} notesToConvert={notesToConvert} />
-      ))}
+        {canEdit && (
+          <form
+            className="flex gap-1.5"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!goalTitle.trim()) return;
+              await addGoal({ canvasId, title: goalTitle });
+              setGoalTitle("");
+            }}
+          >
+            <input className={inputClass} placeholder="A new goal, e.g. Launch Afforrd" value={goalTitle} onChange={(e) => setGoalTitle(e.target.value)} />
+            <button type="submit" className={primaryButtonClass} disabled={!goalTitle.trim()}>
+              <PlusIcon size={13} /> Add goal
+            </button>
+          </form>
+        )}
+      </div>
 
-      {canEdit && (
-        <form
-          className="flex gap-1.5"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!goalTitle.trim()) return;
-            await addGoal({ canvasId, title: goalTitle });
-            setGoalTitle("");
-          }}
-        >
-          <input className={inputClass} placeholder="A new goal, e.g. Launch Afforrd" value={goalTitle} onChange={(e) => setGoalTitle(e.target.value)} />
-          <button type="submit" className={primaryButtonClass} disabled={!goalTitle.trim()}>
-            <PlusIcon size={13} /> Add goal
-          </button>
-        </form>
-      )}
-
-      <BasisStats stats={view.basisStats} />
+      <aside className="space-y-4 lg:sticky lg:top-0 lg:self-start">
+        {view.viewerId && <NeedsYou view={view} viewerId={view.viewerId} canEdit={canEdit} onOpenItem={openItem} />}
+        <TrackRecord stats={view.basisStats} />
+      </aside>
     </div>
   );
 }

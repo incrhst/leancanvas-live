@@ -103,6 +103,7 @@ export async function deleteGoal(ctx: MutationCtx, goal: Doc<"goals">) {
 export type ItemFields = TestFieldsUpdate & {
   title?: string;
   detail?: string | null;
+  decideBy?: string | null;
   ownerId?: Id<"users"> | null;
   contextNoteIds?: Id<"notes">[];
 };
@@ -126,6 +127,7 @@ export async function createItem(ctx: MutationCtx, actor: Actor, goal: Doc<"goal
     goalId: goal._id,
     title: cleanText(fields.title ?? "", "Item"),
     detail: optionalText(fields.detail, "Detail"),
+    decideBy: fields.decideBy?.trim() ? checkDate(fields.decideBy.trim(), "decideBy") : undefined,
     state: undecidedState(test),
     order: nextOrder(items),
     ownerId: fields.ownerId ?? undefined,
@@ -150,6 +152,9 @@ export async function updateItem(
   const patch: Partial<Doc<"items">> = { ...testFieldsPatch(fields), updatedAt: Date.now() };
   if (fields.title !== undefined) patch.title = cleanText(fields.title, "Item");
   if (fields.detail !== undefined) patch.detail = optionalText(fields.detail, "Detail");
+  if (fields.decideBy !== undefined) {
+    patch.decideBy = fields.decideBy?.trim() ? checkDate(fields.decideBy.trim(), "decideBy") : undefined;
+  }
   if (fields.ownerId !== undefined) {
     await checkOwner(ctx, item.canvasId, fields.ownerId);
     patch.ownerId = fields.ownerId ?? undefined;
@@ -425,6 +430,7 @@ export async function buildGoalsView(ctx: QueryCtx, canvas: Doc<"canvases">) {
       goalId: i.goalId,
       title: i.title,
       detail: i.detail,
+      decideBy: i.decideBy,
       state: i.state as ItemState,
       order: i.order,
       ownerId: i.ownerId,

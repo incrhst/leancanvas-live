@@ -32,7 +32,7 @@ export const view = query({
     if (!user || !canvas) return null;
     const role = await getCanvasRole(ctx, canvas._id, user._id);
     if (!role) return null;
-    return { role, ...(await buildGoalsView(ctx, canvas)) };
+    return { role, viewerId: user._id, ...(await buildGoalsView(ctx, canvas)) };
   },
 });
 
@@ -49,6 +49,7 @@ export const viewByPublicToken = query({
     // Guests see what was decided and on what basis, not who in the team drives what
     return {
       role: null,
+      viewerId: null,
       ...view,
       goals: view.goals.map((g) => ({
         ...g,
@@ -101,6 +102,7 @@ export const addItem = mutation({
     goalId: v.id("goals"),
     title: v.string(),
     detail: v.optional(v.string()),
+    decideBy: v.optional(v.string()),
     ownerId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
@@ -114,6 +116,7 @@ export const editItem = mutation({
     itemId: v.id("items"),
     title: v.optional(v.string()),
     detail: v.optional(v.union(v.string(), v.null())),
+    decideBy: v.optional(v.union(v.string(), v.null())),
     ownerId: v.optional(v.union(v.id("users"), v.null())),
     goalId: v.optional(v.id("goals")),
     contextNoteIds: v.optional(v.array(v.id("notes"))),

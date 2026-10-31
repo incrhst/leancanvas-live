@@ -538,6 +538,8 @@ const TOOLS_MANIFEST = [
         goalId: { type: "string" },
         title: { type: "string", description: "The question or choice, in plain words, e.g. 'Which channel do we launch on?'" },
         detail: { type: "string" },
+        decideBy: { type: ["string", "null"], description: "When the call should be made by, YYYY-MM-DD. null clears it." },
+        decideByDay: { type: "integer", description: "Alternative to decideBy: a day of the plan, counted from the canvas's launchDate" },
         driverUserId: { ...DRIVER_PROPERTY, description: "The one person doing the work on it. A userId from list_canvas_members." },
         contextNoteIds: { type: "array", items: { type: "string" }, description: "Canvas notes to keep with it as context or evidence" },
         ...TEST_FIELD_PROPERTIES,
@@ -548,7 +550,7 @@ const TOOLS_MANIFEST = [
   {
     name: "update_item",
     description:
-      "Change an item's title, detail, driver, linked notes or test, or move it to another goal (goalId). Pass only what changes; null clears a field. An undecided item follows its test: adding one makes it testing, clearing it makes it open. To decide, use decide_item.",
+      "Change an item's title, detail, driver, linked notes or test, or move it to another goal (goalId). Pass only what changes (including decideBy, the date the call should be made by); null clears a field. An undecided item follows its test: adding one makes it testing, clearing it makes it open. To decide, use decide_item.",
     inputSchema: {
       type: "object",
       properties: {
@@ -556,6 +558,8 @@ const TOOLS_MANIFEST = [
         goalId: { type: "string", description: "Move the item to this goal (same canvas)" },
         title: { type: "string" },
         detail: { type: ["string", "null"] },
+        decideBy: { type: ["string", "null"], description: "When the call should be made by, YYYY-MM-DD. null clears it." },
+        decideByDay: { type: "integer", description: "Alternative to decideBy: a day of the plan, counted from the canvas's launchDate" },
         driverUserId: DRIVER_PROPERTY,
         contextNoteIds: { type: "array", items: { type: "string" }, description: "Replaces the linked notes; [] clears them" },
         ...TEST_FIELD_PROPERTIES,
@@ -952,6 +956,8 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         goalId: str(args.goalId),
         title: str(args.title),
         detail: nullableStr(args.detail),
+        decideBy: nullableStr(args.decideBy),
+        decideByDay: typeof args.decideByDay === "number" ? args.decideByDay : undefined,
         driverUserId: nullableStr(args.driverUserId),
         contextNoteIds: strArray(args.contextNoteIds),
         ...testFieldArgs(args),
@@ -963,6 +969,8 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         goalId: optStr(args.goalId),
         title: optStr(args.title),
         detail: nullableStr(args.detail),
+        decideBy: nullableStr(args.decideBy),
+        decideByDay: typeof args.decideByDay === "number" ? args.decideByDay : undefined,
         driverUserId: nullableStr(args.driverUserId),
         contextNoteIds: strArray(args.contextNoteIds),
         ...testFieldArgs(args),
