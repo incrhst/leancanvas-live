@@ -297,7 +297,7 @@ export const exportCanvas = query({
       view: args.view,
       format: args.format,
       url,
-      message: `Open this link while signed in to LeanOn. The ${format} downloads once the canvas loads: ${url}`,
+      message: `Open this link while signed in to CriticalDash. The ${format} downloads once the canvas loads: ${url}`,
     };
   },
 });

@@ -1020,7 +1020,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse(
       JSON.stringify({
         error: "unauthorized",
-        message: "Authentication required to access LeanOn MCP tools",
+        message: "Authentication required to access CriticalDash MCP tools",
       }),
       {
         status: 401,
@@ -1037,9 +1037,9 @@ export async function GET(req: NextRequest) {
   // Discovery manifest including OAuth 2.1 authentication info
   return NextResponse.json(
     {
-      name: "leanon",
+      name: "criticaldash",
       version: "0.1.0",
-      description: "LeanOn Model Context Protocol endpoint for Claude Connectors",
+      description: "CriticalDash Model Context Protocol endpoint for Claude Connectors",
       protocol: "mcp/sse",
       endpoints: {
         http: "https://lean.incrementic.com/api/mcp",
@@ -1104,11 +1104,11 @@ export async function POST(req: NextRequest) {
               tools: {},
             },
             serverInfo: {
-              name: "leanon",
+              name: "criticaldash",
               version: "0.1.0",
             },
             instructions:
-              "LeanOn revolves around decisions. Each canvas has goals; each goal has items that need a decision before the goal is reached. " +
+              "CriticalDash revolves around decisions. Each canvas has goals; each goal has items that need a decision before the goal is reached. " +
               "Items move open -> testing (optional, while a test runs) -> decided -> done. Start with list_goals. " +
               "Record calls with decide_item (basis: test, data, expert or judgment), mark them done once acted on, and on the review date ask whether they panned out (record_look_back). " +
               "Canvas notes are context and evidence; convert_note_to_item turns one into an item.",

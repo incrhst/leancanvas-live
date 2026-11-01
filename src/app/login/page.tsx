@@ -53,7 +53,7 @@ function LoginForm() {
         <div className="inline-flex w-10 h-10 rounded-xl bg-accent text-white font-bold items-center justify-center text-lg mb-2">
           LO
         </div>
-        <h1 className="text-xl font-bold text-ink">Sign in to LeanOn</h1>
+        <h1 className="text-xl font-bold text-ink">Sign in to CriticalDash</h1>
         <p className="text-xs text-muted">
           Enter your email and we&apos;ll send you a magic sign-in link
         </p>

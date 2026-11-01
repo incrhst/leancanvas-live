@@ -1,4 +1,4 @@
-# LeanOn
+# CriticalDash
 
 Realtime multiplayer collaborative canvases by **Incrementic** (`lean.incrementic.com`), powered by Next.js 15, Convex, and AI stress-testing. Choose a **Lean Canvas** or a **GTM Canvas** for each new canvas.
 
@@ -12,7 +12,7 @@ Realtime multiplayer collaborative canvases by **Incrementic** (`lean.incrementi
 Everything revolves around the decision record. Each canvas has **goals** (big outcomes, e.g. "Launch Afforrd"). Each goal has **items**: things that need a decision before the goal is reached. An item is **Open** (nobody knows yet), **Testing** (a test is running), **Decided** (a call has been made) or **Done** (the call was acted on). Testing is optional.
 
 - Every **decision record** keeps what was decided, its basis (test result, existing data, expert view or judgment call), linked notes, who decided and when, and a review date.
-- On the review date of a done item, LeanOn asks: **did it pan out?** (Yes, No, Partly). The goals view counts how often each kind of basis panned out.
+- On the review date of a done item, CriticalDash asks: **did it pan out?** (Yes, No, Partly). The goals view counts how often each kind of basis panned out.
 - The **Goals** tab is the first view of every canvas, for members and on the public link. Open items look hazy and turn sharp once decided.
 - Canvas notes are context and evidence. An editor can turn a note into an item ("Add from a canvas note"): its test and driver carry over, and an answered decision request becomes the item's decision record.
 
@@ -41,7 +41,7 @@ Both templates use the same 7 stress-test scores, so the stored results and the 
 
 ## Connecting to Claude (No-Code Connector URL)
 
-For non-technical users, connecting LeanOn to Claude takes just one click:
+For non-technical users, connecting CriticalDash to Claude takes just one click:
 
 1. In Claude, go to **Settings › Connectors** (or **Add MCP Server**).
 2. Click **Add Connector**.

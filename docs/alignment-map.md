@@ -1,4 +1,4 @@
-# Alignment map: LeanOn spec vs the code today
+# Alignment map: CriticalDash spec vs the code today
 
 Phase 0 of the alignment spec (18 October 2026). For each concept in the spec: what exists, the gap, the risk. Nothing has been changed yet. Read against commit `7959741`.
 
@@ -142,7 +142,7 @@ Viewer labels (Needs a call / Testing / Agreed) are a pure function of confidenc
 
 | Today | Gap |
 | :-- | :-- |
-| Email through Resend (`AUTH_RESEND_KEY`). Sender defaults to `LeanCanvas <onboarding@resend.dev>` unless `AUTH_EMAIL_FROM` is set. Every link in an email points to a signed-in page. Users without an email are skipped silently. | A `links` table on the same pattern as `oauthCodes` and `invites`: store a SHA-256 hash of a random token, plus person, action (`answer_decision`, `answer_check_in`, `review_checkpoint`, `guest_answer`), target id, `expiresAt`, `usedAt`. Hashed tokens in a table are easier to revoke and scope than JWTs, and match how the code already handles secrets. Send step: one function that takes a person and a message and picks a channel. Email first; a "copy link" button for WhatsApp. |
+| Email through Resend (`AUTH_RESEND_KEY`). Sender defaults to `CriticalDash <onboarding@resend.dev>` unless `AUTH_EMAIL_FROM` is set. Every link in an email points to a signed-in page. Users without an email are skipped silently. | A `links` table on the same pattern as `oauthCodes` and `invites`: store a SHA-256 hash of a random token, plus person, action (`answer_decision`, `answer_check_in`, `review_checkpoint`, `guest_answer`), target id, `expiresAt`, `usedAt`. Hashed tokens in a table are easier to revoke and scope than JWTs, and match how the code already handles secrets. Send step: one function that takes a person and a message and picks a channel. Email first; a "copy link" button for WhatsApp. |
 
 ### Section 8: MCP
 
@@ -261,7 +261,7 @@ From the spec (section 12), with what the code suggests:
 3. **Who sees parked route notes?** Code-neutral.
 4. **Daily question limit**: per decider is no harder to build than fixed.
 5. **Guest answers need approval?** The `results.source = "guest"` field lets the operator console show them as "unconfirmed" without blocking them.
-6. **Email sender**: Resend is wired in; sender identity is `AUTH_EMAIL_FROM` (default `LeanCanvas <onboarding@resend.dev>`). Which domain and name should decision links come from?
+6. **Email sender**: Resend is wired in; sender identity is `AUTH_EMAIL_FROM` (default `CriticalDash <onboarding@resend.dev>`). Which domain and name should decision links come from?
 
 New, from this survey:
 
@@ -271,7 +271,7 @@ New, from this survey:
 10. **Agreed notes with no decision record** (RotiStreak's 10, Afforrd's 17): flag them directly on a failed test (recommended), or create a decided record for each at migration?
 11. **Rejected decision requests** currently turn the note purple. Should migration treat them as "agreed" or not? (No real canvas has one today.)
 12. **Cross-canvas gates**: when the gate moves, should the gated canvas's launch date move with it?
-13. **Naming**: the code, emails and MCP server call the product "LeanCanvas" (`leancanvas-live`). Is "LeanOn" a rename to carry through, or only the spec's name?
+13. **Naming**: resolved. The product is called CriticalDash in the app, emails, MCP server and docs. The repository (`leancanvas-live`) and internal keys keep their old names.
 
 ## Proposed Phase 1 shape (for review, not started)
 
