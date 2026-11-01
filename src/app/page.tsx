@@ -735,11 +735,9 @@ export default function HomePage() {
             <p className="text-lg font-semibold text-white/95">For businesses that sit between providers and customers</p>
             <HeroHeadline className="font-display font-extrabold text-5xl sm:text-6xl lg:text-7xl tracking-tight leading-[1.02]" />
             <p className="text-xl text-white leading-relaxed max-w-xl">
-              Brokers, comparison sites, agencies, resellers, organisers. Which partners to work with. How to rank
-              what they offer. When to recommend and when to stay neutral. What to do when a partner changes its
-              terms overnight. That judgement lives in your head and a few trusted
-              inboxes. CriticalDash gets it out, checks what really works, and writes it down as runbooks your team,
-              or an AI assistant, can follow.
+              Which partners to work with, how to rank what they offer, what to do when one changes its terms. That
+              judgement lives in your head. CriticalDash gets it out, checks what really works, and writes it down as
+              runbooks your team can follow.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 pt-1">
               <a
