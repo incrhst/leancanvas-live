@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { LookUpSkyline } from "../components/LookUpSkyline";
 import {
@@ -663,6 +663,8 @@ function StageExplorer() {
  * ---------------------------------------------------------------------------------------------- */
 
 export default function HomePage() {
+  const heroRef = useRef<HTMLElement>(null);
+
   return (
     <div className="min-h-screen bg-canvas text-ink flex flex-col justify-between selection:bg-incrementic-red selection:text-white">
       {/* Top Navbar */}
@@ -705,8 +707,12 @@ export default function HomePage() {
 
       {/* Hero */}
       {/* Looking up between towers; they converge behind the quotes */}
-      <header className="relative w-full bg-[#0F3A33] text-white overflow-hidden py-16 sm:py-24 px-5 sm:px-6">
-        <LookUpSkyline className="hidden lg:block absolute inset-0 right-[-36%]" zoom={1.45} />
+      <header ref={heroRef} className="relative w-full bg-[#0F3A33] text-white overflow-hidden py-16 sm:py-24 px-5 sm:px-6">
+        {/* Pinned on wide screens: the street stays put while the copy and quotes scroll over it.
+            The clip-path keeps the fixed layer inside the hero. */}
+        <div aria-hidden="true" className="hidden lg:block absolute inset-0 [clip-path:inset(0)] pointer-events-none">
+          <LookUpSkyline className="fixed inset-0 right-[-36%]" zoom={1.45} track={heroRef} />
+        </div>
         <div aria-hidden="true" className="absolute inset-0 bg-[#0A2622]/45 lg:bg-transparent lg:bg-gradient-to-r lg:from-[#0A2622]/80 lg:via-[#0A2622]/40 lg:via-45% lg:to-transparent lg:to-60% pointer-events-none" />
         <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-12 items-center">
           <div className="space-y-7">
