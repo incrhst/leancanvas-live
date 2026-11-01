@@ -1,14 +1,14 @@
 import React from "react";
-import { BookOpenCheckIcon, Columns3Icon, LayoutGridIcon, ShieldAlertIcon, TargetIcon } from "lucide-react";
+import { BookOpenCheckIcon, BoxesIcon, Columns3Icon, LayoutGridIcon, ShieldAlertIcon, TargetIcon } from "lucide-react";
 
-export type CanvasView = "goals" | "runbooks" | "canvas" | "status" | "risks";
+export type CanvasView = "goals" | "runbooks" | "canvas" | "overview" | "status" | "risks";
 
 /**
  * The view in the URL (?view=), or the default when there's none. Everyone starts on goals, the
  * decisions each one is waiting on; the status board and canvas hold the notes behind them.
  */
 export function parseCanvasView(param: string | null, defaultView: CanvasView): CanvasView {
-  return param === "goals" || param === "runbooks" || param === "canvas" || param === "status" || param === "risks"
+  return param === "goals" || param === "runbooks" || param === "canvas" || param === "overview" || param === "status" || param === "risks"
     ? param
     : defaultView;
 }
@@ -71,6 +71,17 @@ export function CanvasViewToggle({ view, riskCount, onChange }: CanvasViewToggle
       >
         <LayoutGridIcon className="h-3.5 w-3.5" />
         Canvas
+      </button>
+      {/* The 2.5D overview needs room; phones keep the canvas. */}
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "overview"}
+        onClick={() => onChange("overview")}
+        className={`${base} hidden md:inline-flex ${view === "overview" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
+      >
+        <BoxesIcon className="h-3.5 w-3.5" />
+        Overview
       </button>
       <button
         type="button"
