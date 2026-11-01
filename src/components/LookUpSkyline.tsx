@@ -200,13 +200,59 @@ const CLOUDS = [
   { y: 250, scale: 0.7, duration: 64, delay: 22 },
 ];
 
-function Cloud({ scale }: { scale: number }) {
+// The sky's shapes, also used as small accents further down the page (SkyAccent).
+export function Cloud({ scale = 1, fill = C.cloud }: { scale?: number; fill?: string }) {
   return (
     <g transform={`scale(${scale})`}>
-      <rect x={-70} y={-6} width={140} height={26} rx={13} fill={C.cloud} />
-      <circle cx={-32} cy={-6} r={24} fill={C.cloud} />
-      <circle cx={6} cy={-18} r={32} fill={C.cloud} />
-      <circle cx={42} cy={-2} r={20} fill={C.cloud} />
+      <rect x={-70} y={-6} width={140} height={26} rx={13} fill={fill} />
+      <circle cx={-32} cy={-6} r={24} fill={fill} />
+      <circle cx={6} cy={-18} r={32} fill={fill} />
+      <circle cx={42} cy={-2} r={20} fill={fill} />
+    </g>
+  );
+}
+
+export const FLOCK = [
+  [0, 0, 1],
+  [-26, 14, 0.8],
+  [-18, -16, 0.85],
+  [-48, 4, 0.7],
+  [-44, 28, 0.6],
+] as const;
+
+export function Bird({ x, y, scale, delay, wingClass }: { x: number; y: number; scale: number; delay: number; wingClass: string }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${scale})`}>
+      <path
+        className={wingClass}
+        style={{ animationDelay: `-${delay}s` }}
+        d="M-12,0 Q-6,-8 0,0 Q6,-8 12,0"
+        fill="none"
+        stroke={C.darkFace}
+        strokeWidth={2.5}
+        strokeLinecap="round"
+      />
+    </g>
+  );
+}
+
+/** A note folded into a paper plane, nose pointing right. */
+export function PaperPlane() {
+  return (
+    <g>
+      <path d="M-16,-6 L18,0 L-16,8 L-8,1 Z" fill="rgb(var(--note-yellow))" />
+      <path d="M-8,1 L18,0 L-12,12 Z" fill="rgb(var(--note-yellow-edge))" />
+    </g>
+  );
+}
+
+/** A balloon centred on its middle, string trailing down to y=50. */
+export function Balloon() {
+  return (
+    <g>
+      <path d="M0,16 Q-4,26 2,34 Q6,42 0,50" fill="none" stroke={C.darkFace} strokeWidth={1.5} opacity={0.6} />
+      <ellipse cx={0} cy={0} rx={13} ry={16} fill={C.balloon} />
+      <path d="M-3,15 L3,15 L0,19 Z" fill={C.balloon} />
     </g>
   );
 }
@@ -233,24 +279,8 @@ function SkyLife({ sky, at }: { sky: Sky; at: (dx: number, dy: number) => Pt }) 
       {/* A flock, flying up and across */}
       <g transform={`translate(${at(0, 60).join(" ")})`}>
         <g className="lookup-once lookup-flock" style={vars({ "--span": `${span}px`, "--lift": `${sky.ry * 0.5}px` })}>
-          {[
-            [0, 0, 1],
-            [-26, 14, 0.8],
-            [-18, -16, 0.85],
-            [-48, 4, 0.7],
-            [-44, 28, 0.6],
-          ].map(([x, y, k], i) => (
-            <g key={i} transform={`translate(${x} ${y}) scale(${k})`}>
-              <path
-                className="lookup-wing"
-                style={{ animationDelay: `-${i * 0.13}s` }}
-                d="M-12,0 Q-6,-8 0,0 Q6,-8 12,0"
-                fill="none"
-                stroke={C.darkFace}
-                strokeWidth={2.5}
-                strokeLinecap="round"
-              />
-            </g>
+          {FLOCK.map(([x, y, k], i) => (
+            <Bird key={i} x={x} y={y} scale={k} delay={i * 0.13} wingClass="lookup-wing" />
           ))}
         </g>
       </g>
@@ -267,8 +297,7 @@ function SkyLife({ sky, at }: { sky: Sky; at: (dx: number, dy: number) => Pt }) 
       <g transform={`translate(${at(0, 30).join(" ")})`}>
         <g className="lookup-once lookup-paper" style={vars({ "--span": `${span}px`, "--lift": `${sky.ry * 0.35}px` })}>
           <g transform="scale(-1 1)">
-            <path d="M-16,-6 L18,0 L-16,8 L-8,1 Z" fill="rgb(var(--note-yellow))" />
-            <path d="M-8,1 L18,0 L-12,12 Z" fill="rgb(var(--note-yellow-edge))" />
+            <PaperPlane />
           </g>
         </g>
       </g>
@@ -276,9 +305,7 @@ function SkyLife({ sky, at }: { sky: Sky; at: (dx: number, dy: number) => Pt }) 
       {/* A balloon someone let go of, drifting up through the gap */}
       <g transform={`translate(${at(-140, 0).join(" ")})`}>
         <g className="lookup-once lookup-balloon" style={vars({ "--lift": `${lift}px` })}>
-          <path d="M0,16 Q-4,26 2,34 Q6,42 0,50" fill="none" stroke={C.darkFace} strokeWidth={1.5} opacity={0.6} />
-          <ellipse cx={0} cy={0} rx={13} ry={16} fill={C.balloon} />
-          <path d="M-3,15 L3,15 L0,19 Z" fill={C.balloon} />
+          <Balloon />
         </g>
       </g>
     </g>
