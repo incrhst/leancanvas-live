@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
+import { LookUpSkyline } from "../components/LookUpSkyline";
 import {
   AlertTriangleIcon,
   ArrowDownIcon,
@@ -662,15 +663,6 @@ function StageExplorer() {
  * ---------------------------------------------------------------------------------------------- */
 
 export default function HomePage() {
-  // The hero's haze thins as you scroll into the page
-  const [heroFog, setHeroFog] = useState(1);
-  useEffect(() => {
-    const onScroll = () => setHeroFog(Math.max(0, 1 - window.scrollY / 600));
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   return (
     <div className="min-h-screen bg-canvas text-ink flex flex-col justify-between selection:bg-incrementic-red selection:text-white">
       {/* Top Navbar */}
@@ -712,9 +704,10 @@ export default function HomePage() {
       </nav>
 
       {/* Hero */}
-      <header className="relative w-full bg-gradient-to-b from-[#EA5148] via-[#E84A41] to-[#D93D34] text-white overflow-hidden py-16 sm:py-24 px-5 sm:px-6">
-        <div className="absolute inset-0 bg-halftone pointer-events-none opacity-30 mix-blend-overlay" />
-        <div aria-hidden="true" className="fog-drift absolute -inset-24 pointer-events-none" style={{ opacity: heroFog }} />
+      {/* Looking up between towers; they converge behind the quotes */}
+      <header className="relative w-full bg-[#0F3A33] text-white overflow-hidden py-16 sm:py-24 px-5 sm:px-6">
+        <LookUpSkyline className="hidden lg:block absolute inset-0 right-[-36%]" zoom={1.45} />
+        <div aria-hidden="true" className="absolute inset-0 bg-[#0A2622]/45 lg:bg-transparent lg:bg-gradient-to-r lg:from-[#0A2622]/80 lg:via-[#0A2622]/40 lg:via-45% lg:to-transparent lg:to-60% pointer-events-none" />
         <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-12 items-center">
           <div className="space-y-7">
             <p className="text-lg font-semibold text-white/95">For businesses that sit between providers and customers</p>
@@ -733,14 +726,14 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row gap-3 pt-1">
               <a
                 href="#check"
-                className="inline-flex min-h-[56px] items-center justify-center gap-2 rounded-full bg-white px-7 font-display font-semibold text-lg text-incrementic-ink shadow-xl hover:bg-white/95 transition-all"
+                className="inline-flex min-h-[56px] items-center justify-center gap-2 rounded-full bg-[#C8352D] px-7 font-display font-semibold text-lg text-white shadow-xl hover:bg-[#B32E27] transition-colors"
               >
                 Take the 2-minute check
                 <ArrowDownIcon className="h-5 w-5" aria-hidden="true" />
               </a>
               <Link
                 href="/dashboard"
-                className="inline-flex min-h-[56px] items-center justify-center rounded-full border-2 border-white/80 px-7 font-display font-semibold text-lg text-white hover:bg-white/10 transition-colors"
+                className="inline-flex min-h-[56px] items-center justify-center rounded-full border-2 border-white/80 bg-[#0A2622]/60 px-7 font-display font-semibold text-lg text-white hover:bg-[#0A2622]/80 transition-colors"
               >
                 Start free
               </Link>
@@ -748,16 +741,24 @@ export default function HomePage() {
           </div>
 
           {/* The plan breaks, so build mechanisms */}
-          <div className="rounded-3xl border border-white/30 bg-white/10 backdrop-blur-md p-6 sm:p-8 space-y-6">
-            <div className="fog-text" style={fog(0.45)} tabIndex={0}>
-              <QuoteBlock q={TYSON} tone="hero" size="lg" />
+          <div className="relative">
+            {/* On phones the panel sits low, so the street is redrawn tall and centred on it */}
+            <LookUpSkyline
+              className="lg:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[2700px] -z-10"
+              aspect={1 / 3}
+              sky={{ rx: 384, ry: 470 }}
+            />
+            <div className="rounded-3xl border border-[#9FE0C2]/40 bg-[#0A2622]/85 backdrop-blur-md p-6 sm:p-8 space-y-6 shadow-2xl">
+              <div className="fog-text" style={fog(0.45)} tabIndex={0}>
+                <QuoteBlock q={TYSON} tone="hero" size="lg" />
+              </div>
+              <div className="flex items-center gap-3 text-white/90" aria-hidden="true">
+                <span className="h-px flex-1 bg-white/40" />
+                <span className="text-base font-semibold">so</span>
+                <span className="h-px flex-1 bg-white/40" />
+              </div>
+              <QuoteBlock q={BEZOS} tone="hero" size="lg" />
             </div>
-            <div className="flex items-center gap-3 text-white/90" aria-hidden="true">
-              <span className="h-px flex-1 bg-white/40" />
-              <span className="text-base font-semibold">so</span>
-              <span className="h-px flex-1 bg-white/40" />
-            </div>
-            <QuoteBlock q={BEZOS} tone="hero" size="lg" />
           </div>
         </div>
       </header>
