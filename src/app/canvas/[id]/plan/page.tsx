@@ -23,6 +23,7 @@ const IN_A_LIVE_PLAN = [
 
 const ALWAYS_FREE = [
   "The canvas, its notes and evidence states",
+  "Goals and runbooks",
   "Stress tests, share links and exports",
   "Inviting anyone, at any role",
   "Answering a decision or a check-in",
