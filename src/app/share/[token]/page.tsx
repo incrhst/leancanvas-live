@@ -23,6 +23,7 @@ import {
 } from "../../../components/CanvasViewToggle";
 import { DecidedCountChip, PlanStatusBoard } from "../../../components/PlanStatusBoard";
 import { GoalsBoard } from "../../../components/GoalsBoard";
+import { RunbooksBoard } from "../../../components/RunbooksBoard";
 import { NoteItem, StressTestResult } from "../../../types/canvas";
 import { GlobeIcon, SparklesIcon, LogInIcon, FileTextIcon, DownloadIcon, LockIcon } from "lucide-react";
 import { NoteSearch, NoteSearchButton, useNoteSearchShortcut } from "../../../components/NoteSearch";
@@ -57,6 +58,10 @@ export default function PublicSharePage() {
   const goalsView = useQuery(
     api.goals.viewByPublicToken,
     grantLoaded && view === "goals" ? { token, grant } : "skip"
+  );
+  const runbooksView = useQuery(
+    api.runbooks.viewByPublicToken,
+    grantLoaded && view === "runbooks" ? { token, grant } : "skip"
   );
   const [password, setPassword] = useState("");
   const [unlockError, setUnlockError] = useState<string | null>(null);
@@ -283,6 +288,8 @@ export default function PublicSharePage() {
             )}
             {view === "goals" ? (
               <GoalsBoard view={goalsView} canEdit={false} canvasId={data.canvas._id} />
+            ) : view === "runbooks" ? (
+              <RunbooksBoard view={runbooksView} blocks={template.blocks} canEdit={false} canRun={false} />
             ) : view === "status" ? (
               <PlanStatusBoard
                 blocks={template.blocks}

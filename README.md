@@ -16,6 +16,15 @@ Everything revolves around the decision record. Each canvas has **goals** (big o
 - The **Goals** tab is the first view of every canvas, for members and on the public link. Open items look hazy and turn sharp once decided.
 - Canvas notes are context and evidence. An editor can turn a note into an item ("Add from a canvas note"): its test and driver carry over, and an answered decision request becomes the item's decision record.
 
+## From guess to runbook
+
+Every canvas note has a **stage**: guess → tested → repeatable → codified. A canvas box is only as runnable as its least runnable note, so the canvas shows which parts of the business run without you and which are still experiments.
+
+- **Runbooks** are plays written so someone else, or an agent, can run them: trigger, owner, ordered steps, linked canvas notes and the goal decisions they rest on. They start as drafts; **SOPs** group them.
+- A runbook can go live only when its steps are written and every linked note is at least repeatable ("don't scale a guess"). Going live marks those notes **codified**; retiring it drops them back to repeatable. Codified is never set by hand.
+- Every **run** logs whether it worked (yes, no, partly), the step where it broke and what it produced. A runbook that fails at the same step twice in its last five runs is flagged: usually a canvas problem showing up in operations.
+- Start a runbook from a repeatable note ("Write the runbook") or a decided goal item. The **Runbooks** tab holds SOPs, runbooks, the run log and the "how much runs without you" map. Any member, viewers included, can log a run.
+
 ---
 
 ## Canvas Templates
@@ -63,6 +72,11 @@ When configured, Claude has access to:
 - `mark_item_done`, `reopen_item`: Move a decided item to done, or take it back to open (the old record is kept as an earlier call).
 - `record_look_back({ itemId, outcome: yes | no | partly, note })`: Did a done item's decision pan out?
 - `convert_note_to_item({ noteId, goalId })`: Turns a canvas note into an item.
+- `update_note({ noteId, stage })`: Sets a note's stage to guess, tested or repeatable (codified comes from a live runbook). `get_canvas` returns each note's stage and `blockStages`.
+- `list_runbooks({ canvasId })`: Block stages, SOPs, runbooks with run stats, and runbooks that need attention.
+- `create_sop`, `update_sop`, `delete_sop`: Manage SOPs.
+- `create_runbook({ canvasId | fromNoteId | fromItemId, title, trigger, ownerUserId, steps, noteIds, itemIds, sopId, reviewDate })`, `update_runbook({ runbookId, status, ... })`, `delete_runbook`: Manage runbooks and move them between draft, live and retired.
+- `log_run({ runbookId, outcome, failedStep, numbers, note })`: Records one use of a live runbook.
 - `create_canvas({ title, description, template, seedNotes, launchDate })`: Initializes a new canvas (`template`: `lean` by default, or `gtm`) and returns the direct collaboration URL.
 - `update_canvas({ canvasId, title, description, launchDate })`: Changes a canvas's title, description or launch date. The launch date (`YYYY-MM-DD`) is day 0 of the plan; `null` clears it.
 - `get_canvas({ canvasId, driverUserId, market })`: Fetches full structured canvas, blocks, and current notes with evidence states, drivers and tests (`measure`, `passMark`, `reviewDate`, `latestResult`). With a launch date it also returns `currentDay` and each note's `reviewDay`. `driverUserId` (or `"unassigned"`) narrows it to the notes one person is driving; `market` to the notes that hold in one market (tagged with it, or untagged, which means every market).
@@ -120,6 +134,8 @@ When configured, Claude has access to:
 - `canvases:getCanvasByPublicToken`: Sanitized read-only query for public sharing
 - `goals:view`, `goals:viewByPublicToken`: The goals view for members, and read-only on the public link
 - `goals:addGoal`, `renameGoalTitle`, `removeGoal`, `addItem`, `editItem`, `removeItem`, `decide`, `markDone`, `reopen`, `lookBack`, `convertNote`: Editor+ only
+- `runbooks:view`, `runbooks:viewByPublicToken`: The runbooks view for members, and read-only on the public link
+- `runbooks:addSop`, `editSop`, `removeSop`, `addRunbook`, `editRunbook`, `setStatus`, `removeRunbook`, `fromNote`, `fromItem`: Editor+ only; `runbooks:logRunbookRun`: any member
 - `canvases:setPublicView`: Enable/disable public read-only link and regenerate token (Owner only)
 - `notes:addNote`, `updateNote`, `deleteNote`, `reorderNotes`: Editor+ only mutations
 - `stressTests:runStressTest`: Convex action running 7-dimension scoring & riskiest assumption analysis
