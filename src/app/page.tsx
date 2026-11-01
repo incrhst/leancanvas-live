@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import {
   AlertTriangleIcon,
+  ArrowRightIcon,
   BookOpenCheckIcon,
   BotIcon,
   CheckCheckIcon,
@@ -166,6 +167,99 @@ const FAMILIES = [
     risk: "Costs that creep for months before anyone looks",
   },
 ];
+
+type Quote = { text: string; who: string; credit?: React.ReactNode };
+
+const TYSON: Quote = { text: "Everybody has a plan until they get punched in the mouth.", who: "Mike Tyson" };
+const BEZOS: Quote = {
+  text: "Good intentions never work, you need good mechanisms to make anything happen.",
+  who: "Jeff Bezos",
+};
+
+/**
+ * The argument in four stages. Each pairs a household name with a respected expert,
+ * and the headings read in order make the case on their own. Keep wording and attributions exact.
+ */
+const QUOTE_STAGES: { heading: string; stage: string; quotes: [Quote, Quote] }[] = [
+  {
+    heading: "Your business model is a guess",
+    stage: "Hypothesis",
+    quotes: [
+      TYSON,
+      {
+        text: "A startup is a temporary organization designed to search for a repeatable and scalable business model.",
+        who: "Steve Blank",
+        credit: (
+          <>
+            Silicon Valley entrepreneur, Stanford lecturer and co-author of <i>The Startup Owner&rsquo;s Manual</i>
+          </>
+        ),
+      },
+    ],
+  },
+  {
+    heading: "Do it by hand before you systemise it",
+    stage: "Experiment",
+    quotes: [
+      { text: "Genius is one percent inspiration, ninety-nine percent perspiration.", who: "Thomas Edison" },
+      {
+        text: "Do things that don't scale.",
+        who: "Paul Graham",
+        credit: "co-founder of Y Combinator, the accelerator behind Airbnb, Dropbox and Stripe",
+      },
+    ],
+  },
+  {
+    heading: "Ship, then learn from what happens",
+    stage: "Repeatable play",
+    quotes: [
+      { text: "Real artists ship.", who: "Steve Jobs" },
+      {
+        text: "The only way to win is to learn faster than anyone else.",
+        who: "Eric Ries",
+        credit: (
+          <>
+            author of <i>The Lean Startup</i>
+          </>
+        ),
+      },
+    ],
+  },
+  {
+    heading: "Turn what works into mechanisms",
+    stage: "Runbook → SOP",
+    quotes: [
+      BEZOS,
+      {
+        text: "Civilization advances by extending the number of important operations which we can perform without thinking about them.",
+        who: "Alfred North Whitehead",
+        credit: (
+          <>
+            British mathematician and philosopher, co-author of <i>Principia Mathematica</i>
+          </>
+        ),
+      },
+    ],
+  },
+];
+
+/** One quote, attributed. `tone` switches between the red hero and the light page. */
+function QuoteBlock({ q, tone = "light" }: { q: Quote; tone?: "light" | "hero" }) {
+  const hero = tone === "hero";
+  return (
+    <figure className="space-y-2">
+      <blockquote
+        className={`font-display leading-snug ${hero ? "text-white text-lg sm:text-xl font-semibold" : "text-ink text-[15px] font-semibold"}`}
+      >
+        &ldquo;{q.text}&rdquo;
+      </blockquote>
+      <figcaption className={`text-xs leading-snug ${hero ? "text-white/80" : "text-muted"}`}>
+        <span className={`font-semibold ${hero ? "text-white" : "text-ink"}`}>{q.who}</span>
+        {q.credit && <>, {q.credit}</>}
+      </figcaption>
+    </figure>
+  );
+}
 
 const CONTROLS = [
   {
@@ -335,10 +429,54 @@ export default function HomePage() {
 
           <RiskMapPreview />
         </div>
+
+        {/* The plan breaks, so build mechanisms */}
+        <div className="relative z-10 max-w-6xl mx-auto mt-14 sm:mt-16 rounded-2xl border border-white/30 bg-white/10 backdrop-blur-md p-6 sm:p-8 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-6 md:gap-8 items-center">
+          <QuoteBlock q={TYSON} tone="hero" />
+          <span className="justify-self-center md:justify-self-auto inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/15 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-white">
+            So
+            <ArrowRightIcon className="w-3.5 h-3.5 rotate-90 md:rotate-0" aria-hidden="true" />
+          </span>
+          <QuoteBlock q={BEZOS} tone="hero" />
+        </div>
       </header>
 
+      {/* The argument, in four stages */}
+      <section className="max-w-6xl mx-auto px-6 pt-20 w-full space-y-8" aria-labelledby="four-stages">
+        <div className="space-y-1">
+          <span className="font-mono text-xs uppercase tracking-widest text-incrementic-red">The argument, in four stages</span>
+          <h2 id="four-stages" className="font-display font-bold text-2xl sm:text-3xl text-ink max-w-3xl">
+            It&rsquo;s been said before, by people who&rsquo;d know.
+          </h2>
+        </div>
+        <ol className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {QUOTE_STAGES.map(({ heading, stage, quotes }, i) => (
+            <li key={heading} className="rounded-2xl bg-surface border border-line p-5 shadow-sm flex flex-col gap-4">
+              <div className="space-y-1.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-incrementic-red">
+                  {String(i + 1).padStart(2, "0")} • {stage}
+                </span>
+                <h3 className="font-display font-bold text-lg text-ink leading-tight">{heading}</h3>
+              </div>
+              <div className="space-y-4 divide-y divide-line [&>*+*]:pt-4">
+                {quotes.map((q) => (
+                  <QuoteBlock key={q.who} q={q} />
+                ))}
+              </div>
+            </li>
+          ))}
+        </ol>
+        <p className="flex items-start gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-950">
+          <BotIcon className="mt-0.5 h-4 w-4 shrink-0 text-sky-700" aria-hidden="true" />
+          <span>
+            <b>Whitehead wrote that in 1911.</b> It&rsquo;s the case for handing operations to agents: once a runbook
+            is proven, anyone, or your AI, can run it without having to think it through again.
+          </span>
+        </p>
+      </section>
+
       {/* Exposure */}
-      <section className="max-w-6xl mx-auto px-6 pt-20 pb-4 w-full space-y-10">
+      <section className="max-w-6xl mx-auto px-6 pt-16 pb-4 w-full space-y-10">
         <SectionHead
           n="01"
           label="The exposure"
