@@ -29,6 +29,14 @@ import {
  * is labelled as an example everywhere it appears.
  */
 
+/** How thick the fog is on an element, 0 (clear) to 1 (thick). See .fog-text in index.css. */
+function fog(level: number): React.CSSProperties {
+  return { ["--fog" as string]: level } as React.CSSProperties;
+}
+
+/** Guesses are hazy, tested ones less so, repeatable ones clear. */
+const NOTE_FOG = [0.7, 0.35, 0];
+
 /* ------------------------------------------------------------------------------------------------
  * Small "try it" demos, one per step. Nothing here is saved or sent.
  * ---------------------------------------------------------------------------------------------- */
@@ -90,7 +98,9 @@ function StageNotesDemo() {
                 className={`flex w-full min-h-[64px] items-center justify-between gap-3 rounded-xl border px-4 py-2.5 text-left transition-colors ${st.tint}`}
               >
                 <span className="space-y-1">
-                  <span className="block text-base font-semibold">{n.text}</span>
+                  <span className="fog-text block text-base font-semibold" style={fog(NOTE_FOG[stages[i]])}>
+                    {n.text}
+                  </span>
                   <span className="inline-flex rounded-full border border-black/10 bg-white/70 px-2 py-0.5 text-sm">
                     {n.market}
                   </span>
@@ -580,7 +590,12 @@ function StepWalkthrough() {
               >
                 {doneBefore ? <CheckIcon className="h-4 w-4" aria-hidden="true" /> : i + 1}
               </span>
-              <span className="font-display font-bold text-base leading-tight">{s.short}</span>
+              <span
+                className={`font-display font-bold text-base leading-tight ${i > active ? "fog-text" : ""}`}
+                style={i > active ? fog(Math.min(0.75, 0.3 + (i - active) * 0.15)) : undefined}
+              >
+                {s.short}
+              </span>
             </button>
           );
         })}

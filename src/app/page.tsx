@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangleIcon,
@@ -24,6 +24,16 @@ import {
   UserMinusIcon,
   type LucideIcon,
 } from "lucide-react";
+
+/** How thick the fog is on an element, 0 (clear) to 1 (thick). See .fog-veil and .fog-text. */
+function fog(level: number): React.CSSProperties {
+  return { ["--fog" as string]: level } as React.CSSProperties;
+}
+
+/** A veil over a block that lifts on hover or focus. */
+function FogVeil({ level }: { level: number }) {
+  return <span aria-hidden="true" className="fog-veil-layer" style={fog(level)} />;
+}
 
 /* ------------------------------------------------------------------------------------------------
  * Content
@@ -106,6 +116,9 @@ const PARTS = [
 
 type Answer = 0 | 1 | 2 | 3;
 
+/** How foggy each answer leaves a part: only in your head is thick, runs without you is clear. */
+const ANSWER_FOG: Record<Answer, number> = { 0: 0.85, 1: 0.55, 2: 0.2, 3: 0 };
+
 const ANSWERS: { value: Answer; label: string; short: string; tile: string; chosen: string }[] = [
   {
     value: 0,
@@ -136,6 +149,9 @@ const ANSWERS: { value: Answer; label: string; short: string; tile: string; chos
     chosen: "border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-200",
   },
 ];
+
+/** The fog thins stage by stage: a guess is hazy, how we do it is sharp. */
+const STAGE_FOG = [0.8, 0.5, 0.2, 0];
 
 /* --- Quotes and the four stages ------------------------------------------------------------- */
 
@@ -450,12 +466,14 @@ function TwoMinuteCheck() {
               return (
                 <div
                   key={part}
-                  className={`rounded-xl border px-3 py-2.5 transition-colors ${
+                  tabIndex={0}
+                  className={`fog-veil rounded-xl border px-3 py-2.5 transition-colors ${
                     opt ? opt.tile : "border-dashed border-stone-300 bg-stone-50 text-stone-500"
                   }`}
                 >
                   <p className="text-sm font-semibold leading-tight">{part}</p>
                   <p className="text-sm mt-0.5">{opt ? opt.short : "Not answered yet"}</p>
+                  <FogVeil level={a === null ? 1 : ANSWER_FOG[a]} />
                 </div>
               );
             })}
@@ -537,7 +555,7 @@ function StageExplorer() {
               >
                 {i + 1}
               </span>
-              <span className="min-w-0">
+              <span className={`min-w-0 ${selected ? "" : "fog-text"}`} style={selected ? undefined : fog(STAGE_FOG[i])}>
                 <span className="flex items-center gap-1.5 font-display font-bold text-base sm:text-lg leading-tight">
                   <SIcon className="hidden sm:block h-4 w-4 shrink-0" aria-hidden="true" />
                   {s.name}
@@ -575,7 +593,9 @@ function StageExplorer() {
               </div>
               <div>
                 <dt className="font-semibold text-ink">For example</dt>
-                <dd className="text-ink">{stage.example}</dd>
+                <dd className="fog-text text-ink" style={fog(STAGE_FOG[active] * 0.6)} tabIndex={0}>
+                  {stage.example}
+                </dd>
               </div>
               <div>
                 <dt className="font-semibold text-ink">What CriticalDash does</dt>
@@ -642,6 +662,15 @@ function StageExplorer() {
  * ---------------------------------------------------------------------------------------------- */
 
 export default function HomePage() {
+  // The hero's haze thins as you scroll into the page
+  const [heroFog, setHeroFog] = useState(1);
+  useEffect(() => {
+    const onScroll = () => setHeroFog(Math.max(0, 1 - window.scrollY / 600));
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
     <div className="min-h-screen bg-canvas text-ink flex flex-col justify-between selection:bg-incrementic-red selection:text-white">
       {/* Top Navbar */}
@@ -685,6 +714,7 @@ export default function HomePage() {
       {/* Hero */}
       <header className="relative w-full bg-gradient-to-b from-[#EA5148] via-[#E84A41] to-[#D93D34] text-white overflow-hidden py-16 sm:py-24 px-5 sm:px-6">
         <div className="absolute inset-0 bg-halftone pointer-events-none opacity-30 mix-blend-overlay" />
+        <div aria-hidden="true" className="fog-drift absolute -inset-24 pointer-events-none" style={{ opacity: heroFog }} />
         <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-12 items-center">
           <div className="space-y-7">
             <p className="text-lg font-semibold text-white/95">For businesses that sit between providers and customers</p>
@@ -719,7 +749,9 @@ export default function HomePage() {
 
           {/* The plan breaks, so build mechanisms */}
           <div className="rounded-3xl border border-white/30 bg-white/10 backdrop-blur-md p-6 sm:p-8 space-y-6">
-            <QuoteBlock q={TYSON} tone="hero" size="lg" />
+            <div className="fog-text" style={fog(0.45)} tabIndex={0}>
+              <QuoteBlock q={TYSON} tone="hero" size="lg" />
+            </div>
             <div className="flex items-center gap-3 text-white/90" aria-hidden="true">
               <span className="h-px flex-1 bg-white/40" />
               <span className="text-base font-semibold">so</span>
