@@ -16,7 +16,6 @@ import {
   BotIcon,
   CheckCheckIcon,
   ChevronDownIcon,
-  FlaskConicalIcon,
   HistoryIcon,
   LightbulbIcon,
   ListChecksIcon,
@@ -27,6 +26,7 @@ import {
   SirenIcon,
   SmartphoneIcon,
   UserMinusIcon,
+  UsersIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -72,56 +72,56 @@ const EXPOSURE = [
   },
 ];
 
-/** Where the risk sits on a comparison and sign-up platform, in ordinary weeks. */
+/** Where it goes wrong when decisions live in heads and threads, in ordinary weeks. */
 const HIDDEN_RISKS = [
   {
-    icon: UserMinusIcon,
-    title: "The person who knows every partner hands in their notice",
-    body: "Which partner needs what paperwork, who to call when an order stalls, why one option is shown above another. All of it was in their head.",
+    icon: ShuffleIcon,
+    title: "The campaign changed direction, and half the team didn't hear",
+    body: "It was agreed in a call on Tuesday. By Friday, sales is still pitching last month's offer and the partner is asking which one is real.",
   },
   {
     icon: SirenIcon,
-    title: "A partner changes its prices, and yours are wrong for a week",
-    body: "Nobody owns the update, so customers see old numbers. The first person to notice is the one who was quoted the wrong price.",
-  },
-  {
-    icon: ShuffleIcon,
-    title: "Three customers ask the same question and get three answers",
-    body: "Can they cancel after a week? Is the deposit refundable? Support, sales and the partner each remember it differently. One of them is wrong, and it's in writing.",
+    title: "A policy changed, and customers got the old answer",
+    body: "The refund window moved from 30 days to 14. Support found out from a customer who'd been told 30, in writing.",
   },
   {
     icon: AlertTriangleIcon,
-    title: "A channel that worked once gets rolled out everywhere",
-    body: "Referrals from one partner worked for one season. Now the same play is aimed at a different kind of customer, and nobody checked it works twice.",
+    title: "A new regulation lands, and nobody's sure who owns it",
+    body: "Everyone has read the notice. Nobody has decided what changes on Monday, or who decides, so it waits until the deadline.",
+  },
+  {
+    icon: UserMinusIcon,
+    title: "The person who knows why hands in their notice",
+    body: "Why that partner comes first, why that fee was waived, what was promised to whom. All of it was in their head and their inbox.",
   },
   {
     icon: RefreshCwIcon,
-    title: "Why is that partner always shown first?",
-    body: "Nobody wrote down why you rank options the way you do, or when you recommend one and when you stay neutral. So the argument starts again every quarter.",
+    title: "The same argument, every quarter",
+    body: "Nobody wrote down what was decided or why, so each new person reopens it, and the decision gets made again from scratch.",
   },
   {
     icon: HistoryIcon,
-    title: "Fees and commission nobody checks",
-    body: "Partner statements arrive, someone glances at the total, and nobody checks them against the customers you actually sent. Money stays on the other side.",
+    title: "Three people, three answers",
+    body: "Can they cancel after a week? Is the deposit refundable? Support, sales and the partner each remember the decision differently.",
   },
 ];
 
 /* --- The two-minute check ------------------------------------------------------------------- */
 
 const PARTS = [
-  "Choosing which partners to work with",
-  "Updating what you show when a partner changes its prices or terms",
-  "Deciding when to recommend, and when to stay neutral",
-  "Winning customers: ads, referrals and partner introductions",
-  "Following up people who enquired but didn't go ahead",
-  "Getting new customers set up",
-  "Renewals, changes and cancellations",
-  "Checking what each partner owes you",
+  "Which campaigns you're running this quarter, and why",
+  "What you recommend to customers, and when you stay neutral",
+  "Your policies: refunds, cancellations, deposits",
+  "How you meet the rules that apply to you",
+  "Which partners you work with, and on what terms",
+  "Your prices and fees",
+  "Who can make which calls",
+  "What changed this month",
 ];
 
 type Answer = 0 | 1 | 2 | 3;
 
-/** How foggy each answer leaves a part: only in your head is thick, runs without you is clear. */
+/** How foggy each answer leaves a decision: only in your head is thick, everyone aligned is clear. */
 const ANSWER_FOG: Record<Answer, number> = { 0: 0.85, 1: 0.55, 2: 0.2, 3: 0 };
 
 const ANSWERS: { value: Answer; label: string; short: string; tile: string; chosen: string }[] = [
@@ -134,28 +134,28 @@ const ANSWERS: { value: Answer; label: string; short: string; tile: string; chos
   },
   {
     value: 1,
-    label: "Someone knows, but it isn't written down",
-    short: "In someone's head",
+    label: "A few people know, but it isn't written down",
+    short: "In a few heads",
     tile: "bg-amber-50 border-amber-300 text-amber-900",
     chosen: "border-amber-500 bg-amber-50 text-amber-900 ring-2 ring-amber-200",
   },
   {
     value: 2,
-    label: "It's written down",
-    short: "Written down",
+    label: "It's written down somewhere",
+    short: "Written somewhere",
     tile: "bg-teal-50 border-teal-300 text-teal-900",
     chosen: "border-teal-500 bg-teal-50 text-teal-900 ring-2 ring-teal-200",
   },
   {
     value: 3,
-    label: "Written down, and proven to work",
-    short: "Runs without you",
+    label: "On the record, and everyone works from it",
+    short: "Everyone aligned",
     tile: "bg-emerald-50 border-emerald-300 text-emerald-900",
     chosen: "border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-200",
   },
 ];
 
-/** The fog thins stage by stage: a guess is hazy, how we do it is sharp. */
+/** The fog thins stage by stage: an open question is hazy, a decision everyone works from is sharp. */
 const STAGE_FOG = [0.8, 0.5, 0.2, 0];
 
 /* --- Quotes and the four stages ------------------------------------------------------------- */
@@ -169,8 +169,8 @@ const BEZOS: Quote = {
 };
 
 /**
- * From a guess to how the business runs. Each stage pairs a household name with a respected expert,
- * and the headings, read in order, make the case on their own. Keep quote wording and attributions exact.
+ * The life of a decision, from a question to everyone working from it. The headings, read in order,
+ * make the case on their own. Keep quote wording and attributions exact.
  */
 const STAGES: {
   icon: LucideIcon;
@@ -181,79 +181,43 @@ const STAGES: {
   looksLike: string;
   example: string;
   weDo: React.ReactNode;
-  quotes: [Quote, Quote];
+  quotes: Quote[];
+  /** Show the note on handing routine work to AI beside this stage's quotes */
+  ai?: boolean;
 }[] = [
   {
     icon: LightbulbIcon,
-    name: "A guess",
-    heading: "Your business model is a guess",
-    status: "Not yet checked",
+    name: "Asked",
+    heading: "Every decision starts as a question",
+    status: "Needs a call",
     statusTint: "border-rose-300 bg-rose-50 text-rose-900",
-    looksLike: "A type of customer, a channel or a way of ranking options that you believe works, but haven't checked.",
-    example: "A relocation agency\u2019s hunch: \u201cPeople moving for work will pay more for a flat that\u2019s ready on day one.\u201d",
-    weDo: "Puts it on one page with the rest of the business, marked as a guess. A stress test ranks the riskiest guesses, so you check those first.",
-    quotes: [
-      TYSON,
-      {
-        text: "A startup is a temporary organization designed to search for a repeatable and scalable business model.",
-        who: "Steve Blank",
-        credit: (
-          <>
-            Silicon Valley entrepreneur, Stanford lecturer and co-author of <i>The Startup Owner&rsquo;s Manual</i>
-          </>
-        ),
-      },
-    ],
+    looksLike: "Something changes and someone has to make a call: a campaign, a policy, a new rule.",
+    example: "A broker\u2019s operations lead: \u201cThe new disclosure rule starts in March. What do we change?\u201d",
+    weDo: "Puts the question on the record with who\u2019s deciding and the date it\u2019s needed by. If nobody decides in time, the default you set applies, so nothing waits on one inbox.",
+    quotes: [TYSON],
   },
   {
-    icon: FlaskConicalIcon,
-    name: "A trial",
-    heading: "Do it by hand before you systemise it",
-    status: "Being checked",
+    icon: CheckCheckIcon,
+    name: "Decided",
+    heading: "Make the call, and say why",
+    status: "Decided",
     statusTint: "border-amber-300 bg-amber-50 text-amber-900",
-    looksLike: "You try it for real, small and by hand, having agreed up front what result counts as a pass.",
-    example: "Offer move-in-ready flats to one month\u2019s arrivals. Pass mark: 1 in 4 enquiries book.",
-    weDo: "Keeps the measure, the pass mark and the date to check. Whoever is doing the work gets one short question each Monday, and can reply from their phone.",
-    quotes: [
-      { text: "Genius is one percent inspiration, ninety-nine percent perspiration.", who: "Thomas Edison" },
-      {
-        text: "Do things that don't scale.",
-        who: "Paul Graham",
-        credit: "co-founder of Y Combinator, the accelerator behind Airbnb, Dropbox and Stripe",
-      },
-    ],
-  },
-  {
-    icon: RepeatIcon,
-    name: "It works",
-    heading: "Ship, then learn from what happens",
-    status: "Proven, but only a few people know it",
-    statusTint: "border-teal-300 bg-teal-50 text-teal-900",
-    looksLike: "It has worked more than once. The steps are known, but mostly by the people who did them.",
-    example: "It beat the pass mark two months running. Decided: lead with move-in-ready flats for people moving for work.",
-    weDo: "Records each decision with its reason, who made it and when. On the review date it asks the question most businesses never ask: did it pan out?",
+    looksLike: "Someone chooses, with a reason: a test, figures, an expert\u2019s view or a judgement call.",
+    example: "The head of advice answers from the link on their phone: show commission on every quote from 1 March.",
+    weDo: "Records what was chosen, why, who decided and when. The person deciding answers from a link, with no account and no password.",
     quotes: [
       { text: "Real artists ship.", who: "Steve Jobs" },
-      {
-        text: "The only way to win is to learn faster than anyone else.",
-        who: "Eric Ries",
-        credit: (
-          <>
-            author of <i>The Lean Startup</i>
-          </>
-        ),
-      },
     ],
   },
   {
     icon: BookOpenCheckIcon,
-    name: "How we do it",
-    heading: "Turn what works into mechanisms",
-    status: "Runs without you",
-    statusTint: "border-emerald-300 bg-emerald-50 text-emerald-900",
-    looksLike: "It's written down clearly enough that someone new, or an AI assistant, can do it and get the same result.",
-    example: "\u201cNew arrival\u201d runbook: confirm the flat with the landlord, book the movers, set up the utilities, send the welcome pack.",
-    weDo: "Writes it up as a runbook: what starts it, who owns it and the steps in order. It can only go live once what it rests on has been proven, and every run reports back, so a step that keeps breaking gets flagged.",
+    name: "On the record",
+    heading: "One source of truth",
+    status: "Everyone can see it",
+    statusTint: "border-teal-300 bg-teal-50 text-teal-900",
+    looksLike: "The decision sits on one page with every other one, so nobody has to ask what was agreed.",
+    example: "Sales, support and the partner all get the same answer: commission is shown on every quote.",
+    weDo: "Keeps every decision on one page the people you invite can see, with a board of what\u2019s decided, what\u2019s open and who\u2019s deciding. What works becomes a runbook anyone can follow.",
     quotes: [
       BEZOS,
       {
@@ -266,45 +230,67 @@ const STAGES: {
         ),
       },
     ],
+    ai: true,
+  },
+  {
+    icon: RepeatIcon,
+    name: "Revisited",
+    heading: "When things change, change it once",
+    status: "Everyone aligned",
+    statusTint: "border-emerald-300 bg-emerald-50 text-emerald-900",
+    looksLike: "Partners, prices and rules keep moving. Decisions have to move with them, and everyone has to know.",
+    example: "The guidance changes in June. The decision is reopened, and the old one stays on the record with the date it changed.",
+    weDo: "On the review date it asks the question most businesses never ask: did it pan out? A new decision replaces the old one, which is kept, never written over.",
+    quotes: [
+      {
+        text: "The only way to win is to learn faster than anyone else.",
+        who: "Eric Ries",
+        credit: (
+          <>
+            author of <i>The Lean Startup</i>
+          </>
+        ),
+      },
+    ],
   },
 ];
 
 const CONTROLS = [
   {
-    icon: ListChecksIcon,
-    tint: "bg-red-50 border-red-200 text-incrementic-red",
-    title: "See what runs without you",
-    body: "Every part of the business, from choosing partners to checking what they owe you, shows whether it's still a guess, being tested, proven or written up as a runbook.",
-  },
-  {
     icon: CheckCheckIcon,
+    tint: "bg-red-50 border-red-200 text-incrementic-red",
+    title: "One record of every decision",
+    body: "What was chosen, why (a test, figures, an expert's view or a judgement call), who decided and when. When a decision changes, the old one is kept, never written over.",
+  },
+  {
+    icon: ListChecksIcon,
     tint: "bg-teal-50 border-teal-200 text-teal-800",
-    title: "A record of every decision",
-    body: "What was chosen, why (a test, figures, an expert's view or a judgement call), who decided and when. Old decisions are kept, never written over.",
-  },
-  {
-    icon: HistoryIcon,
-    tint: "bg-violet-50 border-violet-200 text-violet-800",
-    title: "An honest track record",
-    body: "See how often checked decisions work out compared with gut calls, so luck stops passing for skill.",
-  },
-  {
-    icon: BookOpenCheckIcon,
-    tint: "bg-emerald-50 border-emerald-200 text-emerald-800",
-    title: "Runbooks anyone can follow",
-    body: "Write down how a job is done, step by step. Anyone can run it as a checklist and log how it went, and a step that keeps failing gets flagged.",
+    title: "What's decided, what's open, who's deciding",
+    body: "One board shows every call still waiting, who it's waiting on and when it's due, next to everything already agreed.",
   },
   {
     icon: SmartphoneIcon,
     tint: "bg-stone-100 border-stone-200 text-incrementic-charcoal",
     title: "Answers from a phone, no password",
-    body: "Ask a partner or a colleague one question, like \u201cswitch suppliers from 1 December, or wait?\u201d, with a date and what happens if they don't answer. They reply from a link on their phone.",
+    body: "Ask the person who should decide, like \u201cshow commission on every quote from 1 March?\u201d, with a date and what happens if they don't answer. They reply from a link on their phone.",
+  },
+  {
+    icon: UsersIcon,
+    tint: "bg-violet-50 border-violet-200 text-violet-800",
+    title: "Everyone works from the same page",
+    body: "Invite the team as editors or viewers, or share a read-only link with a partner. Nobody has to ask you what was agreed.",
+  },
+  {
+    icon: BookOpenCheckIcon,
+    tint: "bg-emerald-50 border-emerald-200 text-emerald-800",
+    title: "Runbooks anyone can follow",
+    body: "Turn a decision that works into the steps to carry it out. Anyone can run it as a checklist, and a step that keeps failing gets flagged.",
   },
   {
     icon: BotIcon,
     tint: "bg-sky-50 border-sky-200 text-sky-800",
     title: "Works with AI, if you want it",
-    body: "Entirely optional. If you use Claude, it can list what's open and record decisions, and every change it makes is labelled as made by AI.",
+    body: "Entirely optional. If you use Claude, it can read the record, list what's open and record decisions, and every change it makes is labelled as made by AI.",
   },
 ];
 
@@ -315,11 +301,11 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
   },
   {
     q: "Do I need to be good with computers?",
-    a: "If you can use email and a web browser, you can use CriticalDash. People who only need to answer a question or send a result do it from a link on their phone, with no account and no password.",
+    a: "If you can use email and a web browser, you can use CriticalDash. People who only need to answer a question do it from a link on their phone, with no account and no password.",
   },
   {
     q: "What does it cost to start?",
-    a: "Nothing. Mapping your business and finding your blind spots is free.",
+    a: "Nothing. Starting your decision record and finding your blind spots is free.",
   },
   {
     q: "Who can see what I put in?",
@@ -330,12 +316,16 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     a: "No. Everything works without it. If you already use Claude, you can connect it, and every change it makes is clearly labelled.",
   },
   {
+    q: "How does everyone stay in the loop?",
+    a: "Every decision sits on one page that the people you invite can see, with who made it and why. Questions go to the person who has to answer them, as a link they open on their phone, and a weekly check-in asks for anything that's changed. Partners can get a read-only link.",
+  },
+  {
     q: "What's a runbook?",
     a: "A written, step-by-step way of doing one job, like a recipe or a pilot's checklist, that has been proven to work and is clear enough for someone new to follow. In CriticalDash a runbook can only go live once the guesses it rests on have been proven, and anyone can tick through it as a checklist and log how the run went.",
   },
   {
     q: "I've seen plenty of business tools come and go. Why this one?",
-    a: "Most tools store documents. CriticalDash keeps track of whether what you believe about your customers, partners and prices has actually been checked, and whether your decisions worked out. That's the record a new hire, a partner's due diligence or a buyer will ask for.",
+    a: "Most tools store documents and chat. CriticalDash keeps one record of what's been decided, who decided and why, what's still waiting on someone, and whether each decision worked out. That's the record a new hire, a partner's due diligence or a buyer will ask for.",
   },
 ];
 
@@ -384,7 +374,7 @@ function SectionHead({
   );
 }
 
-/** "If you took three months off from Monday, what would still run?" Nothing is stored or sent. */
+/** "If you took three months off from Monday, would the team know what's been decided?" Nothing is stored or sent. */
 function TwoMinuteCheck() {
   const [answers, setAnswers] = useState<(Answer | null)[]>(() => PARTS.map(() => null));
   const answered = answers.filter((a) => a !== null).length;
@@ -399,13 +389,13 @@ function TwoMinuteCheck() {
   let verdict: string;
   if (inHeads >= 5) {
     verdict =
-      "Most of the business lives in people's heads. That's common when it grew on its founders' judgement and a few partner relationships, and it's the first thing worth fixing.";
+      "Most of what's been decided lives in people's heads. That's common when a business grew on its founders' judgement, and it's the first thing worth fixing: everyone ends up asking you.";
   } else if (runsWithoutYou >= 6) {
     verdict =
-      "You're in better shape than most. CriticalDash helps keep it that way, and shows you when something that used to work stops working.";
+      "You're in better shape than most. CriticalDash keeps it that way as campaigns, policies and rules change.";
   } else {
     verdict =
-      "Some of it is written down. The parts still in people's heads are where a resignation, a partner's price change or a busy season would hurt most.";
+      "Some of it is written down. The decisions still in people's heads are where a resignation, a policy change or a new regulation would hurt most.";
   }
 
   return (
@@ -499,11 +489,11 @@ function TwoMinuteCheck() {
           {done ? (
             <div className="space-y-3 border-t border-line pt-5">
               <p className="font-display font-bold text-2xl text-ink leading-snug">
-                {runsWithoutYou} of {PARTS.length} parts would run without you.
+                The team is aligned on {runsWithoutYou} of {PARTS.length}.
               </p>
               {onlyYou > 0 && (
                 <p className="text-lg text-incrementic-red font-semibold">
-                  {onlyYou === 1 ? "1 part is" : `${onlyYou} parts are`} known only to you.
+                  {onlyYou === 1 ? "1 decision is" : `${onlyYou} decisions are`} known only to you.
                 </p>
               )}
               <p className="text-lg text-ink leading-relaxed">{verdict}</p>
@@ -512,7 +502,7 @@ function TwoMinuteCheck() {
                   href="/dashboard"
                   className="inline-flex min-h-[52px] items-center justify-center rounded-full bg-incrementic-red px-6 text-base font-semibold text-white shadow-md hover:bg-[#D93D34] transition-colors"
                 >
-                  Map it properly, free
+                  Put it on the record, free
                 </Link>
                 <button
                   type="button"
@@ -526,8 +516,8 @@ function TwoMinuteCheck() {
             </div>
           ) : (
             <p className="border-t border-line pt-5 text-lg text-muted leading-relaxed">
-              Answer all {PARTS.length} to see how much of the business would keep running if you stepped away. Nothing
-              you choose here is saved or sent anywhere.
+              Answer all {PARTS.length} to see how much the team could act on without asking you. Nothing you choose here
+              is saved or sent anywhere.
             </p>
           )}
         </div>
@@ -622,15 +612,18 @@ function StageExplorer() {
           </div>
 
           <div className="space-y-6 rounded-2xl bg-stone-50 border border-line p-6 sm:p-8">
-            <QuoteBlock q={stage.quotes[0]} size="lg" />
-            <div className="border-t border-line" />
-            <QuoteBlock q={stage.quotes[1]} size="lg" />
-            {active === last && (
+            {stage.quotes.map((q, i) => (
+              <React.Fragment key={q.who}>
+                {i > 0 && <div className="border-t border-line" />}
+                <QuoteBlock q={q} size="lg" />
+              </React.Fragment>
+            ))}
+            {stage.ai && (
               <p className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-base text-sky-950">
                 <BotIcon className="mt-1 h-4 w-4 shrink-0 text-sky-700" aria-hidden="true" />
                 <span>
-                  <b>Whitehead wrote that in 1911.</b> It&rsquo;s the case for handing routine work to AI: once a way of
-                  doing something is proven and written down, it can run without anyone having to think it through again.
+                  <b>Whitehead wrote that in 1911.</b> It&rsquo;s the case for a record an AI assistant can read too: once
+                  a decision is written down, nobody has to think it through again, or ask you what it was.
                 </span>
               </p>
             )}
@@ -666,8 +659,8 @@ function StageExplorer() {
       <p className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-lg text-amber-950">
         <AlertTriangleIcon className="mt-1 h-5 w-5 shrink-0 text-amber-700" aria-hidden="true" />
         <span>
-          <b>Don&rsquo;t write down a guess as if it were proven.</b> Something you haven&rsquo;t checked needs a trial, not
-          a procedure. Writing up an untested idea just spreads the mistake faster.
+          <b>A decision nobody heard about isn&rsquo;t made yet.</b> If it isn&rsquo;t on the record, people keep acting on
+          the old one, and the call gets made again.
         </span>
       </p>
     </div>
@@ -795,8 +788,8 @@ export default function HomePage() {
       <section id="check" className="scroll-mt-20 max-w-6xl mx-auto px-5 sm:px-6 pt-20 pb-8 w-full space-y-10">
         <SectionHead
           label="The two-minute check"
-          title="If you took three months off from Monday, what would still run?"
-          intro="Go through eight jobs every business between providers and customers depends on. Read them for your own partners and customers, and pick the answer that's honestly true today."
+          title="If you took three months off from Monday, would the team know what's been decided?"
+          intro="Go through eight kinds of decision every business between providers and customers makes. For each, pick the answer that's honestly true today."
         />
         <TwoMinuteCheck />
       </section>
@@ -805,7 +798,7 @@ export default function HomePage() {
       <section className="max-w-6xl mx-auto px-5 sm:px-6 py-16 w-full space-y-10">
         <SectionHead
           label="Why it matters"
-          title="Every process that isn't written down is a risk you're already carrying."
+          title="Every decision that lives in one head is a risk you're already carrying."
           accent={<SkyAccent kind="cloud" className="w-44" />}
           intro="These aren't our numbers. Each one links to its source."
         />
@@ -833,7 +826,7 @@ export default function HomePage() {
       <section className="max-w-6xl mx-auto px-5 sm:px-6 py-16 w-full space-y-10">
         <SectionHead
           label="Where it's hiding"
-          title="It's rarely the big bet that hurts. It's the partner detail everyone assumed someone else knew."
+          title="It's rarely the decision that hurts. It's the half of the team that never heard about it."
           accent={<SkyAccent kind="flock" className="w-32 mt-6" />}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -852,8 +845,8 @@ export default function HomePage() {
       {/* Four stages */}
       <section className="max-w-6xl mx-auto px-5 sm:px-6 py-16 w-full space-y-10">
         <SectionHead
-          label="From a guess to how we do it"
-          title="Every part of a business goes through four stages. Step through them."
+          label="From a question to everyone aligned"
+          title="Every decision goes through four stages. Step through them."
           accent={<SkyAccent kind="paper" className="w-16 mt-8 ml-20" />}
           intro="Pick a stage, or use Next. Each one comes with what the people who'd know have said about it."
         />
@@ -865,7 +858,7 @@ export default function HomePage() {
         <SectionHead
           label="How it's used"
           title="One decision, from the call to the checklist."
-          intro="Pick a business. Each follows a single decision: who made it and on what basis, how it became something the team runs, and whether it held up when someone looked back."
+          intro="Pick a business. Each follows a single decision: who made the call and why, what went on the record for everyone, how the team carries it out, and whether it held up when someone looked back."
           accent={<SkyAccent kind="cloud" className="w-36 mt-4" />}
         />
         <UseCases />
@@ -875,7 +868,7 @@ export default function HomePage() {
       <section className="max-w-6xl mx-auto px-5 sm:px-6 py-16 w-full space-y-10">
         <SectionHead
           label="What you can use today"
-          title="Every decision on record. Every decision checked."
+          title="Every decision on the record. Everyone on the same page."
           intro={
             <>
               Want the detail?{" "}
@@ -925,10 +918,10 @@ export default function HomePage() {
         <div className="relative max-w-6xl mx-auto rounded-3xl bg-gradient-to-b from-[#EA5148] to-[#D93D34] text-white px-6 sm:px-10 py-12 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
           <div className="space-y-3">
             <h2 className="font-display font-bold text-3xl sm:text-4xl leading-tight">
-              Get it written down while the people who know are still here.
+              Get everyone on the same page, one decision at a time.
             </h2>
             <p className="text-xl text-white/95 max-w-xl">
-              Start with the decision only you know the reason for: why you list who you list.
+              Start with the decision people ask you about most.
             </p>
           </div>
           {/* The hero's balloon, tied to the panel */}
@@ -937,14 +930,14 @@ export default function HomePage() {
             href="/dashboard"
             className="inline-flex min-h-[56px] items-center justify-center whitespace-nowrap px-8 rounded-full bg-white text-incrementic-ink font-display font-semibold text-lg hover:bg-white/95 shadow-lg transition-all shrink-0"
           >
-            Find your blind spots, free
+            Start your decision record, free
           </Link>
         </div>
       </section>
 
       {/* Footer with Incrementic attribution */}
       <footer className="border-t border-line bg-surface px-6 py-10 text-center text-base text-muted space-y-3">
-        <div className="font-semibold text-ink">CriticalDash • Decisions and runbooks for businesses between providers and customers</div>
+        <div className="font-semibold text-ink">CriticalDash • One record of every decision, for businesses between providers and customers</div>
         <div>
           <Link href="/how-it-works" className="font-semibold text-ink underline underline-offset-2 hover:text-incrementic-red">
             How it works
