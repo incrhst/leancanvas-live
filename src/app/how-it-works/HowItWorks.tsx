@@ -23,10 +23,10 @@ import {
 } from "lucide-react";
 
 /*
- * One worked example runs through every step: a platform that compares cover from several providers
- * for international students, deciding whether to lead with the plans each student's university
- * accepts, across three study destinations (the UK, the US and Canada). It matches the landing
- * page's example and is labelled as an example everywhere it appears.
+ * One worked example runs through every step: a relocation agency that matches people moving for
+ * work with landlords, movers and local services, deciding whether to lead with move-in-ready flats
+ * in three cities (Lisbon, Toronto and Singapore). It matches the landing page's stage examples and
+ * is labelled as an example everywhere it appears.
  */
 
 /* ------------------------------------------------------------------------------------------------
@@ -62,9 +62,9 @@ function DemoFrame({ title, children, onReset }: { title: string; children: Reac
 
 function StageNotesDemo() {
   const notes = [
-    { text: "Students pick the plan their university accepts, even if it costs more", market: "All markets" },
-    { text: "UK universities check cover at enrolment", market: "UK" },
-    { text: "University referrals bring students to the comparison", market: "All markets" },
+    { text: "People moving for work will pay more for a flat that's ready on day one", market: "All cities" },
+    { text: "Toronto landlords want a local guarantor", market: "Toronto" },
+    { text: "Employers' HR teams refer their new hires to us", market: "All cities" },
   ];
   const [stages, setStages] = useState<number[]>([0, 0, 0]);
   const bump = (i: number) => setStages((s) => s.map((v, j) => (j === i ? (v + 1) % STAGE_INFO.length : v)));
@@ -73,7 +73,7 @@ function StageNotesDemo() {
     <DemoFrame title="Try it: tap a note to change its stage" onReset={() => setStages([0, 0, 0])}>
       <div className="rounded-xl border border-line bg-surface p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-display font-bold text-lg text-ink">Customer segments: international students</p>
+          <p className="font-display font-bold text-lg text-ink">Customer segments: people moving for work</p>
           <span className={`rounded-full border px-3 py-0.5 text-sm font-semibold ${STAGE_INFO[weakest].tint}`}>
             Box: {STAGE_INFO[weakest].name}
           </span>
@@ -115,9 +115,9 @@ function StageNotesDemo() {
 function StressTestDemo() {
   const [ran, setRan] = useState(false);
   const risks = [
-    "Students pick the plan their university accepts, even if it costs more",
-    "University referrals bring students to the comparison",
-    "UK universities check cover at enrolment",
+    "People moving for work will pay more for a flat that's ready on day one",
+    "Employers' HR teams refer their new hires to us",
+    "Toronto landlords want a local guarantor",
   ];
   return (
     <DemoFrame title="Try it: run the example stress test" onReset={ran ? () => setRan(false) : undefined}>
@@ -143,7 +143,7 @@ function StressTestDemo() {
               </li>
             ))}
           </ol>
-          <p className="text-base text-muted">So the first thing to check is whether \u201caccepted by your university\u201d actually changes which plan students choose.</p>
+          <p className="text-base text-muted">So the first thing to check is whether people really pay more for a flat that\u2019s ready on day one.</p>
         </div>
       )}
     </DemoFrame>
@@ -164,9 +164,9 @@ function ItemDemo() {
     <DemoFrame title="Try it: move an item along" onReset={state > 0 ? () => setState(0) : undefined}>
       <div className="rounded-xl border border-line bg-surface p-4 space-y-4">
         <div>
-          <p className="text-sm text-muted">Goal: Win more students for the September intake</p>
+          <p className="text-sm text-muted">Goal: Place more people from the spring arrivals</p>
           <p className={`font-display font-bold text-lg text-ink transition ${state === 0 ? "blur-[0.6px] opacity-70" : ""}`}>
-            Item: Should we lead with the plan their university accepts?
+            Item: Should we lead with move-in-ready flats?
           </p>
         </div>
         <ol className="grid grid-cols-2 sm:grid-cols-4 gap-2" aria-label="Item states">
@@ -204,7 +204,7 @@ function ItemDemo() {
   );
 }
 
-const MARKETS = ["UK", "US", "Canada"];
+const MARKETS = ["Lisbon", "Toronto", "Singapore"];
 const START_RESULTS = [28, 31, 22];
 
 function PassMarkDemo() {
@@ -212,15 +212,15 @@ function PassMarkDemo() {
   const [results, setResults] = useState<number[]>(START_RESULTS);
   const passing = results.filter((r) => r >= passMark).length;
   return (
-    <DemoFrame title="Try it: drag each destination's result" onReset={() => setResults(START_RESULTS)}>
+    <DemoFrame title="Try it: drag each city's result" onReset={() => setResults(START_RESULTS)}>
       <div className="rounded-xl border border-line bg-surface p-4 space-y-4">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-base">
           <dt className="text-muted">We watch</dt>
-          <dd className="font-semibold text-ink">Share of student quotes that sign up</dd>
+          <dd className="font-semibold text-ink">Share of enquiries that book</dd>
           <dt className="text-muted">Pass mark</dt>
-          <dd className="font-semibold text-ink">{passMark}% or more per destination, agreed first</dd>
+          <dd className="font-semibold text-ink">{passMark}% or more per city, agreed first</dd>
           <dt className="text-muted">Check on</dt>
-          <dd className="font-semibold text-ink">When the intake closes</dd>
+          <dd className="font-semibold text-ink">After the spring arrivals</dd>
         </dl>
         <div className="space-y-4">
           {MARKETS.map((m, i) => {
@@ -229,7 +229,7 @@ function PassMarkDemo() {
               <div key={m} className="space-y-1.5">
                 <div className="flex items-center justify-between gap-3">
                   <label htmlFor={`market-${i}`} className="text-base font-semibold text-ink">
-                    {m}: <span className="tabular-nums">{results[i]}%</span> signed up
+                    {m}: <span className="tabular-nums">{results[i]}%</span> booked
                   </label>
                   <span
                     className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-sm font-semibold ${
@@ -261,25 +261,25 @@ function PassMarkDemo() {
         >
           {passing > 0 ? <CheckCheckIcon className="h-5 w-5" aria-hidden="true" /> : <TargetIcon className="h-5 w-5" aria-hidden="true" />}
           {passing === MARKETS.length
-            ? "All three destinations passed"
+            ? "All three cities passed"
             : passing === 0
-              ? "No destination has passed yet"
-              : `${passing} of ${MARKETS.length} destinations passed`}
+              ? "No city has passed yet"
+              : `${passing} of ${MARKETS.length} cities passed`}
         </p>
       </div>
       <p className="text-base text-muted">
-        One pass mark, set before the numbers came in, so every destination is judged the same way and nobody moves
-        the goalposts for a favourite provider.
+        One pass mark, set before the numbers came in, so every city is judged the same way and nobody moves
+        the goalposts for a favourite partner.
       </p>
     </DemoFrame>
   );
 }
 
 const BASES = [
-  { key: "test", label: "A test result", detail: "UK 28% and US 31% of quotes signed up; Canada 22%. Pass mark: 25%" },
-  { key: "data", label: "Existing figures", detail: "last intake's sign-ups, by university" },
-  { key: "expert", label: "An expert's view", detail: "a provider's view on which universities check cover" },
-  { key: "judgment", label: "A judgement call", detail: "the team's years helping students choose" },
+  { key: "test", label: "A test result", detail: "Lisbon 28% and Toronto 31% of enquiries booked; Singapore 22%. Pass mark: 25%" },
+  { key: "data", label: "Existing figures", detail: "last season's bookings, by employer" },
+  { key: "expert", label: "An expert's view", detail: "a landlord partner's view on what new arrivals ask for" },
+  { key: "judgment", label: "A judgement call", detail: "the team's years helping people move" },
 ];
 
 function DecisionDemo() {
@@ -307,7 +307,7 @@ function DecisionDemo() {
         <p className="text-sm font-semibold text-muted mb-2">The decision record</p>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-base">
           <dt className="text-muted">Decided</dt>
-          <dd className="font-semibold text-ink">Lead with university-accepted plans in the UK and US; keep testing in Canada</dd>
+          <dd className="font-semibold text-ink">Lead with move-in-ready flats in Lisbon and Toronto; keep testing in Singapore</dd>
           <dt className="text-muted">Because of</dt>
           <dd className={chosen ? "font-semibold text-ink" : "text-subtle italic"}>
             {chosen ? `${chosen.label}: ${chosen.detail}` : "Pick one above"}
@@ -355,10 +355,10 @@ function LookBackDemo() {
 
 function RunbookDemo() {
   const steps = [
-    "Check each university's cover requirements for the intake",
-    "Tag the plans that meet them on the comparison",
-    "Update prices for any provider that has changed its rates",
-    "Brief support on what to tell students, then track sign-ups against the pass mark",
+    "Confirm the flat and the move-in date with the landlord",
+    "Book the movers and set up the utilities",
+    "Update the listing if the landlord has changed its terms",
+    "Send the welcome pack, and check in after the first week",
   ];
   const [ticked, setTicked] = useState<boolean[]>(steps.map(() => false));
   const [logged, setLogged] = useState<string | null>(null);
@@ -371,8 +371,8 @@ function RunbookDemo() {
     <DemoFrame title="Try it: run the example runbook" onReset={ticked.some(Boolean) || logged ? reset : undefined}>
       <div className="rounded-xl border border-line bg-surface p-4 space-y-3">
         <div>
-          <p className="font-display font-bold text-lg text-ink">Get ready for a new intake</p>
-          <p className="text-base text-muted">Starts: four weeks before each intake · Owner: the partnerships lead</p>
+          <p className="font-display font-bold text-lg text-ink">Get ready for a new arrival</p>
+          <p className="text-base text-muted">Starts: two weeks before someone arrives · Owner: the partnerships lead</p>
         </div>
         <ol className="space-y-2">
           {steps.map((s, i) => (
@@ -450,7 +450,7 @@ const STEPS: Step[] = [
       "Tag a note with the markets it applies to. A note with no tag holds for every market, so a guess about one country isn't quietly assumed for the rest.",
       "Every change is kept: who made it, when, what it said before and why.",
     ],
-    example: "The founder adds “Students pick the plan their university accepts, even if it costs more” for every destination, and “UK universities check cover at enrolment” for the UK only. Every note starts as a guess.",
+    example: "The founder adds “People moving for work will pay more for a flat that's ready on day one” for every city, and “Toronto landlords want a local guarantor” for Toronto only. Every note starts as a guess.",
     Demo: StageNotesDemo,
   },
   {
@@ -462,7 +462,7 @@ const STEPS: Step[] = [
       "Lean canvases are scored with Ash Maurya's method; go-to-market canvases on go-to-market criteria.",
       "Print it or save it as a PDF, or get a plain-language summary for someone who has never seen a canvas.",
     ],
-    example: "Top of the list: nobody has checked whether students really choose the accepted plan when a cheaper one sits beside it.",
+    example: "Top of the list: nobody has checked whether people really pay more for a move-in-ready flat when a cheaper one sits beside it.",
     Demo: StressTestDemo,
   },
   {
@@ -474,7 +474,7 @@ const STEPS: Step[] = [
       "Each item moves from open to decided to done, with an optional testing stage while a trial runs.",
       "Any note on the page can become an item, bringing its test and the person doing the work with it.",
     ],
-    example: "Goal: win more students for the September intake. First item: should the comparison lead with the plan each student's university accepts?",
+    example: "Goal: place more people from the spring arrivals. First item: should we lead with move-in-ready flats?",
     Demo: ItemDemo,
   },
   {
@@ -487,7 +487,7 @@ const STEPS: Step[] = [
       "Anyone can send in a result from a link on their phone, with no account. It waits until an editor accepts it.",
       "The review page groups every test by how it's doing against its pass mark.",
     ],
-    example: "Show \u201caccepted by your university\u201d on plans for one intake in each destination. Pass mark: 25% of quotes sign up.",
+    example: "Offer move-in-ready flats to one month's arrivals in each city. Pass mark: 25% of enquiries book.",
     Demo: PassMarkDemo,
   },
   {
@@ -500,7 +500,7 @@ const STEPS: Step[] = [
       "Need someone else to decide? Send them one question with a date to answer by and what happens if they don't. They reply from their phone, no password.",
       "Changing your mind keeps the old decision on file. Nothing is written over.",
     ],
-    example: "The UK and US passed; Canada didn't. The founder decides to lead with accepted plans in those two, and keeps testing in Canada.",
+    example: "Lisbon and Toronto passed; Singapore didn't. The founder decides to lead with move-in-ready flats in those two, and keeps testing in Singapore.",
     Demo: DecisionDemo,
   },
   {
@@ -512,7 +512,7 @@ const STEPS: Step[] = [
       "Over time you see how often decisions based on a test work out, compared with gut calls.",
       "Snapshots freeze the page under a name like “Day 30”, so you can compare what you believed then with what you know now.",
     ],
-    example: "Six months on, after the next intake, the founder answers: yes, it worked.",
+    example: "Six months on, after the next season's arrivals, the founder answers: yes, it worked.",
     Demo: LookBackDemo,
   },
   {
@@ -525,7 +525,7 @@ const STEPS: Step[] = [
       "Anyone, or an AI assistant, can run it as a checklist and log how it went. Going live marks its notes as codified.",
       "Runbooks can be grouped into standard procedures, so a whole area of the business can be handed over.",
     ],
-    example: "Getting ready for an intake becomes a runbook, so the next intake, and the next provider, go the same way without the founders.",
+    example: "Getting ready for an arrival becomes a runbook, so the next arrival, and the next city, go the same way without the founders.",
     Demo: RunbookDemo,
   },
 ];
@@ -707,8 +707,8 @@ export default function HowItWorks() {
           Seven steps from a hunch to something that runs without you.
         </h1>
         <p className="text-xl text-muted max-w-3xl leading-relaxed">
-          We&rsquo;ll follow one example all the way through: a platform that compares cover from several providers for
-          international students, deciding whether to lead with the plan each student&rsquo;s university accepts. The
+          We&rsquo;ll follow one example all the way through: a relocation agency that matches people moving for work
+          with landlords, movers and local services, deciding whether to lead with flats that are ready on day one. The
           same steps work for any business that sits between providers and customers: brokers, comparison sites,
           agencies, resellers and organisers. Each step has a small example you can try for yourself. Nothing you do
           here is saved.
@@ -764,7 +764,7 @@ export default function HowItWorks() {
             <h2 className="font-display font-bold text-3xl sm:text-4xl leading-tight">
               Start with the decision only you know the reason for.
             </h2>
-            <p className="text-xl text-white/95 max-w-xl">Why you list who you list. Put it on the page, mark what&rsquo;s a guess, and check the riskiest one first.</p>
+            <p className="text-xl text-white/95 max-w-xl">Why you work with who you work with. Put it on the page, mark what&rsquo;s a guess, and check the riskiest one first.</p>
           </div>
           <Link
             href="/dashboard"
