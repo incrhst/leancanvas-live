@@ -101,6 +101,26 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_founding", ["founding"]),
 
+  // One card payment for a live plan, through DIME PAY's hosted checkout. Made pending when the
+  // payer is sent to the checkout; marked paid only after the order is fetched back from DIME PAY
+  // and checked (see lib/dimepay.ts).
+  planPayments: defineTable({
+    canvasId: v.id("canvases"),
+    userId: v.id("users"),
+    // Our order id, sent to DIME PAY and echoed back on the order
+    orderId: v.string(),
+    amount: v.number(),
+    currency: v.string(),
+    months: v.number(),
+    status: v.union(v.literal("pending"), v.literal("paid")),
+    // DIME PAY's token for the order, once we've seen it
+    dimepayToken: v.optional(v.string()),
+    createdAt: v.number(),
+    paidAt: v.optional(v.number()),
+  })
+    .index("by_order_id", ["orderId"])
+    .index("by_canvas", ["canvasId"]),
+
   workspaces: defineTable({
     name: v.string(),
     ownerId: v.id("users"),
