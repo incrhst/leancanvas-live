@@ -8,6 +8,7 @@ import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { TopBar } from "../../../components/TopBar";
 import { CanvasBoard } from "../../../components/CanvasBoard";
+import { CanvasOverview } from "../../../components/CanvasOverview";
 import { NoteDetailPanel, NoteModal } from "../../../components/NoteDetailPanel";
 import { LaunchDayChip } from "../../../components/LaunchDayChip";
 import { PlanChip, PlanRequiredDialog } from "../../../components/PlanChip";
@@ -282,7 +283,7 @@ export default function CanvasEditorPage() {
                 />
                 <div className="flex flex-wrap items-center gap-2">
                   <NoteSearchButton onClick={() => setIsSearchOpen(true)} />
-                {view === "canvas" && (
+                {(view === "canvas" || view === "overview") && (
                   <>
                     <MarketFilter markets={allMarkets} value={marketFilter} onChange={setMarketFilter} />
                     <DriverFilter value={driverFilter} currentUserId={user?.id} onChange={setDriverFilter} />
@@ -290,7 +291,7 @@ export default function CanvasEditorPage() {
                 )}
                 </div>
               </div>
-              {view === "canvas" && (
+              {(view === "canvas" || view === "overview") && (
               <EvidenceLegend
                 filter={evidence.filter}
                 notes={visibleNotes}
@@ -330,6 +331,17 @@ export default function CanvasEditorPage() {
                   isRunning={isTesting}
                   onRunTest={handleRunStressTest}
                   onUpdateEvidence={handleUpdateEvidence}
+                  onOpenNote={(noteId) => {
+                    setView("canvas");
+                    setSelectedId(noteId);
+                    setActivePanel("detail");
+                  }}
+                />
+              ) : view === "overview" && isDesktop ? (
+                <CanvasOverview
+                  blocks={template.blocks}
+                  notes={visibleNotes}
+                  evidenceFilter={evidence.filter}
                   onOpenNote={(noteId) => {
                     setView("canvas");
                     setSelectedId(noteId);
