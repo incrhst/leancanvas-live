@@ -5,13 +5,17 @@
 // videos/criticaldash-in-a-minute.json). Nothing loads until someone presses play, and then only the
 // cut that fits the screen: 9:16 on phones, 16:9 everywhere else.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PlayIcon } from "lucide-react";
 
 const CUTS = {
   tall: { src: "/video/criticaldash-in-a-minute-9x16.mp4", poster: "/video/criticaldash-in-a-minute-9x16.jpg" },
   wide: { src: "/video/criticaldash-in-a-minute-16x9.mp4", poster: "/video/criticaldash-in-a-minute-16x9.jpg" },
 };
+
+// Same breakpoint as Tailwind's sm, which switches the frame's shape.
+const TALL = "(max-width: 639px)";
+const cutFor = (tall: boolean) => (tall ? CUTS.tall : CUTS.wide);
 
 export function ExplainerVideo() {
   const ref = useRef<HTMLVideoElement>(null);
@@ -20,8 +24,7 @@ export function ExplainerVideo() {
   const play = () => {
     const video = ref.current;
     if (!video) return;
-    // Same breakpoint as Tailwind's sm, which switches the frame's shape.
-    const cut = window.matchMedia("(max-width: 639px)").matches ? CUTS.tall : CUTS.wide;
+    const cut = cutFor(window.matchMedia(TALL).matches);
     video.src = cut.src;
     video.poster = cut.poster;
     setStarted(true);
@@ -29,6 +32,37 @@ export function ExplainerVideo() {
       // Autoplay with sound refused: the controls are showing, so a second tap plays it.
     });
   };
+
+  // Once it has started, crossing the breakpoint swaps to the other cut at the same moment,
+  // still playing if it was. The frame changes shape at the same width, so the old cut
+  // would otherwise be cropped.
+  useEffect(() => {
+    if (!started) return;
+    const query = window.matchMedia(TALL);
+    const swap = () => {
+      const video = ref.current;
+      if (!video) return;
+      const cut = cutFor(query.matches);
+      if (video.currentSrc.endsWith(cut.src)) return;
+      const at = video.currentTime;
+      const wasPlaying = !video.paused && !video.ended;
+      video.poster = cut.poster;
+      // preload="none" only holds off the first load; past play, fetch the new cut straight away.
+      video.preload = "auto";
+      video.src = cut.src;
+      video.load();
+      video.addEventListener(
+        "loadedmetadata",
+        () => {
+          video.currentTime = at;
+          if (wasPlaying) void video.play().catch(() => {});
+        },
+        { once: true },
+      );
+    };
+    query.addEventListener("change", swap);
+    return () => query.removeEventListener("change", swap);
+  }, [started]);
 
   return (
     <div className="relative mx-auto w-full max-w-[420px] sm:max-w-none aspect-[9/16] sm:aspect-video overflow-hidden rounded-3xl border border-line bg-[#0F3A33] shadow-lg">
