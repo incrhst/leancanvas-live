@@ -23,9 +23,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://lean.incrementic.com"),
-  title: "LeanOn — Plans that keep moving between meetings, by Incrementic",
+  title: "CriticalDash — Decisions and runbooks for businesses between providers and customers, by Incrementic",
   description:
-    "Lean and go-to-market canvases where the person who decides answers one question from their phone, with no login, and sees what happens if they don't.",
+    "Which partners to work with, how to rank what they offer, what to do when one changes its terms. CriticalDash checks what works and turns it into runbooks your team can follow.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -40,10 +40,10 @@ export const metadata: Metadata = {
     canonical: "https://lean.incrementic.com",
   },
   openGraph: {
-    title: "LeanOn — by Incrementic",
-    description: "Plans don't fail in meetings. They stall between them. LeanOn sends the decider one question, with what happens if they don't answer.",
+    title: "CriticalDash — by Incrementic",
+    description: "You built the business. Would it run without you? For brokers, comparison sites and agencies: see which partner, pricing and customer decisions are still guesses, and which run as written runbooks.",
     url: "https://lean.incrementic.com",
-    siteName: "LeanOn",
+    siteName: "CriticalDash",
     locale: "en_US",
     type: "website",
     images: [
@@ -51,15 +51,15 @@ export const metadata: Metadata = {
         url: "/og.svg",
         width: 1200,
         height: 630,
-        alt: "LeanOn by Incrementic",
+        alt: "CriticalDash by Incrementic",
         type: "image/svg+xml",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "LeanOn — by Incrementic",
-    description: "Plans don't fail in meetings. They stall between them. LeanOn sends the decider one question, with what happens if they don't answer.",
+    title: "CriticalDash — by Incrementic",
+    description: "You built the business. Would it run without you? For brokers, comparison sites and agencies: see which partner, pricing and customer decisions are still guesses, and which run as written runbooks.",
     images: ["/og.svg"],
   },
 };

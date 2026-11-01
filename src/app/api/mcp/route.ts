@@ -8,6 +8,12 @@ import { EVIDENCE_GLOSSARY, EVIDENCE_STATES } from "../../../utils/evidenceState
 import { plainSummary, SummaryNote } from "../../../utils/plainSummary";
 import { todayLocal } from "../../../utils/testFields";
 import { VERDICT_EVIDENCE, daysBetween, testStage, todayUtc } from "../../../../convex/lib/testFields";
+import {
+  DECISION_BASES,
+  ITEM_STATE_MEANINGS,
+  ITEM_STATES,
+  LOOK_BACK_ANSWERS,
+} from "../../../../convex/lib/goalModel";
 
 const ALL_BLOCK_IDS = [...new Set([...LEAN_BLOCK_IDS, ...GTM_BLOCK_IDS])];
 const EVIDENCE_STATE_PROPERTY = {
@@ -49,6 +55,17 @@ const TEST_FIELD_PROPERTIES = {
     },
     required: ["text"],
   },
+};
+
+const RUNBOOK_FIELD_PROPERTIES = {
+  title: { type: "string" },
+  trigger: { type: ["string", "null"], description: "When to use it, e.g. 'Primary supplier misses a delivery by more than 24 hours'" },
+  ownerUserId: { type: ["string", "null"], description: "Who owns it: a userId from list_canvas_members" },
+  steps: { type: "array", items: { type: "string" }, description: "The steps in order (replaces all steps), at most 40" },
+  noteIds: { type: "array", items: { type: "string" }, description: "Canvas notes it codifies (replaces the list)" },
+  itemIds: { type: "array", items: { type: "string" }, description: "Goal items whose decisions it rests on (replaces the list)" },
+  sopId: { type: ["string", "null"], description: "The SOP it belongs to; null takes it out" },
+  reviewDate: { type: ["string", "null"], description: "When to review it, YYYY-MM-DD" },
 };
 
 const LAUNCH_DATE_PROPERTY = {
@@ -148,7 +165,7 @@ const TOOLS_MANIFEST = [
   {
     name: "get_canvas",
     description:
-      "Fetch a canvas (Lean or GTM) with all of its blocks and sticky notes, including each note's evidence state and, where set, its test (measure, passMark, reviewDate, latestResult). Each note shows its driver (the person doing the work on it) and market tags if it has them; pass driverUserId to see the notes one person is driving, or market to see what holds in one market. If the canvas has a launchDate, it also returns currentDay and each note's reviewDay (days since launch).",
+      "Fetch a canvas (Lean or GTM) with all of its blocks and sticky notes, including each note's evidence state and, where set, its test (measure, passMark, reviewDate, latestResult). Each note shows its driver (the person doing the work on it) and market tags if it has them; pass driverUserId to see the notes one person is driving, or market to see what holds in one market. If the canvas has a launchDate, it also returns currentDay and each note's reviewDay (days since launch). Each note has a stage (guess, tested, repeatable, codified) and blockStages gives each block's stage: that of its least runnable note.",
     inputSchema: {
       type: "object",
       properties: {
@@ -206,7 +223,7 @@ const TOOLS_MANIFEST = [
   {
     name: "update_note",
     description:
-      "Reword a note, move it to another block of the same canvas, change its evidence state or driver, or set its test " +
+      "Reword a note, move it to another block of the same canvas, change its evidence state, stage or driver, or set its test " +
       "(measure, passMark, reviewDate, latestResult). Pass only what changes; null clears a test field. " +
       "Tests go: plan (measure, passMark and reviewDate or reviewDay) → record what was seen at the review (latestResult with a verdict) → " +
       "act on it (a pass points to 'supported', a fail to 'contradicted'; set evidenceState with the result as the reason, in the same call if you like). " +
@@ -223,6 +240,12 @@ const TOOLS_MANIFEST = [
           description: "Move the note to this block (it goes to the end). Must belong to the canvas's template.",
         },
         evidenceState: EVIDENCE_STATE_PROPERTY,
+        stage: {
+          type: "string",
+          enum: ["guess", "tested", "repeatable"],
+          description:
+            "How runnable this part of the business is: guess (untested), tested (tried by hand), repeatable (worked more than once, steps written down). 'codified' can't be set here: it comes from a live runbook linking the note.",
+        },
         driverUserId: DRIVER_PROPERTY,
         markets: MARKETS_PROPERTY,
         ...TEST_FIELD_PROPERTIES,
@@ -259,13 +282,18 @@ const TOOLS_MANIFEST = [
   {
     name: "request_decision",
     description:
-      "Ask one canvas member to decide on a note. They're emailed a link that answers it from their phone with no sign-in, even with view-only access; it works only for this decision and stops once it's made or withdrawn. Give a defaultOutcome so they see what happens if nobody decides by the due date (it is shown, never applied for them), and options to offer named choices instead of approve / reject. Name any option that only puts the decision off (e.g. 'Decide after day 3') in deferOptions: choosing it answers the request but leaves the note's evidence state as it was, so the canvas doesn't claim it's settled. A note can have one open request at a time.",
+      "Ask someone to decide on a note: a canvas member (deciderUserId), or anyone without an account by deciderName and deciderEmail (they never see the canvas, only this question; if the email belongs to a member, the member is asked). They're emailed a link that answers it from their phone with no sign-in, even with view-only access; it works only for this decision and stops once it's made or withdrawn. Give a defaultOutcome so they see what happens if nobody decides by the due date (it is shown, never applied for them), and options to offer named choices instead of approve / reject. Name any option that only puts the decision off (e.g. 'Decide after day 3') in deferOptions: choosing it answers the request but leaves the note's evidence state as it was, so the canvas doesn't claim it's settled. A note can have one open request at a time.",
     inputSchema: {
       type: "object",
       properties: {
         noteId: { type: "string" },
         question: { type: "string", description: "The yes/no question to decide, in one line" },
-        deciderUserId: { type: "string", description: "Who decides: a userId from list_canvas_members" },
+        deciderUserId: { type: "string", description: "Who decides, if they're on the canvas: a userId from list_canvas_members" },
+        deciderName: {
+          type: "string",
+          description: "Who decides, if they have no account: their name. Pass with deciderEmail instead of deciderUserId",
+        },
+        deciderEmail: { type: "string", description: "Where to email the answer link for someone without an account" },
         dueDate: { type: "string", description: "When it's needed by, as YYYY-MM-DD" },
         dueDay: {
           type: "integer",
@@ -289,7 +317,7 @@ const TOOLS_MANIFEST = [
             "Which of options put the decision off instead of making it, e.g. ['Ask me Friday']. Choosing one records the answer but doesn't mark the note as a decision. At least one option must not defer.",
         },
       },
-      required: ["noteId", "question", "deciderUserId"],
+      required: ["noteId", "question"],
     },
   },
   {
@@ -485,6 +513,219 @@ const TOOLS_MANIFEST = [
       required: ["canvasId"],
     },
   },
+  {
+    name: "list_runbooks",
+    description:
+      "How much of the business runs without the founder: each block's stage (guess, tested, repeatable, codified), SOPs, and runbooks with their trigger, owner, steps, linked notes and decisions, run stats (worked / didn't / partly, and keepsFailingAt: a step that failed at least twice in the last 5 runs) and recent runs. needsAttention lists live runbooks failing at the same step or due for review. A step that keeps failing usually means a canvas problem: wrong segment, channel or price.",
+    inputSchema: { type: "object", properties: { canvasId: { type: "string" } }, required: ["canvasId"] },
+  },
+  {
+    name: "create_sop",
+    description: "Add an SOP (standard operating procedure): a named group of runbooks several people follow, e.g. 'Acquisition' or 'Event day'.",
+    inputSchema: {
+      type: "object",
+      properties: { canvasId: { type: "string" }, title: { type: "string" }, description: { type: "string" } },
+      required: ["canvasId", "title"],
+    },
+  },
+  {
+    name: "update_sop",
+    description: "Rename an SOP or change its description (null clears it).",
+    inputSchema: {
+      type: "object",
+      properties: { sopId: { type: "string" }, title: { type: "string" }, description: { type: ["string", "null"] } },
+      required: ["sopId"],
+    },
+  },
+  {
+    name: "delete_sop",
+    description: "Delete an SOP. Its runbooks stay, ungrouped.",
+    inputSchema: { type: "object", properties: { sopId: { type: "string" } }, required: ["sopId"] },
+  },
+  {
+    name: "create_runbook",
+    description:
+      "Write a runbook: a play written so someone else, or an agent, can run it and get roughly the same result. It starts as a draft. Pass exactly one of canvasId (from scratch, needs title), fromNoteId (a canvas note: its text becomes the title and it stays linked) or fromItemId (a decided goal item: the decision becomes the title and is what the runbook rests on). Only write runbooks for plays that have worked more than once; a box still being searched gets experiments, not runbooks.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        canvasId: { type: "string" },
+        fromNoteId: { type: "string" },
+        fromItemId: { type: "string" },
+        ...RUNBOOK_FIELD_PROPERTIES,
+      },
+    },
+  },
+  {
+    name: "update_runbook",
+    description:
+      "Change a runbook (pass only what changes; null clears a field) or move it between draft, live and retired with status. Going live needs steps, and every linked note must be at least 'repeatable' (don't scale a guess); it then marks those notes 'codified'. Retiring it, or unlinking a note, drops notes with no other live runbook back to 'repeatable'.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        runbookId: { type: "string" },
+        status: { type: "string", enum: ["draft", "live", "retired"] },
+        ...RUNBOOK_FIELD_PROPERTIES,
+      },
+      required: ["runbookId"],
+    },
+  },
+  {
+    name: "delete_runbook",
+    description: "Delete a runbook and its run log. Notes it codified drop back to 'repeatable' unless another live runbook codifies them.",
+    inputSchema: { type: "object", properties: { runbookId: { type: "string" } }, required: ["runbookId"] },
+  },
+  {
+    name: "log_run",
+    description:
+      "Record one use of a live runbook: whether it worked (yes, no, partly), the step where it went wrong if it didn't fully work (1-based), and what it produced (numbers, e.g. '12 leads, 3 booked'). Any canvas member can log a run, viewers included.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        runbookId: { type: "string" },
+        outcome: { type: "string", enum: ["yes", "no", "partly"] },
+        failedStep: { type: "integer", description: "1-based step number where it went wrong" },
+        numbers: { type: "string" },
+        note: { type: "string" },
+      },
+      required: ["runbookId", "outcome"],
+    },
+  },
+  {
+    name: "list_goals",
+    description:
+      "The heart of a canvas: its goals, each with a headline count of items (open, testing, decided, done) and the items under it. " +
+      `Item states: ${ITEM_STATES.map((st) => `${st} = ${ITEM_STATE_MEANINGS[st]}`).join("; ")}. ` +
+      "Each item shows its test (if any), linked canvas notes, its current decision record (what was decided, basis, who, when, review date, look-back outcome) and earlier, superseded decisions. " +
+      "Also returns lookBacksDue (done items whose review date has come and nobody has said whether it panned out) and basisStats (how often each kind of basis panned out).",
+    inputSchema: { type: "object", properties: { canvasId: { type: "string" } }, required: ["canvasId"] },
+  },
+  {
+    name: "create_goal",
+    description: "Add a goal to a canvas: a big outcome the team is working toward, e.g. 'Launch Afforrd'.",
+    inputSchema: {
+      type: "object",
+      properties: { canvasId: { type: "string" }, title: { type: "string" } },
+      required: ["canvasId", "title"],
+    },
+  },
+  {
+    name: "update_goal",
+    description: "Rename a goal.",
+    inputSchema: {
+      type: "object",
+      properties: { goalId: { type: "string" }, title: { type: "string" } },
+      required: ["goalId", "title"],
+    },
+  },
+  {
+    name: "delete_goal",
+    description: "Delete a goal that has no items. Move or delete its items first.",
+    inputSchema: { type: "object", properties: { goalId: { type: "string" } }, required: ["goalId"] },
+  },
+  {
+    name: "add_item",
+    description:
+      "Add an item under a goal: something that needs a decision before the goal can be reached. It starts open, or testing if you give it a test (measure, passMark, reviewDate, latestResult).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        goalId: { type: "string" },
+        title: { type: "string", description: "The question or choice, in plain words, e.g. 'Which channel do we launch on?'" },
+        detail: { type: "string" },
+        decideBy: { type: ["string", "null"], description: "When the call should be made by, YYYY-MM-DD. null clears it." },
+        decideByDay: { type: "integer", description: "Alternative to decideBy: a day of the plan, counted from the canvas's launchDate" },
+        driverUserId: { ...DRIVER_PROPERTY, description: "The one person doing the work on it. A userId from list_canvas_members." },
+        contextNoteIds: { type: "array", items: { type: "string" }, description: "Canvas notes to keep with it as context or evidence" },
+        ...TEST_FIELD_PROPERTIES,
+      },
+      required: ["goalId", "title"],
+    },
+  },
+  {
+    name: "update_item",
+    description:
+      "Change an item's title, detail, driver, linked notes or test, or move it to another goal (goalId). Pass only what changes (including decideBy, the date the call should be made by); null clears a field. An undecided item follows its test: adding one makes it testing, clearing it makes it open. To decide, use decide_item.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string" },
+        goalId: { type: "string", description: "Move the item to this goal (same canvas)" },
+        title: { type: "string" },
+        detail: { type: ["string", "null"] },
+        decideBy: { type: ["string", "null"], description: "When the call should be made by, YYYY-MM-DD. null clears it." },
+        decideByDay: { type: "integer", description: "Alternative to decideBy: a day of the plan, counted from the canvas's launchDate" },
+        driverUserId: DRIVER_PROPERTY,
+        contextNoteIds: { type: "array", items: { type: "string" }, description: "Replaces the linked notes; [] clears them" },
+        ...TEST_FIELD_PROPERTIES,
+      },
+      required: ["itemId"],
+    },
+  },
+  {
+    name: "delete_item",
+    description: "Delete an item and its decision records. Linked canvas notes stay.",
+    inputSchema: { type: "object", properties: { itemId: { type: "string" } }, required: ["itemId"] },
+  },
+  {
+    name: "decide_item",
+    description:
+      "Make the call on an open or testing item. Writes its decision record and moves it to decided. Testing is optional: an item can go straight from open to decided. Judgment calls are valid.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string" },
+        decision: { type: "string", description: "What was decided, in a line or two" },
+        basis: {
+          type: "string",
+          enum: [...DECISION_BASES],
+          description: "What the call rests on: test (needs the item's test to have a result), data (existing data), expert (an expert's view), judgment (a judgment call)",
+        },
+        basisNote: { type: "string", description: "Optional line on the basis, e.g. which data or whose view" },
+        linkedNoteIds: { type: "array", items: { type: "string" }, description: "Canvas notes that informed it" },
+        decidedByUserId: { type: "string", description: "Who made the call, if not you. A userId from list_canvas_members." },
+        decidedByName: { type: "string", description: "Who made the call, for someone without an account" },
+        reviewDate: { type: "string", description: "When to ask whether it panned out, YYYY-MM-DD. Defaults to 30 days from today." },
+        reviewDay: { type: "integer", description: "Alternative to reviewDate: a day of the plan, counted from the canvas's launchDate" },
+      },
+      required: ["itemId", "decision", "basis"],
+    },
+  },
+  {
+    name: "mark_item_done",
+    description: "The decision on a decided item has been acted on. Moves it to done.",
+    inputSchema: { type: "object", properties: { itemId: { type: "string" } }, required: ["itemId"] },
+  },
+  {
+    name: "reopen_item",
+    description:
+      "Take a decided or done item back to open (or testing, if it has a test). Its decision record stays as an earlier decision.",
+    inputSchema: { type: "object", properties: { itemId: { type: "string" } }, required: ["itemId"] },
+  },
+  {
+    name: "record_look_back",
+    description:
+      "Say whether a done item's decision panned out: yes, no or partly, with an optional note. Ask this once its review date has come (list_goals shows lookBacksDue).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string" },
+        outcome: { type: "string", enum: [...LOOK_BACK_ANSWERS] },
+        note: { type: "string" },
+      },
+      required: ["itemId", "outcome"],
+    },
+  },
+  {
+    name: "convert_note_to_item",
+    description:
+      "Turn a canvas note into an item under a goal. Its test and driver carry over and the note stays linked as context. If the note's decision request was answered, that answer becomes the item's decision record and the item is decided.",
+    inputSchema: {
+      type: "object",
+      properties: { noteId: { type: "string" }, goalId: { type: "string" } },
+      required: ["noteId", "goalId"],
+    },
+  },
 ];
 
 const UNAUTHORIZED_HEADERS = {
@@ -529,6 +770,24 @@ function driverArg(args: Record<string, unknown>): unknown {
 function marketsArg(value: unknown): string[] | null | undefined {
   if (value === null) return null;
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : undefined;
+}
+
+/** An array of strings, or undefined for anything else. */
+function strArray(value: unknown): string[] | undefined {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : undefined;
+}
+
+function runbookFieldArgs(args: Record<string, unknown>) {
+  return {
+    title: optStr(args.title),
+    trigger: nullableStr(args.trigger),
+    ownerUserId: nullableStr(args.ownerUserId),
+    steps: strArray(args.steps),
+    noteIds: strArray(args.noteIds),
+    itemIds: strArray(args.itemIds),
+    sopId: nullableStr(args.sopId),
+    reviewDate: nullableStr(args.reviewDate),
+  };
 }
 
 function testFieldArgs(args: Record<string, unknown>) {
@@ -783,6 +1042,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         content: optStr(args.content),
         block: optStr(args.block) as any, // validated by Convex
         evidenceState: optStr(args.evidenceState) as any, // validated by Convex
+        stage: optStr(args.stage) as any, // validated by Convex
         reason: optStr(args.reason),
         link: optStr(args.link),
         driverUserId: nullableStr(driverArg(args)),
@@ -802,7 +1062,9 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         accessToken,
         noteId: str(args.noteId),
         question: str(args.question),
-        deciderUserId: str(args.deciderUserId),
+        deciderUserId: optStr(args.deciderUserId),
+        deciderName: optStr(args.deciderName),
+        deciderEmail: optStr(args.deciderEmail),
         dueDate: optStr(args.dueDate),
         dueDay: typeof args.dueDay === "number" ? args.dueDay : undefined,
         defaultOutcome: optStr(args.defaultOutcome),
@@ -876,6 +1138,123 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         view: (str(args.view) || "canvas") as any, // validated by Convex
         format: (str(args.format) || "pdf") as any, // validated by Convex
       });
+    case "list_runbooks":
+      return await fetchQuery(api.mcp.listRunbooks, { accessToken, canvasId: str(args.canvasId) });
+    case "create_sop":
+      return await fetchMutation(api.mcp.createSopForAgent, {
+        accessToken,
+        canvasId: str(args.canvasId),
+        title: str(args.title),
+        description: optStr(args.description),
+      });
+    case "update_sop":
+      return await fetchMutation(api.mcp.updateSopForAgent, {
+        accessToken,
+        sopId: str(args.sopId),
+        title: optStr(args.title),
+        description: nullableStr(args.description),
+      });
+    case "delete_sop":
+      return await fetchMutation(api.mcp.deleteSopForAgent, { accessToken, sopId: str(args.sopId) });
+    case "create_runbook":
+      return await fetchMutation(api.mcp.createRunbookForAgent, {
+        accessToken,
+        canvasId: optStr(args.canvasId),
+        fromNoteId: optStr(args.fromNoteId),
+        fromItemId: optStr(args.fromItemId),
+        ...runbookFieldArgs(args),
+      });
+    case "update_runbook":
+      return await fetchMutation(api.mcp.updateRunbookForAgent, {
+        accessToken,
+        runbookId: str(args.runbookId),
+        status: optStr(args.status) as any, // validated by Convex
+        ...runbookFieldArgs(args),
+      });
+    case "delete_runbook":
+      return await fetchMutation(api.mcp.deleteRunbookForAgent, { accessToken, runbookId: str(args.runbookId) });
+    case "log_run":
+      return await fetchMutation(api.mcp.logRunForAgent, {
+        accessToken,
+        runbookId: str(args.runbookId),
+        outcome: args.outcome as any, // validated by Convex
+        failedStep: typeof args.failedStep === "number" ? args.failedStep : undefined,
+        numbers: optStr(args.numbers),
+        note: optStr(args.note),
+      });
+    case "list_goals":
+      return await fetchQuery(api.mcp.listGoals, { accessToken, canvasId: str(args.canvasId) });
+    case "create_goal":
+      return await fetchMutation(api.mcp.createGoalForAgent, {
+        accessToken,
+        canvasId: str(args.canvasId),
+        title: str(args.title),
+      });
+    case "update_goal":
+      return await fetchMutation(api.mcp.updateGoalForAgent, {
+        accessToken,
+        goalId: str(args.goalId),
+        title: str(args.title),
+      });
+    case "delete_goal":
+      return await fetchMutation(api.mcp.deleteGoalForAgent, { accessToken, goalId: str(args.goalId) });
+    case "add_item":
+      return await fetchMutation(api.mcp.addItemForAgent, {
+        accessToken,
+        goalId: str(args.goalId),
+        title: str(args.title),
+        detail: nullableStr(args.detail),
+        decideBy: nullableStr(args.decideBy),
+        decideByDay: typeof args.decideByDay === "number" ? args.decideByDay : undefined,
+        driverUserId: nullableStr(args.driverUserId),
+        contextNoteIds: strArray(args.contextNoteIds),
+        ...testFieldArgs(args),
+      });
+    case "update_item":
+      return await fetchMutation(api.mcp.updateItemForAgent, {
+        accessToken,
+        itemId: str(args.itemId),
+        goalId: optStr(args.goalId),
+        title: optStr(args.title),
+        detail: nullableStr(args.detail),
+        decideBy: nullableStr(args.decideBy),
+        decideByDay: typeof args.decideByDay === "number" ? args.decideByDay : undefined,
+        driverUserId: nullableStr(args.driverUserId),
+        contextNoteIds: strArray(args.contextNoteIds),
+        ...testFieldArgs(args),
+      });
+    case "delete_item":
+      return await fetchMutation(api.mcp.deleteItemForAgent, { accessToken, itemId: str(args.itemId) });
+    case "decide_item":
+      return await fetchMutation(api.mcp.decideItemForAgent, {
+        accessToken,
+        itemId: str(args.itemId),
+        decision: str(args.decision),
+        basis: args.basis as any, // validated by Convex
+        basisNote: optStr(args.basisNote),
+        linkedNoteIds: strArray(args.linkedNoteIds),
+        decidedByUserId: optStr(args.decidedByUserId),
+        decidedByName: optStr(args.decidedByName),
+        reviewDate: optStr(args.reviewDate),
+        reviewDay: typeof args.reviewDay === "number" ? args.reviewDay : undefined,
+      });
+    case "mark_item_done":
+      return await fetchMutation(api.mcp.markItemDoneForAgent, { accessToken, itemId: str(args.itemId) });
+    case "reopen_item":
+      return await fetchMutation(api.mcp.reopenItemForAgent, { accessToken, itemId: str(args.itemId) });
+    case "record_look_back":
+      return await fetchMutation(api.mcp.recordLookBackForAgent, {
+        accessToken,
+        itemId: str(args.itemId),
+        outcome: args.outcome as any, // validated by Convex
+        note: optStr(args.note),
+      });
+    case "convert_note_to_item":
+      return await fetchMutation(api.mcp.convertNoteForAgent, {
+        accessToken,
+        noteId: str(args.noteId),
+        goalId: str(args.goalId),
+      });
     default:
       return undefined;
   }
@@ -889,7 +1268,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse(
       JSON.stringify({
         error: "unauthorized",
-        message: "Authentication required to access LeanOn MCP tools",
+        message: "Authentication required to access CriticalDash MCP tools",
       }),
       {
         status: 401,
@@ -906,9 +1285,9 @@ export async function GET(req: NextRequest) {
   // Discovery manifest including OAuth 2.1 authentication info
   return NextResponse.json(
     {
-      name: "leanon",
+      name: "criticaldash",
       version: "0.1.0",
-      description: "LeanOn Model Context Protocol endpoint for Claude Connectors",
+      description: "CriticalDash Model Context Protocol endpoint for Claude Connectors",
       protocol: "mcp/sse",
       endpoints: {
         http: "https://lean.incrementic.com/api/mcp",
@@ -973,9 +1352,16 @@ export async function POST(req: NextRequest) {
               tools: {},
             },
             serverInfo: {
-              name: "leanon",
+              name: "criticaldash",
               version: "0.1.0",
             },
+            instructions:
+              "CriticalDash revolves around decisions. Each canvas has goals; each goal has items that need a decision before the goal is reached. " +
+              "Items move open -> testing (optional, while a test runs) -> decided -> done. Start with list_goals. " +
+              "Record calls with decide_item (basis: test, data, expert or judgment), mark them done once acted on, and on the review date ask whether they panned out (record_look_back). " +
+              "Canvas notes are context and evidence; convert_note_to_item turns one into an item. " +
+              "Each note also has a stage on the way from guess to runbook: guess -> tested -> repeatable (update_note stage) -> codified (a live runbook links it). " +
+              "Turn plays that work into runbooks (create_runbook, grouped into SOPs), make them live with update_runbook, and log every run with log_run. list_runbooks shows how much of the business runs without the founder.",
           },
         },
         { headers: CORS_HEADERS }

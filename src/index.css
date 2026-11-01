@@ -61,3 +61,71 @@ body {
   background-image: radial-gradient(rgba(76, 78, 86, 0.15) 1.5px, transparent 1.5px);
   background-size: 16px 16px;
 }
+
+/* Fog: guesses look hazy and clear as they're proven. Felt, never explained. */
+.fog-drift {
+  background:
+    radial-gradient(40% 35% at 20% 30%, rgb(255 255 255 / 0.35), transparent 70%),
+    radial-gradient(35% 30% at 75% 20%, rgb(255 255 255 / 0.28), transparent 70%),
+    radial-gradient(45% 40% at 60% 85%, rgb(255 255 255 / 0.3), transparent 70%);
+  filter: blur(24px);
+  animation: fog-drift 38s ease-in-out infinite alternate;
+  transition: opacity 0.4s linear;
+}
+
+@keyframes fog-drift {
+  from {
+    transform: translate3d(-4%, 0, 0) scale(1.05);
+  }
+  to {
+    transform: translate3d(4%, -3%, 0) scale(1.12);
+  }
+}
+
+/* A veil over a block: --fog from 0 (clear) to 1 (thick). Lifts on hover or focus. */
+.fog-veil {
+  position: relative;
+}
+.fog-veil > .fog-veil-layer {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(255 255 255 / calc(var(--fog, 0) * 0.45));
+  backdrop-filter: blur(calc(var(--fog, 0) * 1.1px));
+  -webkit-backdrop-filter: blur(calc(var(--fog, 0) * 1.1px));
+  transition:
+    opacity 0.5s ease,
+    background 0.6s ease,
+    backdrop-filter 0.6s ease;
+}
+.fog-veil:hover > .fog-veil-layer,
+.fog-veil:focus-within > .fog-veil-layer {
+  opacity: 0;
+}
+
+/* Text in haze: softly blurred and faded by --fog; sharp on hover or focus. */
+.fog-text {
+  filter: blur(calc(var(--fog, 0) * 0.7px));
+  opacity: calc(1 - var(--fog, 0) * 0.35);
+  transition:
+    filter 0.6s ease,
+    opacity 0.6s ease;
+}
+.fog-text:hover,
+.fog-text:focus-within,
+*:hover > .fog-text,
+*:focus-visible > .fog-text {
+  filter: none;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fog-drift {
+    animation: none;
+  }
+  .fog-veil > .fog-veil-layer,
+  .fog-text {
+    transition: none;
+  }
+}

@@ -7,7 +7,7 @@ const MCP_URL = "https://lean.incrementic.com/api/mcp";
 
 const ANTIGRAVITY_CONFIG = `{
   "mcpServers": {
-    "leanon": {
+    "criticaldash": {
       "serverUrl": "${MCP_URL}"
     }
   }
@@ -27,7 +27,7 @@ const AGENTS: { id: AgentId; label: string; steps: React.ReactNode[] }[] = [
       <>
         Add an <strong>HTTP</strong> MCP and paste the URL above.
       </>,
-      <>Sign in with your LeanOn account when ChatGPT asks you to authorize access.</>,
+      <>Sign in with your CriticalDash account when ChatGPT asks you to authorize access.</>,
     ],
   },
   {
@@ -42,10 +42,10 @@ const AGENTS: { id: AgentId; label: string; steps: React.ReactNode[] }[] = [
         choose <strong>Register automatically</strong> for the OAuth client.
       </>,
       <>
-        Click <strong>Add</strong>, then sign in with your LeanOn account.
+        Click <strong>Add</strong>, then sign in with your CriticalDash account.
       </>,
       <>
-        In a chat, click <strong>+</strong> and select <strong>Connectors</strong> to turn LeanOn on.
+        In a chat, click <strong>+</strong> and select <strong>Connectors</strong> to turn CriticalDash on.
       </>,
     ],
   },
@@ -61,7 +61,7 @@ const AGENTS: { id: AgentId; label: string; steps: React.ReactNode[] }[] = [
         Scroll down and add a custom app with the URL above.
       </>,
       <>
-        Sign in with your LeanOn account if asked, then approve access. If Gemini shows{" "}
+        Sign in with your CriticalDash account if asked, then approve access. If Gemini shows{" "}
         <em>&quot;Account linking is required to use this custom app. Please try again.&quot;</em>, try again. It
         connected on the second attempt when we tested it.
       </>,
@@ -83,7 +83,7 @@ const AGENTS: { id: AgentId; label: string; steps: React.ReactNode[] }[] = [
       </>,
       <>
         Open <strong>Agent Settings</strong>, go to the <strong>Customizations</strong> tab, and click{" "}
-        <strong>Authenticate</strong> next to LeanOn. Finish signing in, then paste the authorization code
+        <strong>Authenticate</strong> next to CriticalDash. Finish signing in, then paste the authorization code
         back in and click <strong>Submit</strong>.
       </>,
     ],
@@ -215,14 +215,16 @@ const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "request_decision",
-    summary: "Ask someone on the canvas to decide on a note.",
+    summary: "Ask someone to decide on a note, on the canvas or without an account.",
     detail:
-      "They get an email with a link that answers it from their phone, no sign-in needed, even with view-only access. Give a due date (YYYY-MM-DD) or dueDay from the launch date, a default for if nobody decides by then, and up to 4 options instead of approve / reject. Mark any option that only puts the decision off in deferOptions, so choosing it doesn't mark the note as decided.",
+      "Name a canvas member by deciderUserId, or anyone else by deciderName and deciderEmail: they need no account and see only this question. They get an email with a link that answers it from their phone, no sign-in needed, even with view-only access. Give a due date (YYYY-MM-DD) or dueDay from the launch date, a default for if nobody decides by then, and up to 4 options instead of approve / reject. Mark any option that only puts the decision off in deferOptions, so choosing it doesn't mark the note as decided.",
     changesCanvas: true,
     inputs: [
       { name: "noteId", required: true },
       { name: "question", required: true },
-      { name: "deciderUserId", required: true },
+      { name: "deciderUserId", required: false },
+      { name: "deciderName", required: false },
+      { name: "deciderEmail", required: false },
       { name: "dueDate", required: false },
       { name: "dueDay", required: false },
       { name: "defaultOutcome", required: false },

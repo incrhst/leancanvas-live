@@ -18,7 +18,7 @@ import { noteMatchesEvidence, useEvidenceFilter } from "../../../utils/evidenceF
 import { EvidenceLegend } from "../../../components/EvidenceLegend";
 import { matchesDriverFilter, DriverFilter, DriverFilterValue } from "../../../components/DriverControls";
 import { MarketFilter, marketsOf, matchesMarketFilter } from "../../../components/MarketControls";
-import { CanvasMember, MembersContext } from "../../../utils/members";
+import { CanvasMember, CanvasPerson, MembersContext, PeopleContext } from "../../../utils/members";
 import { todayLocal } from "../../../utils/testFields";
 import { LaunchDateContext } from "../../../utils/launchDate";
 import { useMediaQuery, useSetQueryParams } from "../../../utils/urlState";
@@ -34,6 +34,8 @@ import {
   riskRanksFor,
 } from "../../../components/CanvasViewToggle";
 import { DecidedCountChip, PlanStatusBoard } from "../../../components/PlanStatusBoard";
+import { GoalsBoard } from "../../../components/GoalsBoard";
+import { RunbooksBoard } from "../../../components/RunbooksBoard";
 import { useAuth } from "../../../components/ConvexClientProvider";
 import { NoteItem, BlockId, EvidenceState, StressTestResult } from "../../../types/canvas";
 import { NoteSearch, NoteSearchButton, useNoteSearchShortcut } from "../../../components/NoteSearch";
@@ -60,11 +62,13 @@ export default function CanvasEditorPage() {
   const { user, isLoading } = useAuth();
 
   const data = useQuery(api.canvases.getCanvas, isLoading ? "skip" : { canvasId });
-  // Viewers (deciders and drivers who don't edit) start on the status view; editors on the canvas
-  const defaultView: CanvasView = data && data.currentUserRole === "viewer" ? "status" : "canvas";
+  // Everyone starts on goals; the status board and canvas are a tab over
+  const defaultView: CanvasView = "goals";
   const view = parseCanvasView(searchParams.get("view"), defaultView);
   const setView = (next: CanvasView) => setQueryParams({ view: canvasViewParam(next, defaultView) });
   const noteInline = isDesktop && view === "canvas";
+  const goalsView = useQuery(api.goals.view, data && view === "goals" ? { canvasId } : "skip");
+  const runbooksView = useQuery(api.runbooks.view, data && view === "runbooks" ? { canvasId } : "skip");
   const latestStressTest = useQuery(api.stressTests.getLatestStressTest, data ? { canvasId } : "skip");
   const addNote = useMutation(api.notes.addNote);
   const updateNote = useMutation(api.notes.updateNote);
@@ -96,6 +100,10 @@ export default function CanvasEditorPage() {
   const members = useMemo(
     () => new Map<string, CanvasMember>((data?.members ?? []).map((m) => [m.id, m])),
     [data?.members]
+  );
+  const people = useMemo<CanvasPerson[]>(
+    () => (data?.people ?? []).map((p) => ({ ...p, id: p.id as string })),
+    [data?.people]
   );
   const allMarkets = marketsOf(notes);
   const visibleNotes = notes.filter(
@@ -261,6 +269,7 @@ export default function CanvasEditorPage() {
       />
 
       <MembersContext.Provider value={members}>
+      <PeopleContext.Provider value={people}>
         <LaunchDateContext.Provider value={canvas.launchDate}>
           <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
             {/* Board */}
@@ -291,7 +300,16 @@ export default function CanvasEditorPage() {
                 onModeChange={evidence.setMode}
               />
               )}
-              {view === "status" ? (
+              {view === "goals" ? (
+                <GoalsBoard
+                  view={goalsView}
+                  canEdit={canEdit}
+                  canvasId={canvasId}
+                  notes={notes.map((n) => ({ _id: n._id, content: n.content }))}
+                />
+              ) : view === "runbooks" ? (
+                <RunbooksBoard view={runbooksView} blocks={template.blocks} canEdit={canEdit} canRun={!!user} />
+              ) : view === "status" ? (
                 <PlanStatusBoard
                   blocks={template.blocks}
                   notes={notes}
@@ -390,10 +408,12 @@ export default function CanvasEditorPage() {
             </NoteModal>
           )}
         </LaunchDateContext.Provider>
+      </PeopleContext.Provider>
       </MembersContext.Provider>
 
       {isSearchOpen && (
         <MembersContext.Provider value={members}>
+      <PeopleContext.Provider value={people}>
         <NoteSearch
           notes={notes}
           blocks={template.blocks}
@@ -417,7 +437,8 @@ export default function CanvasEditorPage() {
             }, 80);
           }}
         />
-        </MembersContext.Provider>
+        </PeopleContext.Provider>
+      </MembersContext.Provider>
       )}
 
       {/* Share Modal */}

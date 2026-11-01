@@ -5,6 +5,8 @@ import { checkDate } from "./lib/testFields";
 import { displayName } from "./lib/members";
 import { deleteSnapshotRows } from "./lib/snapshots";
 import { requireLivePlan } from "./lib/plans";
+import { deciderNameOf } from "./lib/decisions";
+import { deletePeople, listPeople } from "./lib/people";
 import { requireAuth, requireOwner, requireEditor, getCurrentUser, getCanvasRole, Role, sha256Hex } from "./lib/auth";
 import { Doc, Id } from "./_generated/dataModel";
 import { MutationCtx, QueryCtx } from "./_generated/server";
@@ -277,10 +279,19 @@ export const getCanvas = query({
 
     const { publicViewPasswordHash, ...canvasFields } = canvas;
 
+    // Deciders without an account aren't members, so every decision carries its decider's name
+    const withDeciderNames = await Promise.all(
+      notes.map(async (n) =>
+        n.decision ? { ...n, decision: { ...n.decision, deciderName: await deciderNameOf(ctx, n.decision) } } : n
+      )
+    );
+
     return {
       canvas: { ...canvasFields, template: templateOf(canvas), hasPublicViewPassword: !!publicViewPasswordHash },
-      notes: notes.sort((a, b) => a.order - b.order),
+      notes: withDeciderNames.sort((a, b) => a.order - b.order),
       members: memberDetails,
+      // Who can be asked to decide without an account. Viewers can't ask, so they don't get the list.
+      people: role === "viewer" ? [] : await listPeople(ctx, canvas._id, { withEmail: true }),
       currentUserRole: role,
       isAnonymous: !user,
     };
@@ -327,7 +338,7 @@ async function recordFailure(
  * Checks a viewing pass issued by unlockPublicView. Passes are invalidated whenever the
  * link password is changed or removed (publicViewPasswordSetAt changes).
  */
-async function isValidGrant(ctx: QueryCtx, canvas: Doc<"canvases">, grant?: string) {
+export async function isValidGrant(ctx: QueryCtx, canvas: Doc<"canvases">, grant?: string) {
   if (!grant) return false;
   const grantHash = await sha256Hex(grant);
   const grantDoc = await ctx.db
@@ -466,11 +477,10 @@ export const getCanvasByPublicToken = query({
       .first();
 
     // Decisions show the decider's name, not their id, and never the answer link
-    const deciderNames = new Map<Id<"users">, string>();
+    const deciderNames = new Map<string, string>();
     for (const n of notes) {
-      if (n.decision && !deciderNames.has(n.decision.deciderId)) {
-        deciderNames.set(n.decision.deciderId, displayName(await ctx.db.get(n.decision.deciderId)));
-      }
+      const key = n.decision && (n.decision.deciderId ?? n.decision.deciderPersonId);
+      if (n.decision && key && !deciderNames.has(key)) deciderNames.set(key, await deciderNameOf(ctx, n.decision));
     }
 
     return {
@@ -490,6 +500,7 @@ export const getCanvasByPublicToken = query({
           content: n.content,
           order: n.order,
           evidenceState: n.evidenceState,
+          stage: n.stage,
           measure: n.measure,
           passMark: n.passMark,
           reviewDate: n.reviewDate,
@@ -510,7 +521,7 @@ export const getCanvasByPublicToken = query({
             status: n.decision.status,
             choice: n.decision.choice,
             answeredAt: n.decision.answeredAt,
-            deciderName: deciderNames.get(n.decision.deciderId),
+            deciderName: deciderNames.get(n.decision.deciderId ?? n.decision.deciderPersonId ?? ""),
           },
           updatedAt: n.updatedAt,
         }))
@@ -688,6 +699,8 @@ export const deleteCanvas = mutation({
     for (const snapshot of snapshots) {
       await deleteSnapshotRows(ctx, snapshot._id);
     }
+
+    await deletePeople(ctx, args.canvasId);
 
     const checkIns = await ctx.db
       .query("checkInItems")

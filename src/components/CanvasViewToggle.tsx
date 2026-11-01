@@ -1,14 +1,16 @@
 import React from "react";
-import { Columns3Icon, LayoutGridIcon, ShieldAlertIcon } from "lucide-react";
+import { BookOpenCheckIcon, Columns3Icon, LayoutGridIcon, ShieldAlertIcon, TargetIcon } from "lucide-react";
 
-export type CanvasView = "canvas" | "status" | "risks";
+export type CanvasView = "goals" | "runbooks" | "canvas" | "status" | "risks";
 
 /**
- * The view in the URL (?view=), or the default when there's none. Operators (editors) start on the
- * canvas; viewers and guests on the share link start on the three-state status view.
+ * The view in the URL (?view=), or the default when there's none. Everyone starts on goals, the
+ * decisions each one is waiting on; the status board and canvas hold the notes behind them.
  */
 export function parseCanvasView(param: string | null, defaultView: CanvasView): CanvasView {
-  return param === "canvas" || param === "status" || param === "risks" ? param : defaultView;
+  return param === "goals" || param === "runbooks" || param === "canvas" || param === "status" || param === "risks"
+    ? param
+    : defaultView;
 }
 
 /** The ?view= value for a view: none for the default, so plain links stay plain. */
@@ -30,12 +32,24 @@ export function CanvasViewToggle({ view, riskCount, onChange }: CanvasViewToggle
       <button
         type="button"
         role="tab"
-        aria-selected={view === "canvas"}
-        onClick={() => onChange("canvas")}
-        className={`${base} ${view === "canvas" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
+        aria-selected={view === "goals"}
+        onClick={() => onChange("goals")}
+        title="Goals and what each one is waiting on: open, testing, decided, done"
+        className={`${base} ${view === "goals" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
       >
-        <LayoutGridIcon className="h-3.5 w-3.5" />
-        Canvas
+        <TargetIcon className="h-3.5 w-3.5" />
+        Goals
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "runbooks"}
+        onClick={() => onChange("runbooks")}
+        title="SOPs and runbooks: the parts of the business that run without you"
+        className={`${base} ${view === "runbooks" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
+      >
+        <BookOpenCheckIcon className="h-3.5 w-3.5" />
+        Runbooks
       </button>
       <button
         type="button"
@@ -47,6 +61,16 @@ export function CanvasViewToggle({ view, riskCount, onChange }: CanvasViewToggle
       >
         <Columns3Icon className="h-3.5 w-3.5" />
         Status
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "canvas"}
+        onClick={() => onChange("canvas")}
+        className={`${base} ${view === "canvas" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
+      >
+        <LayoutGridIcon className="h-3.5 w-3.5" />
+        Canvas
       </button>
       <button
         type="button"

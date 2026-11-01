@@ -2,7 +2,6 @@ import React from "react";
 import Link from "next/link";
 import {
   ChevronRightIcon,
-  CloudIcon,
   LayoutGridIcon,
   Share2Icon,
   SparklesIcon,
@@ -74,10 +73,6 @@ export function TopBar({
           <ChevronRightIcon size={14} className="hidden text-subtle sm:inline" aria-hidden="true" />
           <h1 className="truncate font-semibold text-ink">{title}</h1>
         </nav>
-        <span className="hidden items-center gap-1.5 whitespace-nowrap text-xs text-muted md:inline-flex">
-          <CloudIcon size={13} aria-hidden="true" />
-          Convex live
-        </span>
 
         {/* Role badge */}
         <span

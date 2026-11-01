@@ -204,7 +204,7 @@ function PlanStatusCard({
   const members = useContext(MembersContext);
   const launchDate = useContext(LaunchDateContext);
   const decision = note.decision;
-  const decider = decision ? (members.get(decision.deciderId)?.name ?? decision.deciderName) : undefined;
+  const decider = decision ? (members.get(decision.deciderId ?? "")?.name ?? decision.deciderName) : undefined;
   const firstName = decider?.split(" ")[0];
   const date = (d: string) => formatPlanDate(launchDate, d).replace(/^Day/, "day");
   const urgent = reason === "decision_overdue" || reason === "contradicted_after_agreed" || reason === "test_due";

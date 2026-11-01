@@ -22,6 +22,8 @@ import {
   riskRanksFor,
 } from "../../../components/CanvasViewToggle";
 import { DecidedCountChip, PlanStatusBoard } from "../../../components/PlanStatusBoard";
+import { GoalsBoard } from "../../../components/GoalsBoard";
+import { RunbooksBoard } from "../../../components/RunbooksBoard";
 import { NoteItem, StressTestResult } from "../../../types/canvas";
 import { GlobeIcon, SparklesIcon, LogInIcon, FileTextIcon, DownloadIcon, LockIcon } from "lucide-react";
 import { NoteSearch, NoteSearchButton, useNoteSearchShortcut } from "../../../components/NoteSearch";
@@ -34,9 +36,9 @@ export default function PublicSharePage() {
   const token = (params?.token as string) || "";
   const searchParams = useSearchParams();
   const setQueryParams = useSetQueryParams();
-  // Guests start on the three-state status view; the full canvas is one tab away
-  const view = parseCanvasView(searchParams.get("view"), "status");
-  const setView = (next: CanvasView) => setQueryParams({ view: canvasViewParam(next, "status") });
+  // Guests start on goals, like members; the status board and full canvas are a tab away
+  const view = parseCanvasView(searchParams.get("view"), "goals");
+  const setView = (next: CanvasView) => setQueryParams({ view: canvasViewParam(next, "goals") });
   // The open note lives in the URL (?note=<id>) so it can be bookmarked and shared
   const selectedId = searchParams.get("note");
   // Opening or closing a note goes back to its usual place; ?noteView=modal expands it into a dialog
@@ -52,6 +54,14 @@ export default function PublicSharePage() {
   const data = useQuery(
     api.canvases.getCanvasByPublicToken,
     grantLoaded ? { token, grant } : "skip"
+  );
+  const goalsView = useQuery(
+    api.goals.viewByPublicToken,
+    grantLoaded && view === "goals" ? { token, grant } : "skip"
+  );
+  const runbooksView = useQuery(
+    api.runbooks.viewByPublicToken,
+    grantLoaded && view === "runbooks" ? { token, grant } : "skip"
   );
   const [password, setPassword] = useState("");
   const [unlockError, setUnlockError] = useState<string | null>(null);
@@ -276,7 +286,11 @@ export default function PublicSharePage() {
                 onModeChange={evidence.setMode}
               />
             )}
-            {view === "status" ? (
+            {view === "goals" ? (
+              <GoalsBoard view={goalsView} canEdit={false} canvasId={data.canvas._id} />
+            ) : view === "runbooks" ? (
+              <RunbooksBoard view={runbooksView} blocks={template.blocks} canEdit={false} canRun={false} />
+            ) : view === "status" ? (
               <PlanStatusBoard
                 blocks={template.blocks}
                 notes={notes}

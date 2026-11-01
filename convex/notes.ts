@@ -1,3 +1,5 @@
+import { setStageByHand } from "./lib/runbooks";
+import { settableStageValidator } from "./lib/runbookModel";
 import { mutation, query, MutationCtx } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
@@ -43,6 +45,8 @@ async function nextOrderInBlock(ctx: MutationCtx, canvasId: Id<"canvases">, bloc
 /**
  * Shared implementation for adding a note (caller must have verified editor access).
  */
+type SettableStage = "guess" | "tested" | "repeatable";
+
 export async function addNoteForUser(
   ctx: MutationCtx,
   actor: Actor,
@@ -119,11 +123,17 @@ export async function updateNoteForUser(
     evidenceState?: EvidenceState;
     ownerId?: Id<"users"> | null;
     markets?: string[] | null;
+    // Guess, tested or repeatable; codified comes only from a live runbook
+    stage?: SettableStage;
     reason?: string;
     link?: string;
   } & TestFieldsUpdate
 ) {
   const now = Date.now();
+  if (args.stage !== undefined) {
+    await setStageByHand(ctx, actor, note, args.stage);
+    note = (await ctx.db.get(note._id))!;
+  }
 
   const testPatch = testFieldsPatch(args);
   if (setsTest(testPatch)) {
@@ -231,6 +241,8 @@ export const updateNote = mutation({
     // [] or null clears the tags
     markets: v.optional(v.union(v.array(v.string()), v.null())),
     ...testFieldsUpdateArgs,
+    // Guess, tested or repeatable; codified comes only from a live runbook
+    stage: v.optional(settableStageValidator),
     evidenceState: v.optional(
       v.union(
         v.literal("unknown"),

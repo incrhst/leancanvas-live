@@ -124,7 +124,7 @@ export function summaryFromNotes(args: {
           decision: n.decision && {
             status: n.decision.status,
             question: n.decision.question,
-            decider: args.nameOf(n.decision.deciderId),
+            decider: (n.decision.deciderId && args.nameOf(n.decision.deciderId)) || n.decision.deciderName,
             dueDate: n.decision.dueDate,
             defaultOutcome: n.decision.defaultOutcome,
           },

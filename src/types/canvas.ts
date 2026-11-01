@@ -95,7 +95,9 @@ export type DecisionStatus = "open" | "approved" | "rejected" | "changes_request
 
 export interface DecisionRequest {
   question: string;
-  deciderId: string;
+  /** A canvas member, or (deciderPersonId) someone without an account; exactly one is set */
+  deciderId?: string;
+  deciderPersonId?: string;
   /** YYYY-MM-DD */
   dueDate: string;
   /** What happens if nobody decides by dueDate */
@@ -116,7 +118,7 @@ export interface DecisionRequest {
   answeredByName?: string;
   /** Set while the emailed answer link works */
   linkTokenHash?: string;
-  /** Only on the public link, which shares names but not member ids */
+  /** The decider's name, from the server (members and people without accounts alike) */
   deciderName?: string;
 }
 
@@ -136,6 +138,8 @@ export interface NoteItem {
   /** Markets where the note holds; none means every market */
   markets?: string[];
   decision?: DecisionRequest;
+  /** How runnable it is; unset means guess. Codified only via a live runbook */
+  stage?: "guess" | "tested" | "repeatable" | "codified";
   createdBy?: string;
   updatedAt: number;
 }

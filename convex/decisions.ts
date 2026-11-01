@@ -9,15 +9,22 @@ import {
   listOpenDecisionsFor,
   replaceDecisionLinkForUser,
   requestDecisionForUser,
+  stopEmailsByLink,
   withdrawDecisionForUser,
 } from "./lib/decisions";
 
-/** Asks a canvas member to decide on a note (editors only). */
+/**
+ * Asks someone to decide on a note (editors only): a canvas member, a person already on the canvas,
+ * or anyone by name and email, who answers from the emailed link without an account.
+ */
 export const requestDecision = mutation({
   args: {
     noteId: v.id("notes"),
     question: v.string(),
-    deciderId: v.id("users"),
+    // Exactly one of these three
+    deciderId: v.optional(v.id("users")),
+    deciderPersonId: v.optional(v.id("people")),
+    decider: v.optional(v.object({ name: v.string(), email: v.string() })),
     dueDate: v.string(),
     // What happens if nobody decides by dueDate
     defaultOutcome: v.optional(v.string()),
@@ -107,5 +114,13 @@ export const answerByLink = mutation({
   handler: async (ctx, args) => {
     const { token, ...answer } = args;
     await answerDecisionByLink(ctx, token, answer);
+  },
+});
+
+/** Public: stops emails from this canvas to the person behind an answer link (people without accounts only). */
+export const stopEmails = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await stopEmailsByLink(ctx, args.token);
   },
 });
