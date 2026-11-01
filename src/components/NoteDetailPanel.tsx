@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Trash2Icon, XIcon, ChevronDownIcon, FlaskConicalIcon, Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { NoteItem, EvidenceState } from "../types/canvas";
 import { EvidenceBadge, EVIDENCE_CONFIG, EVIDENCE_STATES } from "./EvidenceBadge";
+import { NoteStageField } from "./StageControls";
 import { NoteHistory } from "./NoteHistory";
 import { EditableField } from "./EditableField";
 import { NoteTestFields, TestFieldsPatch } from "./NoteTestFields";
@@ -318,6 +319,8 @@ export function NoteDetailPanel({
             </>
           )}
         </div>
+
+        <NoteStageField note={note} canEdit={canEdit} />
 
         {canEdit && (
           <section aria-label="Next step" className="space-y-3 border-t border-line pt-4">

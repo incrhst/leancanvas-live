@@ -227,12 +227,7 @@ const STAGES: {
     status: "Runs without you",
     statusTint: "border-emerald-300 bg-emerald-50 text-emerald-900",
     looksLike: "It's written down clearly enough that someone new, or an AI assistant, can do it and get the same result.",
-    weDo: (
-      <>
-        Step-by-step guides for each part of the business, with every run reporting back, so a step that keeps failing
-        gets noticed. <span className="font-semibold text-incrementic-red">Coming next.</span>
-      </>
-    ),
+    weDo: "Writes it up as a runbook: what starts it, who owns it and the steps in order. It can only go live once what it rests on has been proven, and every run reports back, so a step that keeps breaking gets flagged.",
     quotes: [
       BEZOS,
       {
@@ -252,8 +247,8 @@ const CONTROLS = [
   {
     icon: ListChecksIcon,
     tint: "bg-red-50 border-red-200 text-incrementic-red",
-    title: "One list of what needs you",
-    body: "Decisions about to go overdue, results that are in, and calls that are due a look back. Nothing slips by.",
+    title: "See what runs without you",
+    body: "Every part of the business shows whether it's still a guess, being tested, proven or written up as a runbook. Nothing slips by unnoticed.",
   },
   {
     icon: CheckCheckIcon,
@@ -268,10 +263,10 @@ const CONTROLS = [
     body: "See how often checked decisions work out compared with gut calls, so luck stops passing for skill.",
   },
   {
-    icon: FlaskConicalIcon,
-    tint: "bg-amber-50 border-amber-200 text-amber-800",
-    title: "Tests agreed before the results",
-    body: "The measure and the pass mark are set up front, so nobody moves the goalposts once the numbers arrive.",
+    icon: BookOpenCheckIcon,
+    tint: "bg-emerald-50 border-emerald-200 text-emerald-800",
+    title: "Runbooks anyone can follow",
+    body: "Write down how a job is done, step by step. Anyone can run it as a checklist and log how it went, and a step that keeps failing gets flagged.",
   },
   {
     icon: SmartphoneIcon,
@@ -306,7 +301,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
   },
   {
     q: "What's a runbook?",
-    a: "A written, step-by-step way of doing one job, like a recipe or a pilot's checklist, that has been proven to work and is clear enough for someone new to follow. Writing them in CriticalDash is coming next. Today you check the guesses and record the decisions that runbooks are built on.",
+    a: "A written, step-by-step way of doing one job, like a recipe or a pilot's checklist, that has been proven to work and is clear enough for someone new to follow. In CriticalDash a runbook can only go live once the guesses it rests on have been proven, and anyone can tick through it as a checklist and log how the run went.",
   },
   {
     q: "I've seen plenty of business tools come and go. Why this one?",

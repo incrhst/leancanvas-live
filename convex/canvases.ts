@@ -496,6 +496,7 @@ export const getCanvasByPublicToken = query({
           content: n.content,
           order: n.order,
           evidenceState: n.evidenceState,
+          stage: n.stage,
           measure: n.measure,
           passMark: n.passMark,
           reviewDate: n.reviewDate,

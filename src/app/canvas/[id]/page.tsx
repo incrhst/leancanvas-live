@@ -34,6 +34,7 @@ import {
 } from "../../../components/CanvasViewToggle";
 import { DecidedCountChip, PlanStatusBoard } from "../../../components/PlanStatusBoard";
 import { GoalsBoard } from "../../../components/GoalsBoard";
+import { RunbooksBoard } from "../../../components/RunbooksBoard";
 import { useAuth } from "../../../components/ConvexClientProvider";
 import { NoteItem, BlockId, EvidenceState, StressTestResult } from "../../../types/canvas";
 import { NoteSearch, NoteSearchButton, useNoteSearchShortcut } from "../../../components/NoteSearch";
@@ -66,6 +67,7 @@ export default function CanvasEditorPage() {
   const setView = (next: CanvasView) => setQueryParams({ view: canvasViewParam(next, defaultView) });
   const noteInline = isDesktop && view === "canvas";
   const goalsView = useQuery(api.goals.view, data && view === "goals" ? { canvasId } : "skip");
+  const runbooksView = useQuery(api.runbooks.view, data && view === "runbooks" ? { canvasId } : "skip");
   const latestStressTest = useQuery(api.stressTests.getLatestStressTest, data ? { canvasId } : "skip");
   const addNote = useMutation(api.notes.addNote);
   const updateNote = useMutation(api.notes.updateNote);
@@ -302,6 +304,8 @@ export default function CanvasEditorPage() {
                   canvasId={canvasId}
                   notes={notes.map((n) => ({ _id: n._id, content: n.content }))}
                 />
+              ) : view === "runbooks" ? (
+                <RunbooksBoard view={runbooksView} blocks={template.blocks} canEdit={canEdit} canRun={!!user} />
               ) : view === "status" ? (
                 <PlanStatusBoard
                   blocks={template.blocks}

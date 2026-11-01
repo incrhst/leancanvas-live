@@ -5,6 +5,7 @@ import { blockValidator, canvasTemplateValidator } from "./lib/canvasTemplates";
 import { testFieldsSchema, verdictValidator } from "./lib/testFields";
 import { decisionRequestValidator, decisionStatusValidator } from "./lib/decisions";
 import { decisionBasisValidator, itemStateValidator, lookBackValidator } from "./lib/goalModel";
+import { runbookStatusValidator, runOutcomeValidator, stageValidator } from "./lib/runbookModel";
 
 const evidenceStateValidator = v.union(
   v.literal("unknown"),
@@ -150,6 +151,9 @@ export default defineSchema({
     markets: v.optional(v.array(v.string())),
     // A decision someone has been asked to make about this note
     decision: v.optional(decisionRequestValidator),
+    // How runnable this part of the business is (unset = guess). "codified" is only ever set by a
+    // live runbook linking the note; see lib/runbooks.ts
+    stage: v.optional(stageValidator),
     createdBy: v.id("users"),
     updatedAt: v.number(),
   })
@@ -276,6 +280,57 @@ export default defineSchema({
     fromNoteId: v.optional(v.id("notes")),
   })
     .index("by_item", ["itemId"])
+    .index("by_canvas", ["canvasId"]),
+
+  // A standard operating procedure: a named group of runbooks that several people follow
+  sops: defineTable({
+    canvasId: v.id("canvases"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    order: v.number(),
+    createdBy: v.id("users"),
+    updatedAt: v.number(),
+  }).index("by_canvas", ["canvasId"]),
+
+  // A play written so someone else, or an agent, can run it and get roughly the same result
+  runbooks: defineTable({
+    canvasId: v.id("canvases"),
+    sopId: v.optional(v.id("sops")),
+    title: v.string(),
+    // When to use it
+    trigger: v.optional(v.string()),
+    ownerId: v.optional(v.id("users")),
+    // In order, at most MAX_STEPS
+    steps: v.array(v.string()),
+    // Canvas notes it codifies (at most MAX_RUNBOOK_LINKS); going live marks them codified
+    noteIds: v.array(v.id("notes")),
+    // Goal items whose decisions it rests on (at most MAX_RUNBOOK_LINKS)
+    itemIds: v.array(v.id("items")),
+    status: runbookStatusValidator,
+    reviewDate: v.optional(v.string()),
+    order: v.number(),
+    createdBy: v.id("users"),
+    updatedAt: v.number(),
+  })
+    .index("by_canvas", ["canvasId"])
+    .index("by_sop", ["sopId"]),
+
+  // One use of a runbook: did it work, and where did it break
+  runbookRuns: defineTable({
+    canvasId: v.id("canvases"),
+    runbookId: v.id("runbooks"),
+    outcome: runOutcomeValidator,
+    // 1-based step where it went wrong, when it didn't fully work
+    failedStep: v.optional(v.number()),
+    // What the run produced, e.g. "12 leads, 3 booked"
+    numbers: v.optional(v.string()),
+    note: v.optional(v.string()),
+    ranBy: v.optional(v.id("users")),
+    via: v.union(v.literal("ui"), v.literal("mcp"), v.literal("link")),
+    clientName: v.optional(v.string()),
+    at: v.number(),
+  })
+    .index("by_runbook", ["runbookId"])
     .index("by_canvas", ["canvasId"]),
 
   // A frozen copy of a canvas at a moment (e.g. "Day 30"), for comparing later

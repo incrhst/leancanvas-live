@@ -138,6 +138,8 @@ export interface NoteItem {
   /** Markets where the note holds; none means every market */
   markets?: string[];
   decision?: DecisionRequest;
+  /** How runnable it is; unset means guess. Codified only via a live runbook */
+  stage?: "guess" | "tested" | "repeatable" | "codified";
   createdBy?: string;
   updatedAt: number;
 }
