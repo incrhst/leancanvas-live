@@ -6,7 +6,7 @@
 // Fog sits in layers above the towers and moves at different rates with the
 // pointer and scroll, so the street feels deep.
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { motion, useMotionValue, useReducedMotion, useScroll, useSpring, useTransform, type MotionValue } from "framer-motion";
 
 const W = 1440;
@@ -28,6 +28,8 @@ const C = {
   sky: "#9FE0C2",
   skyLight: "#C6EFD9",
   sun: "#EAF6CB",
+  cloud: "#F1FBF5",
+  balloon: "#C8352D",
 };
 
 type Pt = [number, number];
@@ -187,6 +189,102 @@ const skyPath = (sky: Sky) => {
   return `M${ring.map((p) => p.join(",")).join("L")}Z`;
 };
 
+// Things that happen in the sky. Each crosses on its own cycle, and the cycles
+// don't divide into each other, so the sky never looks like it's on a loop.
+// Positions are offsets for the default sky (stretched like the notes); the towers
+// are drawn over all of it, so things appear and vanish between the rooftops.
+const CLOUDS = [
+  { y: -230, scale: 1.3, duration: 95, delay: 10 },
+  { y: -60, scale: 0.9, duration: 70, delay: 48 },
+  { y: 120, scale: 1.1, duration: 120, delay: 85 },
+  { y: 250, scale: 0.7, duration: 64, delay: 22 },
+];
+
+function Cloud({ scale }: { scale: number }) {
+  return (
+    <g transform={`scale(${scale})`}>
+      <rect x={-70} y={-6} width={140} height={26} rx={13} fill={C.cloud} />
+      <circle cx={-32} cy={-6} r={24} fill={C.cloud} />
+      <circle cx={6} cy={-18} r={32} fill={C.cloud} />
+      <circle cx={42} cy={-2} r={20} fill={C.cloud} />
+    </g>
+  );
+}
+
+function SkyLife({ sky, at }: { sky: Sky; at: (dx: number, dy: number) => Pt }) {
+  // How far things travel to cross the opening edge to edge, hidden behind towers at both ends.
+  const span = sky.rx * 1.35;
+  const lift = sky.ry * 1.35;
+  const vars = (v: Record<string, string>) => v as CSSProperties;
+
+  return (
+    <g>
+      {CLOUDS.map((c, i) => (
+        <g key={i} transform={`translate(${at(0, c.y).join(" ")})`}>
+          <g
+            className="lookup-cloud"
+            style={vars({ "--span": `${span}px`, animationDuration: `${c.duration}s`, animationDelay: `-${c.delay}s` })}
+          >
+            <Cloud scale={c.scale} />
+          </g>
+        </g>
+      ))}
+
+      {/* A flock, flying up and across */}
+      <g transform={`translate(${at(0, 60).join(" ")})`}>
+        <g className="lookup-once lookup-flock" style={vars({ "--span": `${span}px`, "--lift": `${sky.ry * 0.5}px` })}>
+          {[
+            [0, 0, 1],
+            [-26, 14, 0.8],
+            [-18, -16, 0.85],
+            [-48, 4, 0.7],
+            [-44, 28, 0.6],
+          ].map(([x, y, k], i) => (
+            <g key={i} transform={`translate(${x} ${y}) scale(${k})`}>
+              <path
+                className="lookup-wing"
+                style={{ animationDelay: `-${i * 0.13}s` }}
+                d="M-12,0 Q-6,-8 0,0 Q6,-8 12,0"
+                fill="none"
+                stroke={C.darkFace}
+                strokeWidth={2.5}
+                strokeLinecap="round"
+              />
+            </g>
+          ))}
+        </g>
+      </g>
+
+      {/* A plane high up, dragging a contrail */}
+      <g transform={`translate(${at(0, -170).join(" ")}) rotate(-8)`}>
+        <g className="lookup-once lookup-plane" style={vars({ "--span": `${span}px` })}>
+          <rect x={-210} y={-1.5} width={200} height={3} rx={1.5} fill={C.cloud} opacity={0.8} />
+          <path d="M-8,0 L14,-2 L18,0 L14,2 Z M2,-1 L-4,-10 L0,-10 L8,-1 Z M2,1 L-4,10 L0,10 L8,1 Z" fill={C.darkFace} />
+        </g>
+      </g>
+
+      {/* A note folded into a paper plane, swooping the other way */}
+      <g transform={`translate(${at(0, 30).join(" ")})`}>
+        <g className="lookup-once lookup-paper" style={vars({ "--span": `${span}px`, "--lift": `${sky.ry * 0.35}px` })}>
+          <g transform="scale(-1 1)">
+            <path d="M-16,-6 L18,0 L-16,8 L-8,1 Z" fill="rgb(var(--note-yellow))" />
+            <path d="M-8,1 L18,0 L-12,12 Z" fill="rgb(var(--note-yellow-edge))" />
+          </g>
+        </g>
+      </g>
+
+      {/* A balloon someone let go of, drifting up through the gap */}
+      <g transform={`translate(${at(-140, 0).join(" ")})`}>
+        <g className="lookup-once lookup-balloon" style={vars({ "--lift": `${lift}px` })}>
+          <path d="M0,16 Q-4,26 2,34 Q6,42 0,50" fill="none" stroke={C.darkFace} strokeWidth={1.5} opacity={0.6} />
+          <ellipse cx={0} cy={0} rx={13} ry={16} fill={C.balloon} />
+          <path d="M-3,15 L3,15 L0,19 Z" fill={C.balloon} />
+        </g>
+      </g>
+    </g>
+  );
+}
+
 // Each fog layer: how strongly it follows the pointer and scroll (nearer is
 // stronger), how fast it drifts on its own, and its puffs as offsets from the
 // vanishing point. Near fog hugs the rooftops; far fog hangs in the sky.
@@ -267,16 +365,20 @@ function FogLayer({
 
 // zoom > 1 pulls back so the sky opening takes less of a tall box; aspect is the
 // box's width over height, and sky reshapes the opening (tall for phones).
+// track is the element whose scroll drives the fog and whose visibility keeps
+// it drawing; pass the hero when the skyline is pinned and never moves itself.
 export function LookUpSkyline({
   className,
   zoom = 1,
   aspect = W / H,
   sky = SKY,
+  track,
 }: {
   className?: string;
   zoom?: number;
   aspect?: number;
   sky?: Sky;
+  track?: RefObject<HTMLElement | null>;
 }) {
   const uid = useId().replace(/:/g, "");
   const boxW = W * zoom;
@@ -291,7 +393,17 @@ export function LookUpSkyline({
   const pointerY = useMotionValue(0);
   const px = useSpring(pointerX, { stiffness: 40, damping: 18 });
   const py = useSpring(pointerY, { stiffness: 40, damping: 18 });
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
+  const target = track ?? ref;
+  const { scrollYProgress } = useScroll({ target, offset: ["start start", "end start"] });
+  // Start drawn: the hero is on screen at load, and the observer can be slow to say so.
+  const [inView, setInView] = useState(true);
+  useEffect(() => {
+    const el = target.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, [target]);
   const rise = useSpring(scrollYProgress, { stiffness: 80, damping: 24 });
   const towersScale = useTransform(rise, (v) => 1 + v * 0.08);
   const still = useMotionValue(0);
@@ -308,7 +420,7 @@ export function LookUpSkyline({
   }, [reduceMotion, pointerX, pointerY]);
 
   return (
-    <div ref={ref} className={className} aria-hidden="true">
+    <div ref={ref} className={className} style={{ visibility: inView ? "visible" : "hidden" }} aria-hidden="true">
       <motion.svg
         viewBox={box}
         preserveAspectRatio="xMidYMid slice"
@@ -324,9 +436,47 @@ export function LookUpSkyline({
             0%, 100% { transform: translateX(-40px); }
             50% { transform: translateX(40px); }
           }
+          @keyframes lookup-cross {
+            from { transform: translateX(calc(var(--span) * -1)); }
+            to { transform: translateX(var(--span)); }
+          }
+          @keyframes lookup-flock {
+            0% { transform: translate(calc(var(--span) * -1), var(--lift)); }
+            40%, 100% { transform: translate(var(--span), calc(var(--lift) * -1)); }
+          }
+          @keyframes lookup-plane {
+            0% { transform: translateX(calc(var(--span) * -1)); }
+            55%, 100% { transform: translateX(var(--span)); }
+          }
+          @keyframes lookup-paper {
+            0% { transform: translate(var(--span), 0) rotate(0deg); }
+            15% { transform: translate(calc(var(--span) * 0.4), calc(var(--lift) * -1)) rotate(-14deg); }
+            30% { transform: translate(calc(var(--span) * -0.2), calc(var(--lift) * 0.4)) rotate(10deg); }
+            50%, 100% { transform: translate(calc(var(--span) * -1), calc(var(--lift) * -0.6)) rotate(-6deg); }
+          }
+          @keyframes lookup-balloon {
+            0% { transform: translate(0, var(--lift)); }
+            25% { transform: translate(24px, calc(var(--lift) * 0.4)); }
+            50% { transform: translate(-12px, calc(var(--lift) * -0.3)); }
+            70%, 100% { transform: translate(18px, calc(var(--lift) * -1)); }
+          }
+          @keyframes lookup-flap {
+            0%, 100% { transform: scaleY(1); }
+            50% { transform: scaleY(-0.5); }
+          }
+          .lookup-cloud { animation: lookup-cross linear infinite; }
+          .lookup-once { animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+          .lookup-flock { animation-name: lookup-flock; animation-duration: 29s; animation-delay: -4s; animation-timing-function: linear; }
+          .lookup-plane { animation-name: lookup-plane; animation-duration: 43s; animation-delay: -30s; animation-timing-function: linear; }
+          .lookup-paper { animation-name: lookup-paper; animation-duration: 37s; animation-delay: -12s; }
+          .lookup-balloon { animation-name: lookup-balloon; animation-duration: 53s; animation-delay: -40s; }
+          .lookup-wing { transform-box: fill-box; transform-origin: center; animation: lookup-flap 0.6s ease-in-out infinite; }
           .lookup-note { transform-box: fill-box; transform-origin: center; animation: lookup-drift 9s ease-in-out infinite; }
           .lookup-fog { animation: lookup-fog-drift 50s ease-in-out infinite; }
-          @media (prefers-reduced-motion: reduce) { .lookup-note, .lookup-fog { animation: none; } }
+          @media (prefers-reduced-motion: reduce) {
+            .lookup-note, .lookup-fog, .lookup-cloud, .lookup-wing { animation: none; }
+            .lookup-once { display: none; }
+          }
         `}</style>
 
         <rect x={-W} y={-H} width={W * 3} height={H * 3} fill={C.night} />
@@ -337,6 +487,8 @@ export function LookUpSkyline({
         {[88, 116, 146].map((r, i) => (
           <circle key={r} cx={sun[0]} cy={sun[1]} r={r} fill="none" stroke={C.sun} strokeWidth={2} opacity={0.7 - i * 0.2} />
         ))}
+
+        <SkyLife sky={sky} at={at} />
 
         {NOTES.map((n, i) => (
           <g key={i} transform={`translate(${at(n.x, n.y).join(" ")}) rotate(${n.rot})`}>
