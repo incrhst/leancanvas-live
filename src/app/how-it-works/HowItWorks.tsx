@@ -23,9 +23,10 @@ import {
 } from "lucide-react";
 
 /*
- * One worked example runs through every step: an international private medical insurance (IPMI)
- * broker taking its digital nomad cover into three new markets: Portugal, Mexico and Thailand.
- * It's labelled as an example everywhere it appears.
+ * One worked example runs through every step: a platform that compares cover from several providers
+ * for international students, deciding whether to lead with the plans each student's university
+ * accepts, across three study destinations (the UK, the US and Canada). It matches the landing
+ * page's example and is labelled as an example everywhere it appears.
  */
 
 /* ------------------------------------------------------------------------------------------------
@@ -61,9 +62,9 @@ function DemoFrame({ title, children, onReset }: { title: string; children: Reac
 
 function StageNotesDemo() {
   const notes = [
-    { text: "Nomads will buy cover through a broker", market: "All markets" },
-    { text: "Portugal needs plans that meet visa rules", market: "Portugal" },
-    { text: "A country guide page brings them in", market: "All markets" },
+    { text: "Students pick the plan their university accepts, even if it costs more", market: "All markets" },
+    { text: "UK universities check cover at enrolment", market: "UK" },
+    { text: "University referrals bring students to the comparison", market: "All markets" },
   ];
   const [stages, setStages] = useState<number[]>([0, 0, 0]);
   const bump = (i: number) => setStages((s) => s.map((v, j) => (j === i ? (v + 1) % STAGE_INFO.length : v)));
@@ -72,7 +73,7 @@ function StageNotesDemo() {
     <DemoFrame title="Try it: tap a note to change its stage" onReset={() => setStages([0, 0, 0])}>
       <div className="rounded-xl border border-line bg-surface p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-display font-bold text-lg text-ink">Customer segments: digital nomads</p>
+          <p className="font-display font-bold text-lg text-ink">Customer segments: international students</p>
           <span className={`rounded-full border px-3 py-0.5 text-sm font-semibold ${STAGE_INFO[weakest].tint}`}>
             Box: {STAGE_INFO[weakest].name}
           </span>
@@ -114,9 +115,9 @@ function StageNotesDemo() {
 function StressTestDemo() {
   const [ran, setRan] = useState(false);
   const risks = [
-    "Nomads in all three markets will buy through a broker",
-    "Portugal needs plans that meet visa rules",
-    "A country guide page brings them in",
+    "Students pick the plan their university accepts, even if it costs more",
+    "University referrals bring students to the comparison",
+    "UK universities check cover at enrolment",
   ];
   return (
     <DemoFrame title="Try it: run the example stress test" onReset={ran ? () => setRan(false) : undefined}>
@@ -142,7 +143,7 @@ function StressTestDemo() {
               </li>
             ))}
           </ol>
-          <p className="text-base text-muted">So the first thing to check is whether nomads in each market will come to a broker at all.</p>
+          <p className="text-base text-muted">So the first thing to check is whether \u201caccepted by your university\u201d actually changes which plan students choose.</p>
         </div>
       )}
     </DemoFrame>
@@ -163,9 +164,9 @@ function ItemDemo() {
     <DemoFrame title="Try it: move an item along" onReset={state > 0 ? () => setState(0) : undefined}>
       <div className="rounded-xl border border-line bg-surface p-4 space-y-4">
         <div>
-          <p className="text-sm text-muted">Goal: Enter Portugal, Mexico and Thailand this year</p>
+          <p className="text-sm text-muted">Goal: Win more students for the September intake</p>
           <p className={`font-display font-bold text-lg text-ink transition ${state === 0 ? "blur-[0.6px] opacity-70" : ""}`}>
-            Item: Which markets will ask us for quotes?
+            Item: Should we lead with the plan their university accepts?
           </p>
         </div>
         <ol className="grid grid-cols-2 sm:grid-cols-4 gap-2" aria-label="Item states">
@@ -203,23 +204,23 @@ function ItemDemo() {
   );
 }
 
-const MARKETS = ["Portugal", "Mexico", "Thailand"];
-const START_RESULTS = [6, 9, 4];
+const MARKETS = ["UK", "US", "Canada"];
+const START_RESULTS = [28, 31, 22];
 
 function PassMarkDemo() {
-  const passMark = 10;
+  const passMark = 25;
   const [results, setResults] = useState<number[]>(START_RESULTS);
   const passing = results.filter((r) => r >= passMark).length;
   return (
-    <DemoFrame title="Try it: drag each market's result" onReset={() => setResults(START_RESULTS)}>
+    <DemoFrame title="Try it: drag each destination's result" onReset={() => setResults(START_RESULTS)}>
       <div className="rounded-xl border border-line bg-surface p-4 space-y-4">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-base">
           <dt className="text-muted">We watch</dt>
-          <dd className="font-semibold text-ink">Quote requests a month</dd>
+          <dd className="font-semibold text-ink">Share of student quotes that sign up</dd>
           <dt className="text-muted">Pass mark</dt>
-          <dd className="font-semibold text-ink">{passMark} or more per market, agreed first</dd>
+          <dd className="font-semibold text-ink">{passMark}% or more per destination, agreed first</dd>
           <dt className="text-muted">Check on</dt>
-          <dd className="font-semibold text-ink">After 3 months</dd>
+          <dd className="font-semibold text-ink">When the intake closes</dd>
         </dl>
         <div className="space-y-4">
           {MARKETS.map((m, i) => {
@@ -228,7 +229,7 @@ function PassMarkDemo() {
               <div key={m} className="space-y-1.5">
                 <div className="flex items-center justify-between gap-3">
                   <label htmlFor={`market-${i}`} className="text-base font-semibold text-ink">
-                    {m}: <span className="tabular-nums">{results[i]}</span> a month
+                    {m}: <span className="tabular-nums">{results[i]}%</span> signed up
                   </label>
                   <span
                     className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-sm font-semibold ${
@@ -243,7 +244,7 @@ function PassMarkDemo() {
                   id={`market-${i}`}
                   type="range"
                   min={0}
-                  max={25}
+                  max={50}
                   value={results[i]}
                   onChange={(e) => setResults((r) => r.map((v, j) => (j === i ? Number(e.target.value) : v)))}
                   className="w-full h-3 accent-incrementic-red cursor-pointer"
@@ -260,25 +261,25 @@ function PassMarkDemo() {
         >
           {passing > 0 ? <CheckCheckIcon className="h-5 w-5" aria-hidden="true" /> : <TargetIcon className="h-5 w-5" aria-hidden="true" />}
           {passing === MARKETS.length
-            ? "All three markets passed"
+            ? "All three destinations passed"
             : passing === 0
-              ? "No market has passed yet"
-              : `${passing} of ${MARKETS.length} markets passed`}
+              ? "No destination has passed yet"
+              : `${passing} of ${MARKETS.length} destinations passed`}
         </p>
       </div>
       <p className="text-base text-muted">
-        One pass mark, set before the numbers came in, so every market is judged the same way and nobody moves the
-        goalposts for a favourite.
+        One pass mark, set before the numbers came in, so every destination is judged the same way and nobody moves
+        the goalposts for a favourite provider.
       </p>
     </DemoFrame>
   );
 }
 
 const BASES = [
-  { key: "test", label: "A test result", detail: "Portugal 14 and Mexico 12 quote requests a month; Thailand 4. Pass mark: 10" },
-  { key: "data", label: "Existing figures", detail: "enquiries already coming in from each country" },
-  { key: "expert", label: "An expert's view", detail: "the insurer's view on which markets suit its plans" },
-  { key: "judgment", label: "A judgement call", detail: "the owner's years in the market" },
+  { key: "test", label: "A test result", detail: "UK 28% and US 31% of quotes signed up; Canada 22%. Pass mark: 25%" },
+  { key: "data", label: "Existing figures", detail: "last intake's sign-ups, by university" },
+  { key: "expert", label: "An expert's view", detail: "a provider's view on which universities check cover" },
+  { key: "judgment", label: "A judgement call", detail: "the team's years helping students choose" },
 ];
 
 function DecisionDemo() {
@@ -306,15 +307,15 @@ function DecisionDemo() {
         <p className="text-sm font-semibold text-muted mb-2">The decision record</p>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-base">
           <dt className="text-muted">Decided</dt>
-          <dd className="font-semibold text-ink">Enter Portugal and Mexico now; hold Thailand</dd>
+          <dd className="font-semibold text-ink">Lead with university-accepted plans in the UK and US; keep testing in Canada</dd>
           <dt className="text-muted">Because of</dt>
           <dd className={chosen ? "font-semibold text-ink" : "text-subtle italic"}>
             {chosen ? `${chosen.label}: ${chosen.detail}` : "Pick one above"}
           </dd>
           <dt className="text-muted">Decided by</dt>
-          <dd className="text-ink">The owner, 3 March</dd>
+          <dd className="text-ink">The founder, 3 October</dd>
           <dt className="text-muted">Check again</dt>
-          <dd className="text-ink">3 September, six months on</dd>
+          <dd className="text-ink">3 April, six months on</dd>
         </dl>
       </div>
     </DemoFrame>
@@ -354,10 +355,10 @@ function LookBackDemo() {
 
 function RunbookDemo() {
   const steps = [
-    "Check which of the insurer's plans can be sold there",
-    "Write the country guide page from the template",
-    "Have the compliance lead check it before it goes live",
-    "Publish it, and track quote requests against the pass mark for 90 days",
+    "Check each university's cover requirements for the intake",
+    "Tag the plans that meet them on the comparison",
+    "Update prices for any provider that has changed its rates",
+    "Brief support on what to tell students, then track sign-ups against the pass mark",
   ];
   const [ticked, setTicked] = useState<boolean[]>(steps.map(() => false));
   const [logged, setLogged] = useState<string | null>(null);
@@ -370,8 +371,8 @@ function RunbookDemo() {
     <DemoFrame title="Try it: run the example runbook" onReset={ticked.some(Boolean) || logged ? reset : undefined}>
       <div className="rounded-xl border border-line bg-surface p-4 space-y-3">
         <div>
-          <p className="font-display font-bold text-lg text-ink">Enter a new market</p>
-          <p className="text-base text-muted">Starts: a new market is chosen · Owner: the marketing lead</p>
+          <p className="font-display font-bold text-lg text-ink">Get ready for a new intake</p>
+          <p className="text-base text-muted">Starts: four weeks before each intake · Owner: the partnerships lead</p>
         </div>
         <ol className="space-y-2">
           {steps.map((s, i) => (
@@ -449,7 +450,7 @@ const STEPS: Step[] = [
       "Tag a note with the markets it applies to. A note with no tag holds for every market, so a guess about one country isn't quietly assumed for the rest.",
       "Every change is kept: who made it, when, what it said before and why.",
     ],
-    example: "The owner adds “Nomads will buy cover through a broker” for all markets, and “Portugal needs plans that meet visa rules” for Portugal only. Every note starts as a guess.",
+    example: "The founder adds “Students pick the plan their university accepts, even if it costs more” for every destination, and “UK universities check cover at enrolment” for the UK only. Every note starts as a guess.",
     Demo: StageNotesDemo,
   },
   {
@@ -461,7 +462,7 @@ const STEPS: Step[] = [
       "Lean canvases are scored with Ash Maurya's method; go-to-market canvases on go-to-market criteria.",
       "Print it or save it as a PDF, or get a plain-language summary for someone who has never seen a canvas.",
     ],
-    example: "Top of the list: nobody has checked whether nomads in each market will buy through a broker at all.",
+    example: "Top of the list: nobody has checked whether students really choose the accepted plan when a cheaper one sits beside it.",
     Demo: StressTestDemo,
   },
   {
@@ -473,7 +474,7 @@ const STEPS: Step[] = [
       "Each item moves from open to decided to done, with an optional testing stage while a trial runs.",
       "Any note on the page can become an item, bringing its test and the person doing the work with it.",
     ],
-    example: "Goal: enter Portugal, Mexico and Thailand this year. First item: which of them will ask us for quotes?",
+    example: "Goal: win more students for the September intake. First item: should the comparison lead with the plan each student's university accepts?",
     Demo: ItemDemo,
   },
   {
@@ -486,7 +487,7 @@ const STEPS: Step[] = [
       "Anyone can send in a result from a link on their phone, with no account. It waits until an editor accepts it.",
       "The review page groups every test by how it's doing against its pass mark.",
     ],
-    example: "Publish a guide page for each market and run them for three months. Pass mark: 10 quote requests a month, per market.",
+    example: "Show \u201caccepted by your university\u201d on plans for one intake in each destination. Pass mark: 25% of quotes sign up.",
     Demo: PassMarkDemo,
   },
   {
@@ -499,7 +500,7 @@ const STEPS: Step[] = [
       "Need someone else to decide? Send them one question with a date to answer by and what happens if they don't. They reply from their phone, no password.",
       "Changing your mind keeps the old decision on file. Nothing is written over.",
     ],
-    example: "Portugal and Mexico passed; Thailand didn't. The owner enters the two that passed and holds Thailand for another try.",
+    example: "The UK and US passed; Canada didn't. The founder decides to lead with accepted plans in those two, and keeps testing in Canada.",
     Demo: DecisionDemo,
   },
   {
@@ -511,7 +512,7 @@ const STEPS: Step[] = [
       "Over time you see how often decisions based on a test work out, compared with gut calls.",
       "Snapshots freeze the page under a name like “Day 30”, so you can compare what you believed then with what you know now.",
     ],
-    example: "Three months on, the owner answers: yes, it worked.",
+    example: "Six months on, after the next intake, the founder answers: yes, it worked.",
     Demo: LookBackDemo,
   },
   {
@@ -524,7 +525,7 @@ const STEPS: Step[] = [
       "Anyone, or an AI assistant, can run it as a checklist and log how it went. Going live marks its notes as codified.",
       "Runbooks can be grouped into standard procedures, so a whole area of the business can be handed over.",
     ],
-    example: "Entering a market becomes a runbook, so the next market, and the next vertical, can go the same way without the owner.",
+    example: "Getting ready for an intake becomes a runbook, so the next intake, and the next provider, go the same way without the founders.",
     Demo: RunbookDemo,
   },
 ];
@@ -706,9 +707,11 @@ export default function HowItWorks() {
           Seven steps from a hunch to something that runs without you.
         </h1>
         <p className="text-xl text-muted max-w-3xl leading-relaxed">
-          We&rsquo;ll follow one example all the way through: an international health insurance broker taking its
-          digital nomad cover into three new markets, Portugal, Mexico and Thailand. Each step has a small example you
-          can try for yourself. Nothing you do here is saved.
+          We&rsquo;ll follow one example all the way through: a platform that compares cover from several providers for
+          international students, deciding whether to lead with the plan each student&rsquo;s university accepts. The
+          same steps work for any business that sits between providers and customers: brokers, comparison sites,
+          agencies, resellers and organisers. Each step has a small example you can try for yourself. Nothing you do
+          here is saved.
         </p>
       </header>
 
@@ -759,9 +762,9 @@ export default function HowItWorks() {
         <div className="max-w-6xl mx-auto rounded-3xl bg-gradient-to-b from-[#EA5148] to-[#D93D34] text-white px-6 sm:px-10 py-12 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
           <div className="space-y-3">
             <h2 className="font-display font-bold text-3xl sm:text-4xl leading-tight">
-              Start with the part only you know how to run.
+              Start with the decision only you know the reason for.
             </h2>
-            <p className="text-xl text-white/95 max-w-xl">Put it on the page, mark what&rsquo;s a guess, and check the riskiest one first.</p>
+            <p className="text-xl text-white/95 max-w-xl">Why you list who you list. Put it on the page, mark what&rsquo;s a guess, and check the riskiest one first.</p>
           </div>
           <Link
             href="/dashboard"
@@ -773,7 +776,7 @@ export default function HowItWorks() {
       </section>
 
       <footer className="border-t border-line bg-surface px-6 py-10 text-center text-base text-muted space-y-3">
-        <div className="font-semibold text-ink">CriticalDash • From guesses to proven ways of working</div>
+        <div className="font-semibold text-ink">CriticalDash • Decisions and runbooks for businesses between providers and customers</div>
         <div>
           <Link href="/" className="font-semibold text-ink underline underline-offset-2 hover:text-incrementic-red">
             Back to the home page
