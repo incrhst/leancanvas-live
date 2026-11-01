@@ -129,3 +129,67 @@ body {
     transition: none;
   }
 }
+
+/* Sky accents (SkyAccent.tsx): bits of the hero's sky passing through the page. */
+.sky-accent-cloud {
+  animation: sky-accent-cloud 24s ease-in-out infinite alternate;
+}
+.sky-accent-flock {
+  animation: sky-accent-flock 21s linear infinite;
+  animation-delay: -6s;
+}
+.sky-accent-wing {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sky-accent-flap 0.6s ease-in-out infinite;
+}
+.sky-accent-paper {
+  animation: sky-accent-paper 17s ease-in-out infinite;
+  animation-delay: -3s;
+}
+.sky-accent-balloon {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: sky-accent-bob 6s ease-in-out infinite;
+}
+
+@keyframes sky-accent-cloud {
+  from { transform: translateX(-28px); }
+  to { transform: translateX(28px); }
+}
+/* Cross the margin, then leave it empty for a while. */
+@keyframes sky-accent-flock {
+  0% { transform: translate(-220px, 40px); opacity: 0; }
+  5% { opacity: 1; }
+  40% { transform: translate(220px, -40px); opacity: 1; }
+  45%, 100% { transform: translate(260px, -48px); opacity: 0; }
+}
+@keyframes sky-accent-flap {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(-0.5); }
+}
+@keyframes sky-accent-paper {
+  0% { transform: translate(-160px, 30px) rotate(8deg); opacity: 0; }
+  6% { opacity: 1; }
+  20% { transform: translate(-40px, -18px) rotate(-12deg); }
+  35% { transform: translate(60px, 14px) rotate(10deg); }
+  50% { transform: translate(170px, -10px) rotate(-4deg); opacity: 1; }
+  55%, 100% { transform: translate(200px, -14px) rotate(-4deg); opacity: 0; }
+}
+@keyframes sky-accent-bob {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-8px) rotate(4deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sky-accent-cloud,
+  .sky-accent-wing,
+  .sky-accent-balloon {
+    animation: none;
+  }
+  .sky-accent-flock,
+  .sky-accent-paper {
+    animation: none;
+    opacity: 0;
+  }
+}

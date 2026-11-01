@@ -3,6 +3,9 @@
 import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { LookUpSkyline } from "../components/LookUpSkyline";
+import { SkyAccent } from "../components/SkyAccent";
+import { HeroHeadline } from "../components/HeroHeadline";
+import { UseCases } from "../components/UseCases";
 import {
   AlertTriangleIcon,
   ArrowDownIcon,
@@ -358,9 +361,21 @@ function QuoteBlock({ q, tone = "light", size = "md" }: { q: Quote; tone?: "ligh
   );
 }
 
-function SectionHead({ label, title, intro }: { label: string; title: React.ReactNode; intro?: React.ReactNode }) {
+function SectionHead({
+  label,
+  title,
+  intro,
+  accent,
+}: {
+  label: string;
+  title: React.ReactNode;
+  intro?: React.ReactNode;
+  /** A bit of the hero's sky, drifting in the empty space to the right of the heading */
+  accent?: React.ReactNode;
+}) {
   return (
-    <div className="space-y-3 max-w-3xl">
+    <div className="relative space-y-3 max-w-3xl">
+      {accent && <div className="absolute left-full top-2 ml-16">{accent}</div>}
       <p className="text-base font-semibold text-incrementic-red">{label}</p>
       <h2 className="font-display font-bold text-3xl sm:text-4xl text-ink leading-tight">{title}</h2>
       {intro && <p className="text-lg text-muted leading-relaxed">{intro}</p>}
@@ -717,11 +732,7 @@ export default function HomePage() {
         <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-12 items-center">
           <div className="space-y-7">
             <p className="text-lg font-semibold text-white/95">For businesses that sit between providers and customers</p>
-            <h1 className="font-display font-extrabold text-5xl sm:text-6xl lg:text-7xl tracking-tight leading-[1.02]">
-              You built the business.
-              <br />
-              Would it run without you?
-            </h1>
+            <HeroHeadline className="font-display font-extrabold text-5xl sm:text-6xl lg:text-7xl tracking-tight leading-[1.02]" />
             <p className="text-xl text-white leading-relaxed max-w-xl">
               Brokers, comparison sites, agencies, resellers, organisers. Which partners to work with. How to rank
               what they offer. When to recommend and when to stay neutral. What to do when a partner changes its
@@ -784,6 +795,7 @@ export default function HomePage() {
         <SectionHead
           label="Why it matters"
           title="Every process that isn't written down is a risk you're already carrying."
+          accent={<SkyAccent kind="cloud" className="w-44" />}
           intro="These aren't our numbers. Each one links to its source."
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -811,6 +823,7 @@ export default function HomePage() {
         <SectionHead
           label="Where it's hiding"
           title="It's rarely the big bet that hurts. It's the partner detail everyone assumed someone else knew."
+          accent={<SkyAccent kind="flock" className="w-32 mt-6" />}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {HIDDEN_RISKS.map(({ icon: Icon, title, body }) => (
@@ -830,9 +843,21 @@ export default function HomePage() {
         <SectionHead
           label="From a guess to how we do it"
           title="Every part of a business goes through four stages. Step through them."
+          accent={<SkyAccent kind="paper" className="w-16 mt-8 ml-20" />}
           intro="Pick a stage, or use Next. Each one comes with what the people who'd know have said about it."
         />
         <StageExplorer />
+      </section>
+
+      {/* How it's used: one decision followed from the call to the checklist */}
+      <section id="use-cases" className="scroll-mt-20 max-w-6xl mx-auto px-5 sm:px-6 py-16 w-full space-y-10">
+        <SectionHead
+          label="How it's used"
+          title="One decision, from the call to the checklist."
+          intro="Pick a business. Each follows a single decision: who made it and on what basis, how it became something the team runs, and whether it held up when someone looked back."
+          accent={<SkyAccent kind="cloud" className="w-36 mt-4" />}
+        />
+        <UseCases />
       </section>
 
       {/* Controls available today */}
@@ -886,7 +911,7 @@ export default function HomePage() {
 
       {/* Closing call to action */}
       <section className="px-5 sm:px-6 pt-4 pb-20 w-full">
-        <div className="max-w-6xl mx-auto rounded-3xl bg-gradient-to-b from-[#EA5148] to-[#D93D34] text-white px-6 sm:px-10 py-12 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
+        <div className="relative max-w-6xl mx-auto rounded-3xl bg-gradient-to-b from-[#EA5148] to-[#D93D34] text-white px-6 sm:px-10 py-12 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
           <div className="space-y-3">
             <h2 className="font-display font-bold text-3xl sm:text-4xl leading-tight">
               Get it written down while the people who know are still here.
@@ -895,6 +920,8 @@ export default function HomePage() {
               Start with the decision only you know the reason for: why you list who you list.
             </p>
           </div>
+          {/* The hero's balloon, tied to the panel */}
+          <SkyAccent kind="balloon" className="absolute -top-[86px] right-16 w-10" />
           <Link
             href="/dashboard"
             className="inline-flex min-h-[56px] items-center justify-center whitespace-nowrap px-8 rounded-full bg-white text-incrementic-ink font-display font-semibold text-lg hover:bg-white/95 shadow-lg transition-all shrink-0"
