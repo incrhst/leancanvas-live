@@ -4,6 +4,7 @@ import { authTables } from "@convex-dev/auth/server";
 import { blockValidator, canvasTemplateValidator } from "./lib/canvasTemplates";
 import { testFieldsSchema, verdictValidator } from "./lib/testFields";
 import { decisionRequestValidator, decisionStatusValidator } from "./lib/decisions";
+import { decisionBasisValidator, itemStateValidator, lookBackValidator } from "./lib/goalModel";
 
 const evidenceStateValidator = v.union(
   v.literal("unknown"),
@@ -194,6 +195,87 @@ export default defineSchema({
     at: v.number(),
   })
     .index("by_note", ["noteId"])
+    .index("by_canvas", ["canvasId"]),
+
+  // A big outcome the team is working toward (e.g. "Launch Afforrd"). Lives inside a canvas, which
+  // keeps the members, sharing and links. Reached when every item under it is decided and done.
+  goals: defineTable({
+    canvasId: v.id("canvases"),
+    title: v.string(),
+    order: v.number(),
+    createdBy: v.id("users"),
+    updatedAt: v.number(),
+  }).index("by_canvas", ["canvasId"]),
+
+  // Something tied to a goal that needs a decision before the goal can be reached.
+  // State: open -> (testing) -> decided -> done. See lib/goals.ts for the moves between states.
+  items: defineTable({
+    canvasId: v.id("canvases"),
+    goalId: v.id("goals"),
+    title: v.string(),
+    detail: v.optional(v.string()),
+    state: itemStateValidator,
+    // When the call should be made by (YYYY-MM-DD), if there's a date to aim for
+    decideBy: v.optional(v.string()),
+    order: v.number(),
+    // The one person doing the work on it; any canvas member
+    ownerId: v.optional(v.id("users")),
+    // The item's test, if it has one: same fields as a note's test
+    ...testFieldsSchema,
+    // Canvas notes kept as context or evidence for the item (at most MAX_CONTEXT_NOTES)
+    contextNoteIds: v.optional(v.array(v.id("notes"))),
+    // The note this item was made from, if it was converted from one
+    fromNoteId: v.optional(v.id("notes")),
+    createdBy: v.id("users"),
+    updatedAt: v.number(),
+  })
+    .index("by_goal", ["goalId"])
+    .index("by_canvas", ["canvasId"])
+    .index("by_from_note", ["fromNoteId"]),
+
+  // The record that resolves an item. An item has at most one current record; reopening the item
+  // keeps the old one, marked superseded, so the trail stays readable.
+  decisionRecords: defineTable({
+    canvasId: v.id("canvases"),
+    goalId: v.id("goals"),
+    itemId: v.id("items"),
+    // What was decided, in a line or two
+    text: v.string(),
+    basis: decisionBasisValidator,
+    // Optional line on the basis, e.g. which expert or which data
+    basisNote: v.optional(v.string()),
+    // Canvas notes that informed it (the item's test is linked through the item itself)
+    linkedNoteIds: v.optional(v.array(v.id("notes"))),
+    // The item's test as it stood when the call was made, if it had one
+    testSnapshot: v.optional(
+      v.object({
+        measure: v.optional(v.string()),
+        passMark: v.optional(v.string()),
+        resultText: v.optional(v.string()),
+        verdict: v.optional(v.string()),
+      })
+    ),
+    // Who decided: a canvas member, or a name typed for someone without an account
+    decidedBy: v.optional(v.id("users")),
+    decidedByName: v.optional(v.string()),
+    decidedAt: v.number(),
+    // Who wrote the record and through which surface
+    recordedBy: v.id("users"),
+    via: v.union(v.literal("ui"), v.literal("mcp"), v.literal("link")),
+    clientName: v.optional(v.string()),
+    // When to look back and ask "did it pan out?" (YYYY-MM-DD)
+    reviewDate: v.string(),
+    // The look back, once answered
+    outcome: v.optional(lookBackValidator),
+    outcomeNote: v.optional(v.string()),
+    outcomeAt: v.optional(v.number()),
+    outcomeBy: v.optional(v.id("users")),
+    // Set when the item was reopened after this call
+    supersededAt: v.optional(v.number()),
+    // The note whose answered decision request became this record, if any
+    fromNoteId: v.optional(v.id("notes")),
+  })
+    .index("by_item", ["itemId"])
     .index("by_canvas", ["canvasId"]),
 
   // A frozen copy of a canvas at a moment (e.g. "Day 30"), for comparing later

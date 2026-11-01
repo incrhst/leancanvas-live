@@ -7,6 +7,17 @@ Realtime multiplayer collaborative canvases by **Incrementic** (`lean.incrementi
 
 ---
 
+## Goals, items and decisions
+
+Everything revolves around the decision record. Each canvas has **goals** (big outcomes, e.g. "Launch Afforrd"). Each goal has **items**: things that need a decision before the goal is reached. An item is **Open** (nobody knows yet), **Testing** (a test is running), **Decided** (a call has been made) or **Done** (the call was acted on). Testing is optional.
+
+- Every **decision record** keeps what was decided, its basis (test result, existing data, expert view or judgment call), linked notes, who decided and when, and a review date.
+- On the review date of a done item, LeanOn asks: **did it pan out?** (Yes, No, Partly). The goals view counts how often each kind of basis panned out.
+- The **Goals** tab is the first view of every canvas, for members and on the public link. Open items look hazy and turn sharp once decided.
+- Canvas notes are context and evidence. An editor can turn a note into an item ("Add from a canvas note"): its test and driver carry over, and an answered decision request becomes the item's decision record.
+
+---
+
 ## Canvas Templates
 
 Each canvas has one template, chosen when it is created and fixed after that. Existing canvases with no template are Lean Canvases.
@@ -45,6 +56,13 @@ For non-technical users, connecting LeanOn to Claude takes just one click:
 ### Available MCP Tools for Claude
 When configured, Claude has access to:
 - `list_canvases()`: Lists your canvases with their `template`, role, and URL.
+- `list_goals({ canvasId })`: Goals with headline counts (open, testing, decided, done), their items, decision records, look-backs that are due, and how each kind of basis panned out.
+- `create_goal`, `update_goal`, `delete_goal`: Manage goals (a goal with items can't be deleted).
+- `add_item({ goalId, title, detail, driverUserId, contextNoteIds, measure, passMark, reviewDate, latestResult })`, `update_item`, `delete_item`: Manage items. Adding a test makes an open item testing.
+- `decide_item({ itemId, decision, basis, basisNote, linkedNoteIds, decidedByUserId | decidedByName, reviewDate | reviewDay })`: Writes the decision record; the item becomes decided.
+- `mark_item_done`, `reopen_item`: Move a decided item to done, or take it back to open (the old record is kept as an earlier call).
+- `record_look_back({ itemId, outcome: yes | no | partly, note })`: Did a done item's decision pan out?
+- `convert_note_to_item({ noteId, goalId })`: Turns a canvas note into an item.
 - `create_canvas({ title, description, template, seedNotes, launchDate })`: Initializes a new canvas (`template`: `lean` by default, or `gtm`) and returns the direct collaboration URL.
 - `update_canvas({ canvasId, title, description, launchDate })`: Changes a canvas's title, description or launch date. The launch date (`YYYY-MM-DD`) is day 0 of the plan; `null` clears it.
 - `get_canvas({ canvasId, driverUserId, market })`: Fetches full structured canvas, blocks, and current notes with evidence states, drivers and tests (`measure`, `passMark`, `reviewDate`, `latestResult`). With a launch date it also returns `currentDay` and each note's `reviewDay`. `driverUserId` (or `"unassigned"`) narrows it to the notes one person is driving; `market` to the notes that hold in one market (tagged with it, or untagged, which means every market).
@@ -100,6 +118,8 @@ When configured, Claude has access to:
 - `canvases:createCanvas`: Create canvas (optional `template`, default `lean`) and default workspace with owner membership
 - `canvases:getCanvas`: Secure query for authenticated members
 - `canvases:getCanvasByPublicToken`: Sanitized read-only query for public sharing
+- `goals:view`, `goals:viewByPublicToken`: The goals view for members, and read-only on the public link
+- `goals:addGoal`, `renameGoalTitle`, `removeGoal`, `addItem`, `editItem`, `removeItem`, `decide`, `markDone`, `reopen`, `lookBack`, `convertNote`: Editor+ only
 - `canvases:setPublicView`: Enable/disable public read-only link and regenerate token (Owner only)
 - `notes:addNote`, `updateNote`, `deleteNote`, `reorderNotes`: Editor+ only mutations
 - `stressTests:runStressTest`: Convex action running 7-dimension scoring & riskiest assumption analysis

@@ -25,6 +25,21 @@ import { addDays, daysBetween, testFieldsUpdateArgs, todayUtc } from "./lib/test
 import { createCanvasForUser, listCanvasesForUser, updateCanvasMetaForUser } from "./canvases";
 import { addNoteForUser, deleteNoteForUser, updateNoteForUser } from "./notes";
 import { runStressTestForUser } from "./stressTests";
+import {
+  buildGoalsView,
+  convertNoteToItem,
+  createGoal,
+  createItem,
+  decideItem,
+  deleteGoal,
+  deleteItem,
+  markItemDone,
+  recordLookBack,
+  renameGoal,
+  reopenItem,
+  updateItem,
+} from "./lib/goals";
+import { decisionBasisValidator, ITEM_STATE_MEANINGS, ITEM_STATES, lookBackValidator } from "./lib/goalModel";
 import { BLOCKS_BY_TEMPLATE, blockValidator, canvasTemplateValidator, templateOf } from "./lib/canvasTemplates";
 
 const evidenceValidator = v.union(
@@ -723,5 +738,221 @@ export const verifyToken = query({
   args: { accessToken: v.string() },
   handler: async (ctx, args) => {
     return (await getUserFromAccessToken(ctx, args.accessToken)) !== null;
+  },
+});
+
+// ---------- Goals, items and decision records ----------
+
+async function resolveGoal(ctx: QueryCtx, user: Doc<"users">, rawGoalId: string, needEdit: boolean) {
+  const goalId = ctx.db.normalizeId("goals", rawGoalId);
+  const goal = goalId ? await ctx.db.get(goalId) : null;
+  if (!goal) throw new ConvexError(`Goal not found: ${rawGoalId}`);
+  const { canvas } = await resolveCanvas(ctx, user, goal.canvasId, needEdit);
+  return { goal, canvas };
+}
+
+async function resolveItem(ctx: QueryCtx, user: Doc<"users">, rawItemId: string) {
+  const itemId = ctx.db.normalizeId("items", rawItemId);
+  const item = itemId ? await ctx.db.get(itemId) : null;
+  if (!item) throw new ConvexError(`Item not found: ${rawItemId}`);
+  const { canvas } = await resolveCanvas(ctx, user, item.canvasId, true);
+  return { item, canvas };
+}
+
+function resolveNoteIds(ctx: QueryCtx, raw: string[] | undefined): Id<"notes">[] | undefined {
+  return raw?.map((r) => {
+    const id = ctx.db.normalizeId("notes", r);
+    if (!id) throw new ConvexError(`Unknown note: ${r}`);
+    return id;
+  });
+}
+
+/** One goal's items with their states and decision records, or every goal on the canvas. */
+async function goalsForAgent(ctx: QueryCtx, canvas: Doc<"canvases">) {
+  const view = await buildGoalsView(ctx, canvas);
+  return {
+    canvasId: canvas._id,
+    today: view.today,
+    states: ITEM_STATES.map((s) => `${s}: ${ITEM_STATE_MEANINGS[s]}`),
+    goals: view.goals.map((g) => ({
+      goalId: g.goalId,
+      title: g.title,
+      headline: g.headline,
+      counts: g.counts,
+      reached: g.reached,
+      items: g.items.map(({ order: _order, ownerId, goalId: _goalId, ...i }) => ({
+        ...i,
+        driver: ownerId ? { userId: ownerId, name: i.driver } : undefined,
+      })),
+    })),
+    lookBacksDue: view.lookBacksDue.map((i) => ({ itemId: i.itemId, goal: i.goal, title: i.title, decision: i.decision })),
+    basisStats: view.basisStats,
+  };
+}
+
+export const listGoals = query({
+  args: { accessToken: v.string(), canvasId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { canvas } = await resolveCanvas(ctx, user, args.canvasId, false);
+    return await goalsForAgent(ctx, canvas);
+  },
+});
+
+export const createGoalForAgent = mutation({
+  args: { accessToken: v.string(), canvasId: v.string(), title: v.string() },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    const { canvas } = await resolveCanvas(ctx, user, args.canvasId, true);
+    return { goalId: await createGoal(ctx, actor, canvas._id, args.title) };
+  },
+});
+
+export const updateGoalForAgent = mutation({
+  args: { accessToken: v.string(), goalId: v.string(), title: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { goal } = await resolveGoal(ctx, user, args.goalId, true);
+    await renameGoal(ctx, goal, args.title);
+    return { goalId: goal._id, title: args.title.trim() };
+  },
+});
+
+export const deleteGoalForAgent = mutation({
+  args: { accessToken: v.string(), goalId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { goal } = await resolveGoal(ctx, user, args.goalId, true);
+    await deleteGoal(ctx, goal);
+    return { goalId: goal._id, deleted: true };
+  },
+});
+
+const itemFieldArgs = {
+  title: v.optional(v.string()),
+  detail: v.optional(v.union(v.string(), v.null())),
+  decideBy: v.optional(v.union(v.string(), v.null())),
+  decideByDay: v.optional(v.number()),
+  driverUserId: v.optional(v.union(v.string(), v.null())),
+  contextNoteIds: v.optional(v.array(v.string())),
+  ...testFieldsUpdateArgs,
+  reviewDay: v.optional(v.number()),
+};
+
+export const addItemForAgent = mutation({
+  args: { accessToken: v.string(), goalId: v.string(), ...itemFieldArgs, title: v.string() },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    const { goal, canvas } = await resolveGoal(ctx, user, args.goalId, true);
+    const { accessToken: _t, goalId: _g, reviewDay: _d, decideByDay: _dd, driverUserId, contextNoteIds, ...fields } = args;
+    const itemId = await createItem(ctx, actor, goal, {
+      ...fields,
+      decideBy: resolvePlanDate(canvas, args.decideBy, args.decideByDay, { date: "decideBy", day: "decideByDay" }),
+      reviewDate: resolvePlanDate(canvas, args.reviewDate, args.reviewDay),
+      ownerId: resolveUser(ctx, driverUserId),
+      contextNoteIds: resolveNoteIds(ctx, contextNoteIds),
+    });
+    return { itemId, state: (await ctx.db.get(itemId))!.state };
+  },
+});
+
+export const updateItemForAgent = mutation({
+  args: { accessToken: v.string(), itemId: v.string(), goalId: v.optional(v.string()), ...itemFieldArgs },
+  handler: async (ctx, args) => {
+    const { user } = await requireTokenActor(ctx, args.accessToken);
+    const { item, canvas } = await resolveItem(ctx, user, args.itemId);
+    const { accessToken: _t, itemId: _i, reviewDay: _d, decideByDay: _dd, driverUserId, contextNoteIds, goalId, ...fields } = args;
+    let targetGoal: Id<"goals"> | undefined;
+    if (goalId !== undefined) targetGoal = (await resolveGoal(ctx, user, goalId, true)).goal._id;
+    await updateItem(ctx, item, {
+      ...fields,
+      decideBy: resolvePlanDate(canvas, args.decideBy, args.decideByDay, { date: "decideBy", day: "decideByDay" }),
+      reviewDate: resolvePlanDate(canvas, args.reviewDate, args.reviewDay),
+      ownerId: resolveUser(ctx, driverUserId),
+      contextNoteIds: resolveNoteIds(ctx, contextNoteIds),
+      goalId: targetGoal,
+    });
+    return { itemId: item._id, state: (await ctx.db.get(item._id))!.state };
+  },
+});
+
+export const deleteItemForAgent = mutation({
+  args: { accessToken: v.string(), itemId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { item } = await resolveItem(ctx, user, args.itemId);
+    await deleteItem(ctx, item);
+    return { itemId: item._id, deleted: true };
+  },
+});
+
+export const decideItemForAgent = mutation({
+  args: {
+    accessToken: v.string(),
+    itemId: v.string(),
+    decision: v.string(),
+    basis: decisionBasisValidator,
+    basisNote: v.optional(v.string()),
+    linkedNoteIds: v.optional(v.array(v.string())),
+    decidedByUserId: v.optional(v.string()),
+    decidedByName: v.optional(v.string()),
+    reviewDate: v.optional(v.string()),
+    reviewDay: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    const { item, canvas } = await resolveItem(ctx, user, args.itemId);
+    const recordId = await decideItem(ctx, actor, item, {
+      text: args.decision,
+      basis: args.basis,
+      basisNote: args.basisNote,
+      linkedNoteIds: resolveNoteIds(ctx, args.linkedNoteIds),
+      decidedBy: resolveUser(ctx, args.decidedByUserId) ?? undefined,
+      decidedByName: args.decidedByName,
+      reviewDate: resolvePlanDate(canvas, args.reviewDate, args.reviewDay) ?? undefined,
+    });
+    const record = (await ctx.db.get(recordId))!;
+    return { itemId: item._id, state: "decided", recordId, reviewDate: record.reviewDate };
+  },
+});
+
+export const markItemDoneForAgent = mutation({
+  args: { accessToken: v.string(), itemId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { item } = await resolveItem(ctx, user, args.itemId);
+    await markItemDone(ctx, item);
+    return { itemId: item._id, state: "done" };
+  },
+});
+
+export const reopenItemForAgent = mutation({
+  args: { accessToken: v.string(), itemId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { item } = await resolveItem(ctx, user, args.itemId);
+    await reopenItem(ctx, item);
+    return { itemId: item._id, state: (await ctx.db.get(item._id))!.state };
+  },
+});
+
+export const recordLookBackForAgent = mutation({
+  args: { accessToken: v.string(), itemId: v.string(), outcome: lookBackValidator, note: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    const { item } = await resolveItem(ctx, user, args.itemId);
+    await recordLookBack(ctx, actor, item, { outcome: args.outcome, note: args.note });
+    return { itemId: item._id, outcome: args.outcome };
+  },
+});
+
+export const convertNoteForAgent = mutation({
+  args: { accessToken: v.string(), noteId: v.string(), goalId: v.string() },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    const note = await resolveNote(ctx, user, args.noteId, true);
+    const { goal } = await resolveGoal(ctx, user, args.goalId, true);
+    const itemId = await convertNoteToItem(ctx, actor, note, goal);
+    return { itemId, state: (await ctx.db.get(itemId))!.state };
   },
 });
