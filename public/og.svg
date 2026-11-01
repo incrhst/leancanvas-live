@@ -31,16 +31,16 @@
 
     <!-- Main Title -->
     <text x="0" y="140" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="64" font-weight="800" fill="#FFFFFF" letter-spacing="-1.5">
-      Plans stall between meetings.
+      What runs without you?
     </text>
 
     <!-- Subtitle -->
     <text x="0" y="210" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="500" fill="#FFFFFF" fill-opacity="0.95">
-      CriticalDash sends the decider one question, with the default.
+      See what is still a guess, and what is proven.
     </text>
 
     <text x="0" y="260" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="400" fill="#FFFFFF" fill-opacity="0.85">
-      They answer on their phone, with no login. The plan keeps moving.
+      Turn each part into a runbook before the person who knows it leaves.
     </text>
 
     <!-- Visual Feature Badges at bottom -->

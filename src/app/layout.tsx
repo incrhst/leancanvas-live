@@ -23,9 +23,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://lean.incrementic.com"),
-  title: "CriticalDash — Plans that keep moving between meetings, by Incrementic",
+  title: "CriticalDash — Take the risk out of how your business runs, by Incrementic",
   description:
-    "Lean and go-to-market canvases where the person who decides answers one question from their phone, with no login, and sees what happens if they don't.",
+    "Your business is one resignation away from forgetting how it works. CriticalDash shows which parts are still guesses and which are proven, and turns each into a written runbook.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "CriticalDash — by Incrementic",
-    description: "Plans don't fail in meetings. They stall between them. CriticalDash sends the decider one question, with what happens if they don't answer.",
+    description: "Your business is one resignation away from forgetting how it works. See what's still a guess, what's proven, and what lives in one person's head.",
     url: "https://lean.incrementic.com",
     siteName: "CriticalDash",
     locale: "en_US",
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "CriticalDash — by Incrementic",
-    description: "Plans don't fail in meetings. They stall between them. CriticalDash sends the decider one question, with what happens if they don't answer.",
+    description: "Your business is one resignation away from forgetting how it works. See what's still a guess, what's proven, and what lives in one person's head.",
     images: ["/og.svg"],
   },
 };
