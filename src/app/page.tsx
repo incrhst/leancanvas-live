@@ -93,7 +93,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-baseline gap-2">
               <span className="font-display font-bold text-lg tracking-tight text-incrementic-ink">
-                LeanOn
+                CriticalDash
               </span>
               <span className="hidden sm:inline font-mono text-[11px] text-muted">
                 by Incrementic
@@ -137,7 +137,7 @@ export default function HomePage() {
             </h1>
 
             <p className="text-white/90 text-base sm:text-lg max-w-xl font-normal leading-relaxed">
-              The person who decides rarely opens the plan. LeanOn sends them one question, with what
+              The person who decides rarely opens the plan. CriticalDash sends them one question, with what
               happens if they don&rsquo;t answer. They tap an answer on their phone, with no login, and
               the plan keeps moving.
             </p>
@@ -276,7 +276,7 @@ export default function HomePage() {
 
       {/* Footer with Incrementic attribution */}
       <footer className="border-t border-line bg-surface px-6 py-8 text-center text-xs text-muted space-y-2">
-        <div className="font-medium text-ink">LeanOn • Lean and go-to-market canvases</div>
+        <div className="font-medium text-ink">CriticalDash • Lean and go-to-market canvases</div>
         <div className="flex items-center justify-center gap-1.5 text-muted">
           <span>A project of</span>
           <a

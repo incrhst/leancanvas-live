@@ -1,6 +1,6 @@
 {
-  "name": "LeanOn",
-  "short_name": "LeanOn",
+  "name": "CriticalDash",
+  "short_name": "CriticalDash",
   "description": "Lean and go-to-market plans that keep moving between meetings, by Incrementic.",
   "start_url": "/",
   "display": "standalone",

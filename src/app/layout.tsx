@@ -23,7 +23,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://lean.incrementic.com"),
-  title: "LeanOn — Plans that keep moving between meetings, by Incrementic",
+  title: "CriticalDash — Plans that keep moving between meetings, by Incrementic",
   description:
     "Lean and go-to-market canvases where the person who decides answers one question from their phone, with no login, and sees what happens if they don't.",
   manifest: "/manifest.json",
@@ -40,10 +40,10 @@ export const metadata: Metadata = {
     canonical: "https://lean.incrementic.com",
   },
   openGraph: {
-    title: "LeanOn — by Incrementic",
-    description: "Plans don't fail in meetings. They stall between them. LeanOn sends the decider one question, with what happens if they don't answer.",
+    title: "CriticalDash — by Incrementic",
+    description: "Plans don't fail in meetings. They stall between them. CriticalDash sends the decider one question, with what happens if they don't answer.",
     url: "https://lean.incrementic.com",
-    siteName: "LeanOn",
+    siteName: "CriticalDash",
     locale: "en_US",
     type: "website",
     images: [
@@ -51,15 +51,15 @@ export const metadata: Metadata = {
         url: "/og.svg",
         width: 1200,
         height: 630,
-        alt: "LeanOn by Incrementic",
+        alt: "CriticalDash by Incrementic",
         type: "image/svg+xml",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "LeanOn — by Incrementic",
-    description: "Plans don't fail in meetings. They stall between them. LeanOn sends the decider one question, with what happens if they don't answer.",
+    title: "CriticalDash — by Incrementic",
+    description: "Plans don't fail in meetings. They stall between them. CriticalDash sends the decider one question, with what happens if they don't answer.",
     images: ["/og.svg"],
   },
 };

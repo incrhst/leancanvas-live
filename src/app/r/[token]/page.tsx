@@ -255,7 +255,7 @@ function Shell({
           <FlaskConicalIcon className="h-4 w-4" aria-hidden="true" />
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-[15px] font-semibold text-ink">{title || "LeanOn"}</span>
+          <span className="block truncate text-[15px] font-semibold text-ink">{title || "CriticalDash"}</span>
           <span className="block truncate text-xs text-muted">
             {checkIn ? "Your weekly check-in" : from ? `A result for ${from}` : "A test result"}
           </span>

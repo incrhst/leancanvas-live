@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 // The token in the URL answers a decision, so keep these pages out of search and referrers
 export const metadata: Metadata = {
-  title: "Your decision · LeanOn",
+  title: "Your decision · CriticalDash",
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };
