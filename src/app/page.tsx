@@ -61,47 +61,47 @@ const EXPOSURE = [
 const HIDDEN_RISKS = [
   {
     icon: UserMinusIcon,
-    title: "The person who knows every provider hands in their notice",
-    body: "Which partner needs which documents, who to call when an application stalls, why one plan is listed above another. All of it was in their head.",
+    title: "The person who knows every partner hands in their notice",
+    body: "Which partner needs what paperwork, who to call when an order stalls, why one option is shown above another. All of it was in their head.",
   },
   {
     icon: SirenIcon,
-    title: "A provider changes its rates, and your prices are wrong for a week",
-    body: "Nobody owns the update, so customers compare against old numbers. The first person to notice is the one who was quoted the wrong price.",
+    title: "A partner changes its prices, and yours are wrong for a week",
+    body: "Nobody owns the update, so customers see old numbers. The first person to notice is the one who was quoted the wrong price.",
   },
   {
     icon: ShuffleIcon,
     title: "Three customers ask the same question and get three answers",
-    body: "Can a student on a visa switch plans mid-year? Support, sales and the partner each remember it differently. One of them is wrong, and it's in writing.",
+    body: "Can they cancel after a week? Is the deposit refundable? Support, sales and the partner each remember it differently. One of them is wrong, and it's in writing.",
   },
   {
     icon: AlertTriangleIcon,
     title: "A channel that worked once gets rolled out everywhere",
-    body: "University referrals worked for one intake of students. Now the same play is aimed at people moving abroad for work, and nobody checked it works twice.",
+    body: "Referrals from one partner worked for one season. Now the same play is aimed at a different kind of customer, and nobody checked it works twice.",
   },
   {
     icon: RefreshCwIcon,
-    title: "Why is that provider listed first?",
-    body: "Nobody wrote down why you rank plans the way you do, or when you recommend one and when you stay neutral. So the argument starts again every quarter.",
+    title: "Why is that partner always shown first?",
+    body: "Nobody wrote down why you rank options the way you do, or when you recommend one and when you stay neutral. So the argument starts again every quarter.",
   },
   {
     icon: HistoryIcon,
-    title: "Commission nobody checks",
-    body: "Partner statements arrive, someone glances at the total, and nobody reconciles them against the people who actually signed up. Money stays on the other side.",
+    title: "Fees and commission nobody checks",
+    body: "Partner statements arrive, someone glances at the total, and nobody checks them against the customers you actually sent. Money stays on the other side.",
   },
 ];
 
 /* --- The two-minute check ------------------------------------------------------------------- */
 
 const PARTS = [
-  "Choosing which providers and plans to list",
-  "Updating prices when a provider changes its rates",
-  "Deciding when to recommend a plan, and when to stay neutral",
-  "Winning customers: search ads, referrals, university and employer partners",
-  "Following up quotes that didn't sign up",
-  "Helping people through enrolment and their documents",
-  "Renewals, switches and cancellations",
-  "Reconciling commission with each provider",
+  "Choosing which partners to work with",
+  "Updating what you show when a partner changes its prices or terms",
+  "Deciding when to recommend, and when to stay neutral",
+  "Winning customers: ads, referrals and partner introductions",
+  "Following up people who enquired but didn't go ahead",
+  "Getting new customers set up",
+  "Renewals, changes and cancellations",
+  "Checking what each partner owes you",
 ];
 
 type Answer = 0 | 1 | 2 | 3;
@@ -168,8 +168,8 @@ const STAGES: {
     heading: "Your business model is a guess",
     status: "Not yet checked",
     statusTint: "border-rose-300 bg-rose-50 text-rose-900",
-    looksLike: "A type of customer, a channel or a way of ranking plans that you believe works, but haven't checked.",
-    example: "\u201cStudents will pick the plan their university accepts, even if it costs more.\u201d",
+    looksLike: "A type of customer, a channel or a way of ranking options that you believe works, but haven't checked.",
+    example: "A relocation agency\u2019s hunch: \u201cPeople moving for work will pay more for a flat that\u2019s ready on day one.\u201d",
     weDo: "Puts it on one page with the rest of the business, marked as a guess. A stress test ranks the riskiest guesses, so you check those first.",
     quotes: [
       TYSON,
@@ -191,7 +191,7 @@ const STAGES: {
     status: "Being checked",
     statusTint: "border-amber-300 bg-amber-50 text-amber-900",
     looksLike: "You try it for real, small and by hand, having agreed up front what result counts as a pass.",
-    example: "Show \u201caccepted by your university\u201d on plans for one intake. Pass mark: 1 in 4 quotes sign up.",
+    example: "Offer move-in-ready flats to one month\u2019s arrivals. Pass mark: 1 in 4 enquiries book.",
     weDo: "Keeps the measure, the pass mark and the date to check. Whoever is doing the work gets one short question each Monday, and can reply from their phone.",
     quotes: [
       { text: "Genius is one percent inspiration, ninety-nine percent perspiration.", who: "Thomas Edison" },
@@ -209,7 +209,7 @@ const STAGES: {
     status: "Proven, but only a few people know it",
     statusTint: "border-teal-300 bg-teal-50 text-teal-900",
     looksLike: "It has worked more than once. The steps are known, but mostly by the people who did them.",
-    example: "It beat the pass mark for two intakes in a row. Decided: lead with university acceptance for students.",
+    example: "It beat the pass mark two months running. Decided: lead with move-in-ready flats for people moving for work.",
     weDo: "Records each decision with its reason, who made it and when. On the review date it asks the question most businesses never ask: did it pan out?",
     quotes: [
       { text: "Real artists ship.", who: "Steve Jobs" },
@@ -231,7 +231,7 @@ const STAGES: {
     status: "Runs without you",
     statusTint: "border-emerald-300 bg-emerald-50 text-emerald-900",
     looksLike: "It's written down clearly enough that someone new, or an AI assistant, can do it and get the same result.",
-    example: "\u201cNew intake\u201d runbook: check each university's requirements, tag the plans that meet them, update the comparison, brief support.",
+    example: "\u201cNew arrival\u201d runbook: confirm the flat with the landlord, book the movers, set up the utilities, send the welcome pack.",
     weDo: "Writes it up as a runbook: what starts it, who owns it and the steps in order. It can only go live once what it rests on has been proven, and every run reports back, so a step that keeps breaking gets flagged.",
     quotes: [
       BEZOS,
@@ -253,7 +253,7 @@ const CONTROLS = [
     icon: ListChecksIcon,
     tint: "bg-red-50 border-red-200 text-incrementic-red",
     title: "See what runs without you",
-    body: "Every part of the platform, from listing providers to reconciling commission, shows whether it's still a guess, being tested, proven or written up as a runbook.",
+    body: "Every part of the business, from choosing partners to checking what they owe you, shows whether it's still a guess, being tested, proven or written up as a runbook.",
   },
   {
     icon: CheckCheckIcon,
@@ -277,7 +277,7 @@ const CONTROLS = [
     icon: SmartphoneIcon,
     tint: "bg-stone-100 border-stone-200 text-incrementic-charcoal",
     title: "Answers from a phone, no password",
-    body: "Ask a provider contact or an adviser one question, like \u201clist the new plan from 1 December, or wait?\u201d, with a date and what happens if they don't answer. They reply from a link on their phone.",
+    body: "Ask a partner or a colleague one question, like \u201cswitch suppliers from 1 December, or wait?\u201d, with a date and what happens if they don't answer. They reply from a link on their phone.",
   },
   {
     icon: BotIcon,
@@ -290,7 +290,7 @@ const CONTROLS = [
 const FAQ: { q: string; a: React.ReactNode }[] = [
   {
     q: "Who is it for?",
-    a: "Businesses that sit between providers and customers. It started with platforms that compare plans and help people sign up, like cover for people living, studying or working abroad, so that's the example used on this page. The same decisions run insurance and benefits brokers, broadband and energy comparison, study-abroad and visa agents, travel agencies, recruitment agencies, letting and relocation agencies, IT resellers and event organisers. If you depend on partners, see their terms change and earn per placement, it fits.",
+    a: "Businesses that sit between providers and customers: brokers, comparison sites, travel and relocation agencies, recruitment agencies, resellers and event organisers. If you depend on partners, see their terms change and earn per customer you place, it's built around the decisions you make every week.",
   },
   {
     q: "Do I need to be good with computers?",
@@ -366,13 +366,13 @@ function TwoMinuteCheck() {
   let verdict: string;
   if (inHeads >= 5) {
     verdict =
-      "Most of the platform lives in people's heads. That's common when it grew on its founders' judgement and a few provider relationships, and it's the first thing worth fixing.";
+      "Most of the business lives in people's heads. That's common when it grew on its founders' judgement and a few partner relationships, and it's the first thing worth fixing.";
   } else if (runsWithoutYou >= 6) {
     verdict =
       "You're in better shape than most. CriticalDash helps keep it that way, and shows you when something that used to work stops working.";
   } else {
     verdict =
-      "Some of it is written down. The parts still in people's heads are where a resignation, a provider's rate change or a busy intake would hurt most.";
+      "Some of it is written down. The parts still in people's heads are where a resignation, a partner's price change or a busy season would hurt most.";
   }
 
   return (
@@ -694,7 +694,7 @@ export default function HomePage() {
               Would it run without you?
             </h1>
             <p className="text-xl text-white leading-relaxed max-w-xl">
-              Brokers, comparison sites, agencies, resellers, organisers. Which providers to work with. How to rank
+              Brokers, comparison sites, agencies, resellers, organisers. Which partners to work with. How to rank
               what they offer. When to recommend and when to stay neutral. What to do when a partner changes its
               terms overnight. That judgement lives in your head and a few trusted
               inboxes. CriticalDash gets it out, checks what really works, and writes it down as runbooks your team,
@@ -735,7 +735,7 @@ export default function HomePage() {
         <SectionHead
           label="The two-minute check"
           title="If you took three months off from Monday, what would still run?"
-          intro="Go through eight jobs every business between providers and customers depends on. The wording uses a comparison platform as the example; read it for your own partners and customers. Pick the answer that's honestly true today."
+          intro="Go through eight jobs every business between providers and customers depends on. Read them for your own partners and customers, and pick the answer that's honestly true today."
         />
         <TwoMinuteCheck />
       </section>
@@ -771,7 +771,7 @@ export default function HomePage() {
       <section className="max-w-6xl mx-auto px-5 sm:px-6 py-16 w-full space-y-10">
         <SectionHead
           label="Where it's hiding"
-          title="It's rarely the big bet that hurts. It's the provider detail everyone assumed someone else knew."
+          title="It's rarely the big bet that hurts. It's the partner detail everyone assumed someone else knew."
         />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {HIDDEN_RISKS.map(({ icon: Icon, title, body }) => (

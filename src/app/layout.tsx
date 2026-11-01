@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://lean.incrementic.com"),
   title: "CriticalDash — Decisions and runbooks for businesses between providers and customers, by Incrementic",
   description:
-    "Which providers to list, how to rank their plans, what to do when a partner changes its rates. CriticalDash checks what works and turns it into runbooks your team can follow.",
+    "Which partners to work with, how to rank what they offer, what to do when one changes its terms. CriticalDash checks what works and turns it into runbooks your team can follow.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "CriticalDash — by Incrementic",
-    description: "You built the business. Would it run without you? For brokers, comparison sites and agencies: see which provider, pricing and customer decisions are still guesses, and which run as written runbooks.",
+    description: "You built the business. Would it run without you? For brokers, comparison sites and agencies: see which partner, pricing and customer decisions are still guesses, and which run as written runbooks.",
     url: "https://lean.incrementic.com",
     siteName: "CriticalDash",
     locale: "en_US",
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "CriticalDash — by Incrementic",
-    description: "You built the business. Would it run without you? For brokers, comparison sites and agencies: see which provider, pricing and customer decisions are still guesses, and which run as written runbooks.",
+    description: "You built the business. Would it run without you? For brokers, comparison sites and agencies: see which partner, pricing and customer decisions are still guesses, and which run as written runbooks.",
     images: ["/og.svg"],
   },
 };
