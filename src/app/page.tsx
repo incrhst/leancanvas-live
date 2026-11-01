@@ -6,6 +6,7 @@ import { LookUpSkyline } from "../components/LookUpSkyline";
 import { SkyAccent } from "../components/SkyAccent";
 import { HeroHeadline } from "../components/HeroHeadline";
 import { UseCases } from "../components/UseCases";
+import { ExplainerVideo } from "../components/ExplainerVideo";
 import {
   AlertTriangleIcon,
   ArrowDownIcon,
@@ -779,6 +780,16 @@ export default function HomePage() {
           </div>
         </div>
       </header>
+
+      {/* The big picture, in a minute */}
+      <section id="explainer" className="scroll-mt-20 max-w-6xl mx-auto px-5 sm:px-6 pt-20 w-full space-y-10">
+        <SectionHead
+          label="The big picture"
+          title="Why it matters, in a minute."
+          intro="One decision at an insurance broker, from a guess to a runbook. Turn the sound up; captions are in the player."
+        />
+        <ExplainerVideo />
+      </section>
 
       {/* The check */}
       <section id="check" className="scroll-mt-20 max-w-6xl mx-auto px-5 sm:px-6 pt-20 pb-8 w-full space-y-10">
