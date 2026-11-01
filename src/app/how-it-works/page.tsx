@@ -245,19 +245,17 @@ export default function HowItWorksPage() {
           </div>
         </div>
 
-        {/* Coming next */}
+        {/* Runbooks */}
         <div className="mt-10 rounded-3xl bg-incrementic-ink text-white p-6 sm:p-8 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <BookOpenCheckIcon className="w-5 h-5" aria-hidden="true" />
             <h2 className="font-display font-bold text-xl">Then: turn what works into runbooks</h2>
-            <span className="inline-flex items-center rounded-full border border-white/30 bg-white/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white">
-              Coming next
-            </span>
           </div>
           <p className="text-sm text-white/80 max-w-3xl leading-relaxed">
-            Once a play has worked more than once, write it down as a runbook that anyone, or an agent, can run and
-            get the same result. Each canvas box becomes a family of runbooks, and every run reports back, so a step
-            that keeps failing tells you the canvas needs a rethink.
+            Once a play has worked more than once, write it down as a runbook: what starts it, who owns it and the
+            steps in order. It can only go live once every note it rests on is proven, so you never scale a guess.
+            Anyone, or an agent, can run it as a checklist. Every run reports back, and a runbook that keeps failing at
+            the same step gets flagged, because that usually means the canvas needs a rethink.
           </p>
         </div>
       </main>
