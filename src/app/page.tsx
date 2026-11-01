@@ -760,9 +760,10 @@ export default function HomePage() {
 
           {/* The plan breaks, so build mechanisms */}
           <div className="relative">
-            {/* On phones the panel sits low, so the street is redrawn tall and centred on it */}
+            {/* On phones the panel sits low, so the street is redrawn tall and centred on it. The mask
+                keeps the copy above on plain green: the street opens up just above the panel. */}
             <LookUpSkyline
-              className="lg:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[2700px] -z-10"
+              className="lg:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[2700px] -z-10 [mask-image:linear-gradient(to_bottom,transparent_36%,black_42%)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_36%,black_42%)]"
               aspect={1 / 3}
               sky={{ rx: 384, ry: 470 }}
             />
