@@ -1,6 +1,6 @@
 "use client";
 
-// The explainer: a minute on why CriticalDash matters, shown on the app itself with a UK narrator.
+// The explainer: a minute on keeping everyone aligned on decisions, shown on the app itself with a UK narrator.
 // Rendered from the parametric Remotion project (qrtick-promo-video/projects/criticaldash,
 // videos/criticaldash-in-a-minute.json). Nothing loads until someone presses play, and then only the
 // cut that fits the screen: 9:16 on phones, 16:9 everywhere else.
@@ -91,7 +91,7 @@ export function ExplainerVideo() {
           <span className="relative inline-flex min-h-[56px] items-center gap-3 rounded-full bg-incrementic-red px-7 font-display font-semibold text-lg text-white shadow-xl transition-colors group-hover:bg-[#D93D34] group-focus-visible:ring-4 group-focus-visible:ring-white/80">
             <PlayIcon className="h-5 w-5 fill-current" aria-hidden="true" />
             Play the minute
-            <span className="font-sans font-normal text-white/85 tabular-nums">0:57</span>
+            <span className="font-sans font-normal text-white/85 tabular-nums">0:55</span>
           </span>
         </button>
       )}

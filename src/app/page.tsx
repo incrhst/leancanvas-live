@@ -735,9 +735,10 @@ export default function HomePage() {
             <p className="text-lg font-semibold text-white/95">For businesses that sit between providers and customers</p>
             <HeroHeadline className="font-display font-extrabold text-5xl sm:text-6xl lg:text-7xl tracking-tight leading-[1.02]" />
             <p className="text-xl text-white leading-relaxed max-w-xl">
-              Partners change terms. Prices move. Someone wasn&rsquo;t in the meeting. CriticalDash keeps everyone
-              aligned on what&rsquo;s been decided, what&rsquo;s still open and who&rsquo;s making the call. When
-              you&rsquo;re aligned, you move forward with confidence.
+              Campaigns change direction. Policies change. New regulations land. Someone wasn&rsquo;t in the
+              meeting. CriticalDash is the record
+              of every decision: what&rsquo;s been decided, what&rsquo;s still open and who&rsquo;s making the call.
+              One source of truth, so everyone is aligned and you move forward with confidence.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 pt-1">
               <a
@@ -785,7 +786,7 @@ export default function HomePage() {
         <SectionHead
           label="The big picture"
           title="Why it matters, in a minute."
-          intro="One decision at an insurance broker, from a guess to a runbook. Turn the sound up; captions are in the player."
+          intro="How an insurance broker keeps the whole team on the same decisions. Turn the sound up; captions are in the player."
         />
         <ExplainerVideo />
       </section>
