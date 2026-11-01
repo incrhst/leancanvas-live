@@ -8,7 +8,9 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
+import type * as billing from "../billing.js";
 import type * as canvases from "../canvases.js";
 import type * as checkIns from "../checkIns.js";
 import type * as constants_prompts from "../constants/prompts.js";
@@ -19,6 +21,7 @@ import type * as goals from "../goals.js";
 import type * as http from "../http.js";
 import type * as invites from "../invites.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_billing from "../lib/billing.js";
 import type * as lib_canvasTemplates from "../lib/canvasTemplates.js";
 import type * as lib_checkIns from "../lib/checkIns.js";
 import type * as lib_decisionText from "../lib/decisionText.js";
@@ -32,10 +35,11 @@ import type * as lib_notify from "../lib/notify.js";
 import type * as lib_password from "../lib/password.js";
 import type * as lib_people from "../lib/people.js";
 import type * as lib_planStatus from "../lib/planStatus.js";
+import type * as lib_plans from "../lib/plans.js";
 import type * as lib_resultLinks from "../lib/resultLinks.js";
+import type * as lib_review from "../lib/review.js";
 import type * as lib_runbookModel from "../lib/runbookModel.js";
 import type * as lib_runbooks from "../lib/runbooks.js";
-import type * as lib_review from "../lib/review.js";
 import type * as lib_snapshots from "../lib/snapshots.js";
 import type * as lib_testFields from "../lib/testFields.js";
 import type * as mcp from "../mcp.js";
@@ -43,8 +47,8 @@ import type * as notes from "../notes.js";
 import type * as oauth from "../oauth.js";
 import type * as presence from "../presence.js";
 import type * as resultLinks from "../resultLinks.js";
-import type * as runbooks from "../runbooks.js";
 import type * as review from "../review.js";
+import type * as runbooks from "../runbooks.js";
 import type * as snapshots from "../snapshots.js";
 import type * as stressTests from "../stressTests.js";
 import type * as users from "../users.js";
@@ -56,7 +60,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   auth: typeof auth;
+  billing: typeof billing;
   canvases: typeof canvases;
   checkIns: typeof checkIns;
   "constants/prompts": typeof constants_prompts;
@@ -67,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   invites: typeof invites;
   "lib/auth": typeof lib_auth;
+  "lib/billing": typeof lib_billing;
   "lib/canvasTemplates": typeof lib_canvasTemplates;
   "lib/checkIns": typeof lib_checkIns;
   "lib/decisionText": typeof lib_decisionText;
@@ -80,10 +87,11 @@ declare const fullApi: ApiFromModules<{
   "lib/password": typeof lib_password;
   "lib/people": typeof lib_people;
   "lib/planStatus": typeof lib_planStatus;
+  "lib/plans": typeof lib_plans;
   "lib/resultLinks": typeof lib_resultLinks;
+  "lib/review": typeof lib_review;
   "lib/runbookModel": typeof lib_runbookModel;
   "lib/runbooks": typeof lib_runbooks;
-  "lib/review": typeof lib_review;
   "lib/snapshots": typeof lib_snapshots;
   "lib/testFields": typeof lib_testFields;
   mcp: typeof mcp;
@@ -91,8 +99,8 @@ declare const fullApi: ApiFromModules<{
   oauth: typeof oauth;
   presence: typeof presence;
   resultLinks: typeof resultLinks;
-  runbooks: typeof runbooks;
   review: typeof review;
+  runbooks: typeof runbooks;
   snapshots: typeof snapshots;
   stressTests: typeof stressTests;
   users: typeof users;

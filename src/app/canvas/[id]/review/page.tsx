@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, LockIcon } from "lucide-react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useAuth } from "../../../../components/ConvexClientProvider";
@@ -35,6 +35,31 @@ export default function ReviewPage() {
     return (
       <div className="flex h-screen items-center justify-center bg-canvas text-sm text-muted">
         This canvas doesn't exist or you don't have access to it.
+      </div>
+    );
+  }
+
+  if ("locked" in review) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-canvas p-4">
+        <div className="max-w-sm space-y-3 rounded-xl border border-line bg-surface p-6 text-center">
+          <LockIcon className="mx-auto h-6 w-6 text-muted" aria-hidden="true" />
+          <h1 className="font-display text-base font-semibold text-ink">The review is part of a live plan</h1>
+          <p className="text-sm text-muted">
+            "{review.title}" isn't running as a live plan right now, so there's no review to show.
+          </p>
+          <div className="flex justify-center gap-2">
+            <Link href={`/canvas/${canvasId}`} className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-surface-2 hover:text-ink">
+              Back to the canvas
+            </Link>
+            <Link
+              href={`/canvas/${canvasId}/plan`}
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90"
+            >
+              See the plan
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }

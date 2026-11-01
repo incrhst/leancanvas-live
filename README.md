@@ -102,6 +102,28 @@ When configured, Claude has access to:
 
 ---
 
+## Paywall: live plans
+
+Drawing a canvas is free. Running it as a **live plan** is paid, per plan, not per person (`convex/lib/billing.ts`, `convex/lib/plans.ts`).
+
+- **Free, always:** the canvas, notes, evidence states, stress tests, share links, exports, inviting anyone, and answering a decision or a check-in.
+- **A live plan runs:** tests (measure, pass mark, review date, results), weekly check-ins, decision requests, snapshots, result links and the review page.
+- **Going live:** a canvas becomes a live plan the first time someone sets a launch date, sets a test, asks for a decision or takes a snapshot. That uses one of the creator's founding free plans if they have one, else their free trial (30 days, one per account), else it's refused with a `PLAN_REQUIRED` error that links to `/canvas/[id]/plan`.
+- **When a trial or paid period ends,** a scheduled check pauses the plan. The canvas stays editable and its history readable; tests stop, check-ins stop, the review locks, and open decisions can still be answered.
+- **Payments** aren't wired up yet. `internal.billing.activatePaidPlan` is where the DIME PAY webhook will mark a plan paid.
+- **Before the paywall ships,** run `npx convex run billing:grandfatherLivePlans` (repeat with the returned `cursor` until `isDone`) so canvases already used as plans keep running free.
+
+### Admin MCP tools
+
+Set `ADMIN_EMAILS` (comma-separated) in the Convex environment. Admins who connect the normal connector (`/api/mcp`) also see these tools; everyone else is refused and never sees them listed.
+
+- `admin_find_account({ email })`: allowances and the plan on each canvas they created.
+- `admin_update_account({ email, founding, trialDays, trialsAllowed, trialsUsed, freeLivePlans, discountPercent, note })`: change what an account is allowed; `null` restores the default. Applies to plans that go live from then on.
+- `admin_list_founding_members()` and `admin_list_plans({ status })`.
+- `admin_set_canvas_plan({ canvasId, action, days, until, note })`: `extend_trial`, `activate` (free until a date, for some days, or with no end), `pause` or `reset`.
+
+---
+
 ## Access Control Matrix
 
 | Actor | View Canvas | Edit Canvas | Comment | Invite Others | Run Stress Test | Answer Decisions / Check-ins |

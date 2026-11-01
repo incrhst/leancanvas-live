@@ -4,6 +4,7 @@ import { Doc, Id } from "../_generated/dataModel";
 import { daysBetween } from "./testFields";
 import { diffFields, NoteChange, trackedFields } from "./history";
 import { displayName } from "./members";
+import { requireLivePlan } from "./plans";
 
 type SnapshotNote = Omit<Doc<"snapshotNotes">, "_id" | "_creationTime" | "snapshotId">;
 
@@ -47,6 +48,7 @@ export async function createSnapshotForUser(
   const label = rawLabel.trim();
   if (!label) throw new ConvexError("Give the snapshot a label, e.g. Day 30");
   if (label.length > 80) throw new ConvexError("Keep the label under 80 characters");
+  await requireLivePlan(ctx, canvas);
 
   const notes = await currentNotes(ctx, canvas._id);
   const now = Date.now();

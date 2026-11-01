@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import { getCurrentUser, requireAuth, requireEditor } from "./lib/auth";
 import { answerCheckInForUser, listPendingCheckIns, mondayOf, startCheckInForCanvas } from "./lib/checkIns";
 import { todayUtc, verdictValidator } from "./lib/testFields";
+import { loopIsOn, requireLivePlan } from "./lib/plans";
 
 /** Weekly cron: fans out one job per canvas so no single transaction reads every note. */
 export const startWeek = internalMutation({
@@ -12,7 +13,8 @@ export const startWeek = internalMutation({
     const weekOf = mondayOf(todayUtc());
     const canvases = await ctx.db.query("canvases").collect();
     for (const canvas of canvases) {
-      if (canvas.status === "archived") continue;
+      // Check-ins are part of a live plan; free and paused canvases get none
+      if (canvas.status === "archived" || !loopIsOn(canvas)) continue;
       await ctx.scheduler.runAfter(0, internal.checkIns.startForCanvas, { canvasId: canvas._id, weekOf });
     }
     return null;
@@ -23,7 +25,7 @@ export const startForCanvas = internalMutation({
   args: { canvasId: v.id("canvases"), weekOf: v.string() },
   handler: async (ctx, args) => {
     const canvas = await ctx.db.get(args.canvasId);
-    if (!canvas) return null;
+    if (!canvas || !loopIsOn(canvas)) return null;
     await startCheckInForCanvas(ctx, canvas, args.weekOf);
     return null;
   },
@@ -36,6 +38,7 @@ export const sendNow = mutation({
     await requireEditor(ctx, args.canvasId);
     const canvas = await ctx.db.get(args.canvasId);
     if (!canvas) throw new Error("Canvas not found");
+    await requireLivePlan(ctx, canvas);
     return await startCheckInForCanvas(ctx, canvas, mondayOf(todayUtc()));
   },
 });

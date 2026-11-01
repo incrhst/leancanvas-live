@@ -12,6 +12,7 @@ import { listCanvasMembers } from "./lib/members";
 import { listPeople } from "./lib/people";
 import { compareSnapshots, createSnapshotForUser, listSnapshots } from "./lib/snapshots";
 import { buildReview } from "./lib/review";
+import { loopIsOn, planRequiredMessage, requireLivePlan } from "./lib/plans";
 import { answerCheckInForUser, listPendingCheckIns, mondayOf, startCheckInForCanvas } from "./lib/checkIns";
 import { verdictValidator } from "./lib/testFields";
 import {
@@ -667,6 +668,7 @@ export const getReview = query({
   handler: async (ctx, args) => {
     const user = await requireTokenUser(ctx, args.accessToken);
     const { canvas } = await resolveCanvas(ctx, user, args.canvasId, false);
+    if (!loopIsOn(canvas)) throw new ConvexError(planRequiredMessage(canvas, "The review is part of a live plan."));
     let since: Id<"canvasSnapshots"> | undefined;
     if (args.sinceSnapshotId) {
       const id = ctx.db.normalizeId("canvasSnapshots", args.sinceSnapshotId);
@@ -727,6 +729,7 @@ export const sendCheckIn = mutation({
   handler: async (ctx, args) => {
     const user = await requireTokenUser(ctx, args.accessToken);
     const { canvas } = await resolveCanvas(ctx, user, args.canvasId, true);
+    await requireLivePlan(ctx, canvas);
     return await startCheckInForCanvas(ctx, canvas, mondayOf(todayUtc()));
   },
 });

@@ -13,7 +13,8 @@ import {
   recordNoteHistory,
   trackedFields,
 } from "./lib/history";
-import { TestFieldsUpdate, testFieldsPatch, testFieldsUpdateArgs } from "./lib/testFields";
+import { TestFieldsUpdate, setsTest, testFieldsPatch, testFieldsUpdateArgs } from "./lib/testFields";
+import { requireLivePlan } from "./lib/plans";
 import { normalizeMarkets } from "./lib/markets";
 import { deleteResultLinksForNote } from "./lib/resultLinks";
 
@@ -63,13 +64,16 @@ export async function addNoteForUser(
   if (!canvas) throw new Error("Canvas not found");
   assertBlockForTemplate(templateOf(canvas), args.block);
 
+  const testPatch = testFieldsPatch(args);
+  if (setsTest(testPatch)) await requireLivePlan(ctx, canvas);
+
   const userId = actor.userId;
   const now = Date.now();
   const fields = {
     block: args.block,
     content: args.content,
     evidenceState: args.evidenceState || "assumption",
-    ...testFieldsPatch(args),
+    ...testPatch,
     ownerId: await checkDriver(ctx, args.canvasId, args.ownerId),
     markets: await normalizeMarkets(ctx, args.canvasId, args.markets),
   };
@@ -131,7 +135,14 @@ export async function updateNoteForUser(
     note = (await ctx.db.get(note._id))!;
   }
 
-  const patch: Partial<Doc<"notes">> = { updatedAt: now, ...testFieldsPatch(args) };
+  const testPatch = testFieldsPatch(args);
+  if (setsTest(testPatch)) {
+    const canvas = await ctx.db.get(note.canvasId);
+    if (!canvas) throw new Error("Canvas not found");
+    await requireLivePlan(ctx, canvas);
+  }
+
+  const patch: Partial<Doc<"notes">> = { updatedAt: now, ...testPatch };
   if (args.content !== undefined) patch.content = args.content;
   if (args.evidenceState !== undefined) patch.evidenceState = args.evidenceState;
   if (args.ownerId !== undefined) patch.ownerId = await checkDriver(ctx, note.canvasId, args.ownerId);

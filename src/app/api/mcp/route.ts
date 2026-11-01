@@ -889,7 +889,102 @@ async function listTests(accessToken: string, args: Record<string, unknown>) {
   };
 }
 
+const EMAIL_PROPERTY = { type: "string", description: "The account's sign-in email" };
+
+// Listed only for admins (ADMIN_EMAILS in the Convex environment); Convex checks again on every call
+const ADMIN_TOOLS_MANIFEST = [
+  {
+    name: "admin_find_account",
+    description:
+      "Admin: one account's paywall allowances (founding, trialDays, trialsAllowed, trialsUsed, freeLivePlans, discountPercent) and the plan on each canvas they created",
+    inputSchema: { type: "object", properties: { email: EMAIL_PROPERTY }, required: ["email"] },
+  },
+  {
+    name: "admin_update_account",
+    description:
+      "Admin: change what an account is allowed, e.g. make them a founding member with 3 free live plans, or give them a 60-day trial. A value sets it, null restores the default (30-day trial, 1 trial, no free plans, no discount), leaving it out keeps it. Applies to plans that go live from now on; use admin_set_canvas_plan for one already live.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        email: EMAIL_PROPERTY,
+        founding: { type: ["boolean", "null"], description: "Marks a founding member" },
+        trialDays: { type: ["integer", "null"], description: "Length of each free trial, in days (0 to 365)" },
+        trialsAllowed: { type: ["integer", "null"], description: "How many live plans get a free trial (default 1)" },
+        trialsUsed: { type: "integer", description: "Reset or correct how many trials they've used" },
+        freeLivePlans: {
+          type: ["integer", "null"],
+          description: "Live plans that run free with no end date (founding members)",
+        },
+        discountPercent: { type: ["integer", "null"], description: "Discount on paid plans, 0 to 100" },
+        note: { type: ["string", "null"], description: "Why, for the record" },
+      },
+      required: ["email"],
+    },
+  },
+  {
+    name: "admin_list_founding_members",
+    description: "Admin: every founding member, with their allowances and how many free plans they're using",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "admin_list_plans",
+    description: "Admin: canvases running as live plans, with their creator, status and end dates",
+    inputSchema: {
+      type: "object",
+      properties: { status: { type: "string", enum: ["trial", "active", "paused"] } },
+    },
+  },
+  {
+    name: "admin_set_canvas_plan",
+    description:
+      "Admin: override one canvas's plan. extend_trial adds `days` to its trial; activate runs it free until `until` (YYYY-MM-DD) or for `days`, or with no end date if neither; pause stops it now; reset makes it a free canvas again.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        canvasId: { type: "string" },
+        action: { type: "string", enum: ["extend_trial", "activate", "pause", "reset"] },
+        days: { type: "integer" },
+        until: { type: "string", description: "YYYY-MM-DD" },
+        note: { type: "string", description: "Why, kept on the plan" },
+      },
+      required: ["canvasId", "action"],
+    },
+  },
+];
+
+async function callAdminTool(accessToken: string, toolName: string, args: Record<string, unknown>) {
+  switch (toolName) {
+    case "admin_find_account":
+      return await fetchQuery(api.admin.findAccount, { accessToken, email: str(args.email) });
+    case "admin_update_account":
+      return await fetchMutation(api.admin.updateAccount, {
+        accessToken,
+        email: str(args.email),
+        ...pick(args, ["founding", "trialDays", "trialsAllowed", "trialsUsed", "freeLivePlans", "discountPercent", "note"]),
+      } as any); // validated by Convex
+    case "admin_list_founding_members":
+      return await fetchQuery(api.admin.listFoundingMembers, { accessToken });
+    case "admin_list_plans":
+      return await fetchQuery(api.admin.listPlans, { accessToken, status: optStr(args.status) as any });
+    case "admin_set_canvas_plan":
+      return await fetchMutation(api.admin.setCanvasPlanOverride, {
+        accessToken,
+        canvasId: str(args.canvasId),
+        action: str(args.action) as any, // validated by Convex
+        ...pick(args, ["days", "until", "note"]),
+      } as any);
+    default:
+      return undefined;
+  }
+}
+
+/** The keys of `args` that were given, so an explicit null reaches Convex and a missing key doesn't. */
+function pick(args: Record<string, unknown>, keys: string[]) {
+  return Object.fromEntries(keys.filter((k) => args[k] !== undefined).map((k) => [k, args[k]]));
+}
+
 async function callTool(accessToken: string, toolName: string, args: Record<string, unknown>) {
+  if (toolName.startsWith("admin_")) return await callAdminTool(accessToken, toolName, args);
   switch (toolName) {
     case "list_canvases":
       return await fetchQuery(api.mcp.listCanvases, { accessToken });
@@ -1283,7 +1378,9 @@ export async function POST(req: NextRequest) {
           jsonrpc: "2.0",
           id,
           result: {
-            tools: TOOLS_MANIFEST,
+            tools: (await fetchQuery(api.admin.isAdmin, { accessToken }))
+              ? [...TOOLS_MANIFEST, ...ADMIN_TOOLS_MANIFEST]
+              : TOOLS_MANIFEST,
           },
         },
         { headers: CORS_HEADERS }
