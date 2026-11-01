@@ -57,6 +57,17 @@ const TEST_FIELD_PROPERTIES = {
   },
 };
 
+const RUNBOOK_FIELD_PROPERTIES = {
+  title: { type: "string" },
+  trigger: { type: ["string", "null"], description: "When to use it, e.g. 'Primary supplier misses a delivery by more than 24 hours'" },
+  ownerUserId: { type: ["string", "null"], description: "Who owns it: a userId from list_canvas_members" },
+  steps: { type: "array", items: { type: "string" }, description: "The steps in order (replaces all steps), at most 40" },
+  noteIds: { type: "array", items: { type: "string" }, description: "Canvas notes it codifies (replaces the list)" },
+  itemIds: { type: "array", items: { type: "string" }, description: "Goal items whose decisions it rests on (replaces the list)" },
+  sopId: { type: ["string", "null"], description: "The SOP it belongs to; null takes it out" },
+  reviewDate: { type: ["string", "null"], description: "When to review it, YYYY-MM-DD" },
+};
+
 const LAUNCH_DATE_PROPERTY = {
   type: "string",
   description:
@@ -154,7 +165,7 @@ const TOOLS_MANIFEST = [
   {
     name: "get_canvas",
     description:
-      "Fetch a canvas (Lean or GTM) with all of its blocks and sticky notes, including each note's evidence state and, where set, its test (measure, passMark, reviewDate, latestResult). Each note shows its driver (the person doing the work on it) and market tags if it has them; pass driverUserId to see the notes one person is driving, or market to see what holds in one market. If the canvas has a launchDate, it also returns currentDay and each note's reviewDay (days since launch).",
+      "Fetch a canvas (Lean or GTM) with all of its blocks and sticky notes, including each note's evidence state and, where set, its test (measure, passMark, reviewDate, latestResult). Each note shows its driver (the person doing the work on it) and market tags if it has them; pass driverUserId to see the notes one person is driving, or market to see what holds in one market. If the canvas has a launchDate, it also returns currentDay and each note's reviewDay (days since launch). Each note has a stage (guess, tested, repeatable, codified) and blockStages gives each block's stage: that of its least runnable note.",
     inputSchema: {
       type: "object",
       properties: {
@@ -212,7 +223,7 @@ const TOOLS_MANIFEST = [
   {
     name: "update_note",
     description:
-      "Reword a note, move it to another block of the same canvas, change its evidence state or driver, or set its test " +
+      "Reword a note, move it to another block of the same canvas, change its evidence state, stage or driver, or set its test " +
       "(measure, passMark, reviewDate, latestResult). Pass only what changes; null clears a test field. " +
       "Tests go: plan (measure, passMark and reviewDate or reviewDay) → record what was seen at the review (latestResult with a verdict) → " +
       "act on it (a pass points to 'supported', a fail to 'contradicted'; set evidenceState with the result as the reason, in the same call if you like). " +
@@ -229,6 +240,12 @@ const TOOLS_MANIFEST = [
           description: "Move the note to this block (it goes to the end). Must belong to the canvas's template.",
         },
         evidenceState: EVIDENCE_STATE_PROPERTY,
+        stage: {
+          type: "string",
+          enum: ["guess", "tested", "repeatable"],
+          description:
+            "How runnable this part of the business is: guess (untested), tested (tried by hand), repeatable (worked more than once, steps written down). 'codified' can't be set here: it comes from a live runbook linking the note.",
+        },
         driverUserId: DRIVER_PROPERTY,
         markets: MARKETS_PROPERTY,
         ...TEST_FIELD_PROPERTIES,
@@ -497,6 +514,84 @@ const TOOLS_MANIFEST = [
     },
   },
   {
+    name: "list_runbooks",
+    description:
+      "How much of the business runs without the founder: each block's stage (guess, tested, repeatable, codified), SOPs, and runbooks with their trigger, owner, steps, linked notes and decisions, run stats (worked / didn't / partly, and keepsFailingAt: a step that failed at least twice in the last 5 runs) and recent runs. needsAttention lists live runbooks failing at the same step or due for review. A step that keeps failing usually means a canvas problem: wrong segment, channel or price.",
+    inputSchema: { type: "object", properties: { canvasId: { type: "string" } }, required: ["canvasId"] },
+  },
+  {
+    name: "create_sop",
+    description: "Add an SOP (standard operating procedure): a named group of runbooks several people follow, e.g. 'Acquisition' or 'Event day'.",
+    inputSchema: {
+      type: "object",
+      properties: { canvasId: { type: "string" }, title: { type: "string" }, description: { type: "string" } },
+      required: ["canvasId", "title"],
+    },
+  },
+  {
+    name: "update_sop",
+    description: "Rename an SOP or change its description (null clears it).",
+    inputSchema: {
+      type: "object",
+      properties: { sopId: { type: "string" }, title: { type: "string" }, description: { type: ["string", "null"] } },
+      required: ["sopId"],
+    },
+  },
+  {
+    name: "delete_sop",
+    description: "Delete an SOP. Its runbooks stay, ungrouped.",
+    inputSchema: { type: "object", properties: { sopId: { type: "string" } }, required: ["sopId"] },
+  },
+  {
+    name: "create_runbook",
+    description:
+      "Write a runbook: a play written so someone else, or an agent, can run it and get roughly the same result. It starts as a draft. Pass exactly one of canvasId (from scratch, needs title), fromNoteId (a canvas note: its text becomes the title and it stays linked) or fromItemId (a decided goal item: the decision becomes the title and is what the runbook rests on). Only write runbooks for plays that have worked more than once; a box still being searched gets experiments, not runbooks.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        canvasId: { type: "string" },
+        fromNoteId: { type: "string" },
+        fromItemId: { type: "string" },
+        ...RUNBOOK_FIELD_PROPERTIES,
+      },
+    },
+  },
+  {
+    name: "update_runbook",
+    description:
+      "Change a runbook (pass only what changes; null clears a field) or move it between draft, live and retired with status. Going live needs steps, and every linked note must be at least 'repeatable' (don't scale a guess); it then marks those notes 'codified'. Retiring it, or unlinking a note, drops notes with no other live runbook back to 'repeatable'.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        runbookId: { type: "string" },
+        status: { type: "string", enum: ["draft", "live", "retired"] },
+        ...RUNBOOK_FIELD_PROPERTIES,
+      },
+      required: ["runbookId"],
+    },
+  },
+  {
+    name: "delete_runbook",
+    description: "Delete a runbook and its run log. Notes it codified drop back to 'repeatable' unless another live runbook codifies them.",
+    inputSchema: { type: "object", properties: { runbookId: { type: "string" } }, required: ["runbookId"] },
+  },
+  {
+    name: "log_run",
+    description:
+      "Record one use of a live runbook: whether it worked (yes, no, partly), the step where it went wrong if it didn't fully work (1-based), and what it produced (numbers, e.g. '12 leads, 3 booked'). Any canvas member can log a run, viewers included.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        runbookId: { type: "string" },
+        outcome: { type: "string", enum: ["yes", "no", "partly"] },
+        failedStep: { type: "integer", description: "1-based step number where it went wrong" },
+        numbers: { type: "string" },
+        note: { type: "string" },
+      },
+      required: ["runbookId", "outcome"],
+    },
+  },
+  {
     name: "list_goals",
     description:
       "The heart of a canvas: its goals, each with a headline count of items (open, testing, decided, done) and the items under it. " +
@@ -682,6 +777,19 @@ function strArray(value: unknown): string[] | undefined {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : undefined;
 }
 
+function runbookFieldArgs(args: Record<string, unknown>) {
+  return {
+    title: optStr(args.title),
+    trigger: nullableStr(args.trigger),
+    ownerUserId: nullableStr(args.ownerUserId),
+    steps: strArray(args.steps),
+    noteIds: strArray(args.noteIds),
+    itemIds: strArray(args.itemIds),
+    sopId: nullableStr(args.sopId),
+    reviewDate: nullableStr(args.reviewDate),
+  };
+}
+
 function testFieldArgs(args: Record<string, unknown>) {
   const result = args.latestResult as Record<string, unknown> | null | undefined;
   return {
@@ -839,6 +947,7 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         content: optStr(args.content),
         block: optStr(args.block) as any, // validated by Convex
         evidenceState: optStr(args.evidenceState) as any, // validated by Convex
+        stage: optStr(args.stage) as any, // validated by Convex
         reason: optStr(args.reason),
         link: optStr(args.link),
         driverUserId: nullableStr(driverArg(args)),
@@ -933,6 +1042,50 @@ async function callTool(accessToken: string, toolName: string, args: Record<stri
         canvasId: str(args.canvasId),
         view: (str(args.view) || "canvas") as any, // validated by Convex
         format: (str(args.format) || "pdf") as any, // validated by Convex
+      });
+    case "list_runbooks":
+      return await fetchQuery(api.mcp.listRunbooks, { accessToken, canvasId: str(args.canvasId) });
+    case "create_sop":
+      return await fetchMutation(api.mcp.createSopForAgent, {
+        accessToken,
+        canvasId: str(args.canvasId),
+        title: str(args.title),
+        description: optStr(args.description),
+      });
+    case "update_sop":
+      return await fetchMutation(api.mcp.updateSopForAgent, {
+        accessToken,
+        sopId: str(args.sopId),
+        title: optStr(args.title),
+        description: nullableStr(args.description),
+      });
+    case "delete_sop":
+      return await fetchMutation(api.mcp.deleteSopForAgent, { accessToken, sopId: str(args.sopId) });
+    case "create_runbook":
+      return await fetchMutation(api.mcp.createRunbookForAgent, {
+        accessToken,
+        canvasId: optStr(args.canvasId),
+        fromNoteId: optStr(args.fromNoteId),
+        fromItemId: optStr(args.fromItemId),
+        ...runbookFieldArgs(args),
+      });
+    case "update_runbook":
+      return await fetchMutation(api.mcp.updateRunbookForAgent, {
+        accessToken,
+        runbookId: str(args.runbookId),
+        status: optStr(args.status) as any, // validated by Convex
+        ...runbookFieldArgs(args),
+      });
+    case "delete_runbook":
+      return await fetchMutation(api.mcp.deleteRunbookForAgent, { accessToken, runbookId: str(args.runbookId) });
+    case "log_run":
+      return await fetchMutation(api.mcp.logRunForAgent, {
+        accessToken,
+        runbookId: str(args.runbookId),
+        outcome: args.outcome as any, // validated by Convex
+        failedStep: typeof args.failedStep === "number" ? args.failedStep : undefined,
+        numbers: optStr(args.numbers),
+        note: optStr(args.note),
       });
     case "list_goals":
       return await fetchQuery(api.mcp.listGoals, { accessToken, canvasId: str(args.canvasId) });
@@ -1111,7 +1264,9 @@ export async function POST(req: NextRequest) {
               "CriticalDash revolves around decisions. Each canvas has goals; each goal has items that need a decision before the goal is reached. " +
               "Items move open -> testing (optional, while a test runs) -> decided -> done. Start with list_goals. " +
               "Record calls with decide_item (basis: test, data, expert or judgment), mark them done once acted on, and on the review date ask whether they panned out (record_look_back). " +
-              "Canvas notes are context and evidence; convert_note_to_item turns one into an item.",
+              "Canvas notes are context and evidence; convert_note_to_item turns one into an item. " +
+              "Each note also has a stage on the way from guess to runbook: guess -> tested -> repeatable (update_note stage) -> codified (a live runbook links it). " +
+              "Turn plays that work into runbooks (create_runbook, grouped into SOPs), make them live with update_runbook, and log every run with log_run. list_runbooks shows how much of the business runs without the founder.",
           },
         },
         { headers: CORS_HEADERS }

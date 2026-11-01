@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useMutation } from "convex/react";
 import {
+  BookOpenCheckIcon,
   CheckCheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -377,6 +378,8 @@ function ItemRow({
   const markDone = useMutation(api.goals.markDone);
   const reopen = useMutation(api.goals.reopen);
   const removeItem = useMutation(api.goals.removeItem);
+  const fromItem = useMutation(api.runbooks.fromItem);
+  const [runbookMade, setRunbookMade] = useState(false);
   const undecided = item.state === "open" || item.state === "testing";
   const meta = itemMeta(item, todayLocal());
 
@@ -478,6 +481,20 @@ function ItemRow({
                   <CheckCheckIcon size={13} /> Mark done
                 </button>
               )}
+              {!undecided && !runbookMade && (
+                <button
+                  type="button"
+                  className={buttonClass}
+                  title="Turn this decision into steps someone else can follow"
+                  onClick={async () => {
+                    await fromItem({ itemId: item.itemId });
+                    setRunbookMade(true);
+                  }}
+                >
+                  <BookOpenCheckIcon size={13} /> Write the runbook
+                </button>
+              )}
+              {runbookMade && <span className="text-xs text-emerald-800">Draft runbook made: see the Runbooks tab.</span>}
               {!undecided && (
                 <button type="button" className={buttonClass} onClick={() => reopen({ itemId: item.itemId })}>
                   <RotateCcwIcon size={13} /> Reopen

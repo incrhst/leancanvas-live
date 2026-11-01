@@ -40,6 +40,27 @@ import {
   updateItem,
 } from "./lib/goals";
 import { decisionBasisValidator, ITEM_STATE_MEANINGS, ITEM_STATES, lookBackValidator } from "./lib/goalModel";
+import {
+  blockStage,
+  runbookStatusValidator,
+  runOutcomeValidator,
+  settableStageValidator,
+  STAGE_MEANINGS,
+  STAGES,
+} from "./lib/runbookModel";
+import {
+  buildRunbooksView,
+  createRunbook,
+  createSop,
+  deleteRunbook,
+  deleteSop,
+  logRun,
+  runbookFromItem,
+  runbookFromNote,
+  setRunbookStatus,
+  updateRunbook,
+  updateSop,
+} from "./lib/runbooks";
 import { BLOCKS_BY_TEMPLATE, blockValidator, canvasTemplateValidator, templateOf } from "./lib/canvasTemplates";
 
 const evidenceValidator = v.union(
@@ -82,6 +103,7 @@ function noteForAgent(n: Doc<"notes">, { launchDate, memberNames, personNames }:
     block: n.block,
     text: n.content,
     evidenceState: n.evidenceState,
+    stage: n.stage ?? "guess",
     driver: n.ownerId
       ? { userId: n.ownerId, name: memberNames.get(n.ownerId) ?? "Former member" }
       : undefined,
@@ -242,6 +264,10 @@ export const getCanvas = query({
       ...(driver ? { filteredByDriver: driver } : {}),
       ...(market ? { filteredByMarket: args.market!.trim() } : {}),
       markets: [...new Set(allNotes.flatMap((n) => n.markets ?? []))].sort(),
+      // How runnable each box is: the stage of its least runnable note (null when empty)
+      blockStages: Object.fromEntries(
+        BLOCKS_BY_TEMPLATE[template].map((b) => [b, blockStage(allNotes.filter((n) => n.block === b))])
+      ),
       blocks,
     };
   },
@@ -400,6 +426,7 @@ export const updateNote = mutation({
     // Older name for driverUserId, still accepted
     ownerUserId: v.optional(v.union(v.string(), v.null())),
     markets: v.optional(v.union(v.array(v.string()), v.null())),
+    stage: v.optional(settableStageValidator),
   },
   handler: async (ctx, args) => {
     const { user, actor } = await requireTokenActor(ctx, args.accessToken);
@@ -415,7 +442,7 @@ export const updateNote = mutation({
     if (args.content !== undefined && !content) throw new ConvexError("content cannot be empty");
     if (Object.values(changes).every((value) => value === undefined)) {
       throw new ConvexError(
-        "Nothing to change: pass content, block, evidenceState, driverUserId, measure, passMark, reviewDate or latestResult"
+        "Nothing to change: pass content, block, evidenceState, stage, driverUserId, measure, passMark, reviewDate or latestResult"
       );
     }
     await updateNoteForUser(ctx, actor, note, { ...changes, content, reason, link });
@@ -954,5 +981,198 @@ export const convertNoteForAgent = mutation({
     const { goal } = await resolveGoal(ctx, user, args.goalId, true);
     const itemId = await convertNoteToItem(ctx, actor, note, goal);
     return { itemId, state: (await ctx.db.get(itemId))!.state };
+  },
+});
+
+// ---------- SOPs, runbooks and runs ----------
+
+function normalizeIds<T extends "notes" | "items" | "users" | "sops">(ctx: QueryCtx, table: T, raw: string[] | undefined) {
+  return raw?.map((r) => {
+    const id = ctx.db.normalizeId(table, r);
+    if (!id) throw new ConvexError(`Unknown ${table.slice(0, -1)}: ${r}`);
+    return id;
+  });
+}
+
+async function resolveRunbook(ctx: QueryCtx, user: Doc<"users">, raw: string, needEdit: boolean) {
+  const id = ctx.db.normalizeId("runbooks", raw);
+  const runbook = id ? await ctx.db.get(id) : null;
+  if (!runbook) throw new ConvexError(`Runbook not found: ${raw}`);
+  const { canvas } = await resolveCanvas(ctx, user, runbook.canvasId, needEdit);
+  return { runbook, canvas };
+}
+
+async function resolveSop(ctx: QueryCtx, user: Doc<"users">, raw: string) {
+  const id = ctx.db.normalizeId("sops", raw);
+  const sop = id ? await ctx.db.get(id) : null;
+  if (!sop) throw new ConvexError(`SOP not found: ${raw}`);
+  await resolveCanvas(ctx, user, sop.canvasId, true);
+  return sop;
+}
+
+export const listRunbooks = query({
+  args: { accessToken: v.string(), canvasId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const { canvas } = await resolveCanvas(ctx, user, args.canvasId, false);
+    const view = await buildRunbooksView(ctx, canvas);
+    return {
+      canvasId: canvas._id,
+      stages: STAGES.map((st) => `${st}: ${STAGE_MEANINGS[st]}`),
+      blockStages: view.blockStages,
+      sops: view.sops,
+      runbooks: view.runbooks.map(({ ownerId, ...r }) => ({
+        ...r,
+        owner: ownerId ? { userId: ownerId, name: r.owner } : undefined,
+      })),
+      needsAttention: view.attention.map((r) => ({
+        runbookId: r.runbookId,
+        title: r.title,
+        keepsFailingAtStep: r.stats.keepsFailingAt,
+        reviewDue: r.reviewDue,
+      })),
+    };
+  },
+});
+
+export const createSopForAgent = mutation({
+  args: { accessToken: v.string(), canvasId: v.string(), title: v.string(), description: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    const { canvas } = await resolveCanvas(ctx, user, args.canvasId, true);
+    return { sopId: await createSop(ctx, actor, canvas._id, args) };
+  },
+});
+
+export const updateSopForAgent = mutation({
+  args: { accessToken: v.string(), sopId: v.string(), title: v.optional(v.string()), description: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const sop = await resolveSop(ctx, user, args.sopId);
+    await updateSop(ctx, sop, args);
+    return { sopId: sop._id };
+  },
+});
+
+export const deleteSopForAgent = mutation({
+  args: { accessToken: v.string(), sopId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireTokenUser(ctx, args.accessToken);
+    const sop = await resolveSop(ctx, user, args.sopId);
+    await deleteSop(ctx, sop);
+    return { sopId: sop._id, deleted: true };
+  },
+});
+
+const agentRunbookFields = {
+  title: v.optional(v.string()),
+  trigger: v.optional(v.union(v.string(), v.null())),
+  ownerUserId: v.optional(v.union(v.string(), v.null())),
+  steps: v.optional(v.array(v.string())),
+  noteIds: v.optional(v.array(v.string())),
+  itemIds: v.optional(v.array(v.string())),
+  sopId: v.optional(v.union(v.string(), v.null())),
+  reviewDate: v.optional(v.union(v.string(), v.null())),
+};
+
+function runbookFieldsFrom(ctx: QueryCtx, args: {
+  title?: string;
+  trigger?: string | null;
+  ownerUserId?: string | null;
+  steps?: string[];
+  noteIds?: string[];
+  itemIds?: string[];
+  sopId?: string | null;
+  reviewDate?: string | null;
+}) {
+  return {
+    title: args.title,
+    trigger: args.trigger,
+    ownerId: resolveUser(ctx, args.ownerUserId),
+    steps: args.steps,
+    noteIds: normalizeIds(ctx, "notes", args.noteIds),
+    itemIds: normalizeIds(ctx, "items", args.itemIds),
+    sopId: args.sopId === null ? null : args.sopId === undefined ? undefined : normalizeIds(ctx, "sops", [args.sopId])![0],
+    reviewDate: args.reviewDate,
+  };
+}
+
+export const createRunbookForAgent = mutation({
+  args: {
+    accessToken: v.string(),
+    canvasId: v.optional(v.string()),
+    // Start from a canvas note or a decided goal item instead of from scratch
+    fromNoteId: v.optional(v.string()),
+    fromItemId: v.optional(v.string()),
+    ...agentRunbookFields,
+  },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    const sources = [args.canvasId, args.fromNoteId, args.fromItemId].filter((x) => x !== undefined);
+    if (sources.length !== 1) throw new ConvexError("Pass exactly one of canvasId, fromNoteId or fromItemId");
+    let runbookId: Id<"runbooks">;
+    if (args.fromNoteId) {
+      const note = await resolveNote(ctx, user, args.fromNoteId, true);
+      runbookId = await runbookFromNote(ctx, actor, note);
+    } else if (args.fromItemId) {
+      const { item } = await resolveItem(ctx, user, args.fromItemId);
+      runbookId = await runbookFromItem(ctx, actor, item);
+    } else {
+      const { canvas } = await resolveCanvas(ctx, user, args.canvasId!, true);
+      if (!args.title) throw new ConvexError("title is required");
+      runbookId = await createRunbook(ctx, actor, canvas._id, runbookFieldsFrom(ctx, args));
+      return { runbookId, status: "draft" };
+    }
+    const fields = runbookFieldsFrom(ctx, args);
+    if (Object.values(fields).some((x) => x !== undefined)) {
+      await updateRunbook(ctx, actor, (await ctx.db.get(runbookId))!, fields);
+    }
+    return { runbookId, status: "draft" };
+  },
+});
+
+export const updateRunbookForAgent = mutation({
+  args: { accessToken: v.string(), runbookId: v.string(), status: v.optional(runbookStatusValidator), ...agentRunbookFields },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    const { runbook } = await resolveRunbook(ctx, user, args.runbookId, true);
+    const fields = runbookFieldsFrom(ctx, args);
+    if (Object.values(fields).some((x) => x !== undefined)) await updateRunbook(ctx, actor, runbook, fields);
+    if (args.status) await setRunbookStatus(ctx, actor, (await ctx.db.get(runbook._id))!, args.status);
+    const after = (await ctx.db.get(runbook._id))!;
+    return { runbookId: after._id, status: after.status };
+  },
+});
+
+export const deleteRunbookForAgent = mutation({
+  args: { accessToken: v.string(), runbookId: v.string() },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    const { runbook } = await resolveRunbook(ctx, user, args.runbookId, true);
+    await deleteRunbook(ctx, actor, runbook);
+    return { runbookId: runbook._id, deleted: true };
+  },
+});
+
+export const logRunForAgent = mutation({
+  args: {
+    accessToken: v.string(),
+    runbookId: v.string(),
+    outcome: runOutcomeValidator,
+    failedStep: v.optional(v.number()),
+    numbers: v.optional(v.string()),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { user, actor } = await requireTokenActor(ctx, args.accessToken);
+    // Any member can log a run, viewers included
+    const { runbook } = await resolveRunbook(ctx, user, args.runbookId, false);
+    const runId = await logRun(ctx, actor, runbook, {
+      outcome: args.outcome,
+      failedStep: args.failedStep,
+      numbers: args.numbers,
+      note: args.note,
+    });
+    return { runId, runbookId: runbook._id, outcome: args.outcome };
   },
 });

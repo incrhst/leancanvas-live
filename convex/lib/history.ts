@@ -39,7 +39,7 @@ export function trackedFields(
     | "latestResult"
     | "ownerId"
     | "markets"
-  >
+  > & { stage?: Doc<"notes">["stage"] }
 ) {
   return {
     content: note.content,
@@ -53,6 +53,7 @@ export function trackedFields(
     "latestResult.verdict": note.latestResult?.verdict,
     ownerId: note.ownerId,
     markets: marketsLabel(note.markets),
+    stage: note.stage,
   } as Record<string, string | undefined>;
 }
 

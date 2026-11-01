@@ -354,13 +354,6 @@ function SectionHead({ n, label, title, aside }: { n: string; label: string; tit
   );
 }
 
-function ComingNext() {
-  return (
-    <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-incrementic-red">
-      Coming next
-    </span>
-  );
-}
 
 export default function HomePage() {
   return (
@@ -554,7 +547,6 @@ export default function HomePage() {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-display font-bold text-xl text-ink">Every box becomes a family of runbooks</h3>
-            <ComingNext />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {FAMILIES.map(({ icon: Icon, box, runbooks, risk }) => (
@@ -591,7 +583,6 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center gap-2">
               <ShieldCheckIcon className="w-5 h-5 text-white" />
               <h3 className="font-display font-bold text-xl">Know exactly how much of your business runs without you</h3>
-              <ComingNext />
             </div>
             <p className="text-sm text-white/80 max-w-2xl">
               Every box shows whether it&rsquo;s a guess, tested, repeatable or codified, with its runbooks linked.

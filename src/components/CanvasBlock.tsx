@@ -5,6 +5,8 @@ import { AddNoteInput } from "./AddNoteInput";
 import { noteMatchesEvidence } from "../utils/evidenceFilter";
 import type { EvidenceFilter } from "../utils/evidenceFilter";
 import type { BlockDef, NoteItem } from "../types/canvas";
+import { StageChip } from "./StageControls";
+import { blockStage } from "../../convex/lib/runbookModel";
 
 interface CanvasBlockProps {
   block: BlockDef;
@@ -33,6 +35,8 @@ export function CanvasBlock({
   renderOpenNote,
 }: CanvasBlockProps) {
   const filtering = !!evidenceFilter && evidenceFilter.active.length > 0;
+  // A box is only as runnable as its least runnable note
+  const stage = blockStage(notes);
   const matching = notes.filter((n) => noteMatchesEvidence(n, evidenceFilter));
   const listed = filtering && evidenceFilter.mode === "hide" ? matching : notes;
   const holdsSelected = !renderOpenNote && !!selectedId && notes.some((n) => n._id === selectedId);
@@ -65,6 +69,7 @@ export function CanvasBlock({
             <span className="text-[11px] font-medium text-muted bg-stone-100 px-1.5 py-0.5 rounded-full">
               {filtering ? `${matching.length} of ${notes.length}` : notes.length}
             </span>
+            {stage && <StageChip stage={stage} small />}
           </div>
           <p className="truncate text-[11px] text-muted">{block.prompt}</p>
         </div>
