@@ -57,51 +57,51 @@ const EXPOSURE = [
   },
 ];
 
-/** Where the risk sits today, in ordinary weeks. */
+/** Where the risk sits on a comparison and sign-up platform, in ordinary weeks. */
 const HIDDEN_RISKS = [
   {
     icon: UserMinusIcon,
-    title: "Your most trusted person hands in their notice",
-    body: "The supplier you always use, the refund rule, how far you'll go on a discount, the fix for last month's breakdown. All of it was in their head.",
+    title: "The person who knows every provider hands in their notice",
+    body: "Which partner needs which documents, who to call when an application stalls, why one plan is listed above another. All of it was in their head.",
   },
   {
     icon: SirenIcon,
-    title: "The same problem, solved from scratch again",
-    body: "You fixed it last year. Nobody kept the steps, so the clock starts from zero while customers wait.",
-  },
-  {
-    icon: AlertTriangleIcon,
-    title: "A hunch gets treated as a sure thing",
-    body: "Something worked once. Now everyone does it that way, and nobody checked whether it works twice.",
+    title: "A provider changes its rates, and your prices are wrong for a week",
+    body: "Nobody owns the update, so customers compare against old numbers. The first person to notice is the one who was quoted the wrong price.",
   },
   {
     icon: ShuffleIcon,
-    title: "Three customers, three different answers",
-    body: "Sales, the office and the accounts team each remember the policy differently. One of them is wrong, and it's in writing.",
+    title: "Three customers ask the same question and get three answers",
+    body: "Can a student on a visa switch plans mid-year? Support, sales and the partner each remember it differently. One of them is wrong, and it's in writing.",
+  },
+  {
+    icon: AlertTriangleIcon,
+    title: "A channel that worked once gets rolled out everywhere",
+    body: "University referrals worked for one intake of students. Now the same play is aimed at people moving abroad for work, and nobody checked it works twice.",
   },
   {
     icon: RefreshCwIcon,
-    title: "Old arguments keep coming back",
-    body: "Nobody wrote down why you set the price in March. So you lose another month going over it again.",
+    title: "Why is that provider listed first?",
+    body: "Nobody wrote down why you rank plans the way you do, or when you recommend one and when you stay neutral. So the argument starts again every quarter.",
   },
   {
     icon: HistoryIcon,
-    title: "Nobody checks whether a decision worked",
-    body: "Calls get made and forgotten. Luck gets credited as good judgement, and the bad call gets repeated.",
+    title: "Commission nobody checks",
+    body: "Partner statements arrive, someone glances at the total, and nobody reconciles them against the people who actually signed up. Money stays on the other side.",
   },
 ];
 
 /* --- The two-minute check ------------------------------------------------------------------- */
 
 const PARTS = [
-  "Setting prices and writing quotes",
-  "Winning new customers",
-  "Looking after your best customers",
-  "Delivering what you sell",
-  "Dealing with suppliers and partners",
-  "Invoicing and getting paid",
-  "Fixing the problems that keep coming back",
-  "Hiring and training someone new",
+  "Choosing which providers and plans to list",
+  "Updating prices when a provider changes its rates",
+  "Deciding when to recommend a plan, and when to stay neutral",
+  "Winning customers: search ads, referrals, university and employer partners",
+  "Following up quotes that didn't sign up",
+  "Helping people through enrolment and their documents",
+  "Renewals, switches and cancellations",
+  "Reconciling commission with each provider",
 ];
 
 type Answer = 0 | 1 | 2 | 3;
@@ -158,6 +158,7 @@ const STAGES: {
   status: string;
   statusTint: string;
   looksLike: string;
+  example: string;
   weDo: React.ReactNode;
   quotes: [Quote, Quote];
 }[] = [
@@ -167,7 +168,8 @@ const STAGES: {
     heading: "Your business model is a guess",
     status: "Not yet checked",
     statusTint: "border-rose-300 bg-rose-50 text-rose-900",
-    looksLike: "A price, a type of customer or a way of selling that you believe works, but haven't checked.",
+    looksLike: "A type of customer, a channel or a way of ranking plans that you believe works, but haven't checked.",
+    example: "\u201cStudents will pick the plan their university accepts, even if it costs more.\u201d",
     weDo: "Puts it on one page with the rest of the business, marked as a guess. A stress test ranks the riskiest guesses, so you check those first.",
     quotes: [
       TYSON,
@@ -189,6 +191,7 @@ const STAGES: {
     status: "Being checked",
     statusTint: "border-amber-300 bg-amber-50 text-amber-900",
     looksLike: "You try it for real, small and by hand, having agreed up front what result counts as a pass.",
+    example: "Show \u201caccepted by your university\u201d on plans for one intake. Pass mark: 1 in 4 quotes sign up.",
     weDo: "Keeps the measure, the pass mark and the date to check. Whoever is doing the work gets one short question each Monday, and can reply from their phone.",
     quotes: [
       { text: "Genius is one percent inspiration, ninety-nine percent perspiration.", who: "Thomas Edison" },
@@ -206,6 +209,7 @@ const STAGES: {
     status: "Proven, but only a few people know it",
     statusTint: "border-teal-300 bg-teal-50 text-teal-900",
     looksLike: "It has worked more than once. The steps are known, but mostly by the people who did them.",
+    example: "It beat the pass mark for two intakes in a row. Decided: lead with university acceptance for students.",
     weDo: "Records each decision with its reason, who made it and when. On the review date it asks the question most businesses never ask: did it pan out?",
     quotes: [
       { text: "Real artists ship.", who: "Steve Jobs" },
@@ -227,6 +231,7 @@ const STAGES: {
     status: "Runs without you",
     statusTint: "border-emerald-300 bg-emerald-50 text-emerald-900",
     looksLike: "It's written down clearly enough that someone new, or an AI assistant, can do it and get the same result.",
+    example: "\u201cNew intake\u201d runbook: check each university's requirements, tag the plans that meet them, update the comparison, brief support.",
     weDo: "Writes it up as a runbook: what starts it, who owns it and the steps in order. It can only go live once what it rests on has been proven, and every run reports back, so a step that keeps breaking gets flagged.",
     quotes: [
       BEZOS,
@@ -248,7 +253,7 @@ const CONTROLS = [
     icon: ListChecksIcon,
     tint: "bg-red-50 border-red-200 text-incrementic-red",
     title: "See what runs without you",
-    body: "Every part of the business shows whether it's still a guess, being tested, proven or written up as a runbook. Nothing slips by unnoticed.",
+    body: "Every part of the platform, from listing providers to reconciling commission, shows whether it's still a guess, being tested, proven or written up as a runbook.",
   },
   {
     icon: CheckCheckIcon,
@@ -272,7 +277,7 @@ const CONTROLS = [
     icon: SmartphoneIcon,
     tint: "bg-stone-100 border-stone-200 text-incrementic-charcoal",
     title: "Answers from a phone, no password",
-    body: "Send someone one question, a date to answer by, and what happens if they don't. They reply from a link on their phone.",
+    body: "Ask a provider contact or an adviser one question, like \u201clist the new plan from 1 December, or wait?\u201d, with a date and what happens if they don't answer. They reply from a link on their phone.",
   },
   {
     icon: BotIcon,
@@ -283,6 +288,10 @@ const CONTROLS = [
 ];
 
 const FAQ: { q: string; a: React.ReactNode }[] = [
+  {
+    q: "Who is it for?",
+    a: "Platforms that compare plans from partner providers and help people sign up: cover for people living, studying or working abroad, broadband, energy, travel, student services. If you list other companies' products, help people choose and earn a commission when they enrol, it's built around the decisions you make every week.",
+  },
   {
     q: "Do I need to be good with computers?",
     a: "If you can use email and a web browser, you can use CriticalDash. People who only need to answer a question or send a result do it from a link on their phone, with no account and no password.",
@@ -305,7 +314,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
   },
   {
     q: "I've seen plenty of business tools come and go. Why this one?",
-    a: "Most tools store documents. CriticalDash keeps track of whether what you believe about the business has actually been checked, and whether your decisions worked out. That's the record you'd want to hand to a successor, a new manager or a buyer.",
+    a: "Most tools store documents. CriticalDash keeps track of whether what you believe about your customers, partners and prices has actually been checked, and whether your decisions worked out. That's the record a new hire, a partner's due diligence or a buyer will ask for.",
   },
 ];
 
@@ -357,13 +366,13 @@ function TwoMinuteCheck() {
   let verdict: string;
   if (inHeads >= 5) {
     verdict =
-      "Most of the business lives in people's heads. That's common when a business grew on its owner's judgement, and it's the first thing worth fixing.";
+      "Most of the platform lives in people's heads. That's common when it grew on its founders' judgement and a few provider relationships, and it's the first thing worth fixing.";
   } else if (runsWithoutYou >= 6) {
     verdict =
       "You're in better shape than most. CriticalDash helps keep it that way, and shows you when something that used to work stops working.";
   } else {
     verdict =
-      "Some of it is written down. The parts still in people's heads are where a resignation, an illness or a sale would hurt most.";
+      "Some of it is written down. The parts still in people's heads are where a resignation, a provider's rate change or a busy intake would hurt most.";
   }
 
   return (
@@ -565,6 +574,10 @@ function StageExplorer() {
                 <dd className="text-muted">{stage.looksLike}</dd>
               </div>
               <div>
+                <dt className="font-semibold text-ink">For example</dt>
+                <dd className="text-ink">{stage.example}</dd>
+              </div>
+              <div>
                 <dt className="font-semibold text-ink">What CriticalDash does</dt>
                 <dd className="text-muted">{stage.weDo}</dd>
               </div>
@@ -674,16 +687,17 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-halftone pointer-events-none opacity-30 mix-blend-overlay" />
         <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-12 items-center">
           <div className="space-y-7">
-            <p className="text-lg font-semibold text-white/95">For owners, and the people they rely on</p>
+            <p className="text-lg font-semibold text-white/95">For platforms that compare plans and sign people up</p>
             <h1 className="font-display font-extrabold text-5xl sm:text-6xl lg:text-7xl tracking-tight leading-[1.02]">
-              You built it.
+              You built the platform.
               <br />
               Would it run without you?
             </h1>
             <p className="text-xl text-white leading-relaxed max-w-xl">
-              Years of judgement about prices, suppliers, customers and the thing that always breaks live in your head
-              and in the heads of a few trusted people. CriticalDash helps you get it out, check what really works, and
-              write it down, so the business keeps its memory when someone steps back, moves on or retires.
+              Which providers to list. How to rank their plans. When to recommend one and when to stay neutral. What
+              to do when a partner changes its rates overnight. That judgement lives in your head and a few trusted
+              inboxes. CriticalDash gets it out, checks what really works, and writes it down as runbooks your team,
+              or an AI assistant, can follow.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 pt-1">
               <a
@@ -720,7 +734,7 @@ export default function HomePage() {
         <SectionHead
           label="The two-minute check"
           title="If you took three months off from Monday, what would still run?"
-          intro="Go through the eight parts most businesses depend on. For each one, pick the answer that's honestly true today."
+          intro="Go through the eight jobs every comparison and sign-up platform depends on. For each one, pick the answer that's honestly true today."
         />
         <TwoMinuteCheck />
       </section>
@@ -756,7 +770,7 @@ export default function HomePage() {
       <section className="max-w-6xl mx-auto px-5 sm:px-6 py-16 w-full space-y-10">
         <SectionHead
           label="Where it's hiding"
-          title="It's rarely the big bet that hurts. It's the thing everyone assumed someone else knew."
+          title="It's rarely the big bet that hurts. It's the provider detail everyone assumed someone else knew."
         />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {HIDDEN_RISKS.map(({ icon: Icon, title, body }) => (
@@ -838,7 +852,7 @@ export default function HomePage() {
               Get it written down while the people who know are still here.
             </h2>
             <p className="text-xl text-white/95 max-w-xl">
-              Start with the part of the business that only you know how to run.
+              Start with the decision only you know the reason for: why you list who you list.
             </p>
           </div>
           <Link
@@ -852,7 +866,7 @@ export default function HomePage() {
 
       {/* Footer with Incrementic attribution */}
       <footer className="border-t border-line bg-surface px-6 py-10 text-center text-base text-muted space-y-3">
-        <div className="font-semibold text-ink">CriticalDash • From guesses to proven ways of working</div>
+        <div className="font-semibold text-ink">CriticalDash • Decisions and runbooks for comparison and sign-up platforms</div>
         <div>
           <Link href="/how-it-works" className="font-semibold text-ink underline underline-offset-2 hover:text-incrementic-red">
             How it works
