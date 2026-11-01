@@ -10,6 +10,7 @@ import { TopBar } from "../../../components/TopBar";
 import { CanvasBoard } from "../../../components/CanvasBoard";
 import { NoteDetailPanel, NoteModal } from "../../../components/NoteDetailPanel";
 import { LaunchDayChip } from "../../../components/LaunchDayChip";
+import { PlanChip, PlanRequiredDialog } from "../../../components/PlanChip";
 import { DecisionsWaitingChip } from "../../../components/NoteDecision";
 import { CheckInsWaitingChip } from "../../../components/CheckIn";
 import { SnapshotsPanel } from "../../../components/SnapshotsPanel";
@@ -222,6 +223,7 @@ export default function CanvasEditorPage() {
 
   return (
     <div className="flex h-screen w-full flex-col bg-canvas text-ink overflow-hidden">
+      {user && <PlanRequiredDialog canvasId={canvasId} />}
       <TopBar
         title={canvas.title}
         role={user ? role : "anonymous"}
@@ -232,6 +234,7 @@ export default function CanvasEditorPage() {
               launchDate={canvas.launchDate}
               onChange={canEdit ? (launchDate) => void updateCanvasMeta({ canvasId, launchDate }) : undefined}
             />
+            {user && <PlanChip canvasId={canvasId} />}
             <DecidedCountChip notes={notes} />
             {user && <DecisionsWaitingChip />}
             {user && <CheckInsWaitingChip />}

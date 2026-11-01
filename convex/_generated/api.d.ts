@@ -8,7 +8,9 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
+import type * as billing from "../billing.js";
 import type * as canvases from "../canvases.js";
 import type * as checkIns from "../checkIns.js";
 import type * as constants_prompts from "../constants/prompts.js";
@@ -18,6 +20,7 @@ import type * as email from "../email.js";
 import type * as http from "../http.js";
 import type * as invites from "../invites.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_billing from "../lib/billing.js";
 import type * as lib_canvasTemplates from "../lib/canvasTemplates.js";
 import type * as lib_checkIns from "../lib/checkIns.js";
 import type * as lib_decisionText from "../lib/decisionText.js";
@@ -27,6 +30,8 @@ import type * as lib_markets from "../lib/markets.js";
 import type * as lib_members from "../lib/members.js";
 import type * as lib_notify from "../lib/notify.js";
 import type * as lib_password from "../lib/password.js";
+import type * as lib_planStatus from "../lib/planStatus.js";
+import type * as lib_plans from "../lib/plans.js";
 import type * as lib_resultLinks from "../lib/resultLinks.js";
 import type * as lib_review from "../lib/review.js";
 import type * as lib_snapshots from "../lib/snapshots.js";
@@ -48,7 +53,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   auth: typeof auth;
+  billing: typeof billing;
   canvases: typeof canvases;
   checkIns: typeof checkIns;
   "constants/prompts": typeof constants_prompts;
@@ -58,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   invites: typeof invites;
   "lib/auth": typeof lib_auth;
+  "lib/billing": typeof lib_billing;
   "lib/canvasTemplates": typeof lib_canvasTemplates;
   "lib/checkIns": typeof lib_checkIns;
   "lib/decisionText": typeof lib_decisionText;
@@ -67,6 +75,8 @@ declare const fullApi: ApiFromModules<{
   "lib/members": typeof lib_members;
   "lib/notify": typeof lib_notify;
   "lib/password": typeof lib_password;
+  "lib/planStatus": typeof lib_planStatus;
+  "lib/plans": typeof lib_plans;
   "lib/resultLinks": typeof lib_resultLinks;
   "lib/review": typeof lib_review;
   "lib/snapshots": typeof lib_snapshots;

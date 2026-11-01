@@ -4,6 +4,7 @@ import { hashPassword, verifyPassword } from "./lib/password";
 import { checkDate } from "./lib/testFields";
 import { displayName } from "./lib/members";
 import { deleteSnapshotRows } from "./lib/snapshots";
+import { requireLivePlan } from "./lib/plans";
 import { requireAuth, requireOwner, requireEditor, getCurrentUser, getCanvasRole, Role, sha256Hex } from "./lib/auth";
 import { Doc, Id } from "./_generated/dataModel";
 import { MutationCtx, QueryCtx } from "./_generated/server";
@@ -127,6 +128,9 @@ export async function createCanvasForUser(
     userId: user._id,
     role: "owner",
   });
+
+  // A launch date makes it a live plan from the start
+  if (args.launchDate?.trim()) await requireLivePlan(ctx, (await ctx.db.get(canvasId))!);
 
   // Seed initial notes
   if (args.seedNotes !== false) {
@@ -570,6 +574,7 @@ export async function updateCanvasMetaForUser(
   if (args.status !== undefined) updates.status = args.status;
   if (args.launchDate !== undefined) {
     updates.launchDate = args.launchDate?.trim() ? checkDate(args.launchDate.trim(), "launchDate") : undefined;
+    if (updates.launchDate && updates.launchDate !== canvas.launchDate) await requireLivePlan(ctx, canvas);
   }
 
   await ctx.db.patch(canvasId, updates);

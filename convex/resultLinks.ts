@@ -11,6 +11,7 @@ import {
   submitResultByLink,
 } from "./lib/resultLinks";
 import { verdictValidator } from "./lib/testFields";
+import { requireLivePlan } from "./lib/plans";
 
 /** A note's shareable result link and the results waiting on it (editors only). */
 export const forNote = query({
@@ -33,6 +34,8 @@ export const replaceLink = mutation({
     const note = await ctx.db.get(args.noteId);
     if (!note) throw new Error("Note not found");
     const { user } = await requireEditor(ctx, note.canvasId);
+    // Turning a link off is always allowed; a new one collects results, which is part of a live plan
+    if (!args.off) await requireLivePlan(ctx, (await ctx.db.get(note.canvasId))!);
     return await replaceResultLinkForUser(ctx, { userId: user._id, via: "ui" }, note, { off: args.off });
   },
 });
@@ -45,7 +48,9 @@ export const accept = mutation({
     verdict: v.optional(v.union(verdictValidator, v.null())),
   },
   handler: async (ctx, args) => {
-    const { user } = await requireEditor(ctx, await submissionCanvas(ctx, args.submissionId));
+    const canvasId = await submissionCanvas(ctx, args.submissionId);
+    const { user } = await requireEditor(ctx, canvasId);
+    await requireLivePlan(ctx, (await ctx.db.get(canvasId))!);
     await acceptSubmissionForUser(ctx, { userId: user._id, via: "ui" }, args.submissionId, { verdict: args.verdict });
   },
 });

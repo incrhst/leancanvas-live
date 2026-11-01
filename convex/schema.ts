@@ -4,6 +4,7 @@ import { authTables } from "@convex-dev/auth/server";
 import { blockValidator, canvasTemplateValidator } from "./lib/canvasTemplates";
 import { testFieldsSchema, verdictValidator } from "./lib/testFields";
 import { decisionRequestValidator, decisionStatusValidator } from "./lib/decisions";
+import { canvasPlanValidator } from "./lib/billing";
 
 const evidenceStateValidator = v.union(
   v.literal("unknown"),
@@ -78,6 +79,26 @@ export default defineSchema({
     .index("by_access_hash", ["accessTokenHash"])
     .index("by_refresh_hash", ["refreshTokenHash"]),
 
+  // What a canvas creator is allowed beyond the defaults (trial length, how many trials, free
+  // plans for founding members), and how many trials they've used. One row per user, made when
+  // first needed. Admins change it through the admin MCP tools.
+  billingAccounts: defineTable({
+    userId: v.id("users"),
+    trialsUsed: v.number(),
+    founding: v.optional(v.boolean()),
+    // Overrides of the defaults in lib/billing.ts; unset = default
+    trialDays: v.optional(v.number()),
+    trialsAllowed: v.optional(v.number()),
+    // Live plans that run free with no end date (founding members), and how many are in use
+    freeLivePlans: v.optional(v.number()),
+    discountPercent: v.optional(v.number()),
+    note: v.optional(v.string()),
+    updatedBy: v.optional(v.id("users")),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_founding", ["founding"]),
+
   workspaces: defineTable({
     name: v.string(),
     ownerId: v.id("users"),
@@ -99,10 +120,14 @@ export default defineSchema({
     // Optional password on the public link (PBKDF2 hash) and when it was last set/cleared
     publicViewPasswordHash: v.optional(v.string()),
     publicViewPasswordSetAt: v.optional(v.number()),
+    // Set once the canvas becomes a live plan (a launch date, a test, a decision or a snapshot).
+    // Unset = a free canvas. See lib/billing.ts
+    plan: v.optional(canvasPlanValidator),
     createdBy: v.id("users"),
     updatedAt: v.number(),
   })
     .index("by_workspace", ["workspaceId"])
+    .index("by_plan_status", ["plan.status"])
     .index("by_public_token", ["publicViewToken"])
     .index("by_creator", ["createdBy"]),
 

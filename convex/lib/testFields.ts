@@ -108,6 +108,11 @@ export function testFieldsPatch(args: TestFieldsUpdate): TestFieldsPatch {
   return patch;
 }
 
+/** Whether a patch from testFieldsPatch sets any test field (clearing one doesn't count). */
+export function setsTest(patch: TestFieldsPatch) {
+  return Object.values(patch).some((value) => value !== undefined);
+}
+
 /** Only what testStage reads, so client-side notes fit too. */
 type TestFields = { measure?: string; passMark?: string; reviewDate?: string; latestResult?: { date: string } };
 

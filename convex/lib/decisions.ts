@@ -6,6 +6,7 @@ import { Actor, NoteChange, recordNoteHistory } from "./history";
 import { displayName } from "./members";
 import { checkDate, todayUtc } from "./testFields";
 import { emailUser, siteUrl } from "./notify";
+import { requireLivePlan } from "./plans";
 import { defaultOutcomeLine, formatLongDate } from "./decisionText";
 
 /** A request for someone to decide on a note. Stays on the note after it's answered, as the record. */
@@ -184,6 +185,9 @@ export async function requestDecisionForUser(
   if (note.decision?.status === "open") {
     throw new ConvexError("This note already has an open decision request. Withdraw it first to ask again.");
   }
+  const canvas = await ctx.db.get(note.canvasId);
+  if (!canvas) throw new ConvexError("Canvas not found");
+  await requireLivePlan(ctx, canvas);
   const question = args.question.trim();
   if (!question) throw new ConvexError("The question can't be empty");
   const dueDate = checkDate(args.dueDate.trim(), "dueDate");

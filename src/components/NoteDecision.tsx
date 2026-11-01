@@ -10,6 +10,7 @@ import { formatCalendarDate, formatPlanDate, todayLocal } from "../utils/testFie
 import { LaunchDateContext } from "../utils/launchDate";
 import { useAuth } from "./ConvexClientProvider";
 import { defaultOutcomeLine, isPastDue } from "../../convex/lib/decisionText";
+import { convexErrorMessage } from "../utils/convexError";
 
 export type DecisionAnswer = "approve" | "reject" | "change" | "choose";
 
@@ -73,11 +74,7 @@ export function DecisionDefault({
   );
 }
 
-function errorMessage(err: unknown) {
-  const data = (err as { data?: unknown })?.data;
-  if (typeof data === "string") return data;
-  return err instanceof Error ? err.message.replace(/^.*Uncaught (ConvexError|Error): /, "").split("\n")[0] : "Something went wrong";
-}
+const errorMessage = convexErrorMessage;
 
 /** One line on a note card while a decision is open or was sent back. Answered decisions show as the Decision state. */
 export function DecisionSummary({ note }: { note: NoteItem }) {
