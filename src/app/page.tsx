@@ -290,7 +290,7 @@ const CONTROLS = [
 const FAQ: { q: string; a: React.ReactNode }[] = [
   {
     q: "Who is it for?",
-    a: "Platforms that compare plans from partner providers and help people sign up: cover for people living, studying or working abroad, broadband, energy, travel, student services. If you list other companies' products, help people choose and earn a commission when they enrol, it's built around the decisions you make every week.",
+    a: "Businesses that sit between providers and customers. It started with platforms that compare plans and help people sign up, like cover for people living, studying or working abroad, so that's the example used on this page. The same decisions run insurance and benefits brokers, broadband and energy comparison, study-abroad and visa agents, travel agencies, recruitment agencies, letting and relocation agencies, IT resellers and event organisers. If you depend on partners, see their terms change and earn per placement, it fits.",
   },
   {
     q: "Do I need to be good with computers?",
@@ -687,15 +687,16 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-halftone pointer-events-none opacity-30 mix-blend-overlay" />
         <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-12 items-center">
           <div className="space-y-7">
-            <p className="text-lg font-semibold text-white/95">For platforms that compare plans and sign people up</p>
+            <p className="text-lg font-semibold text-white/95">For businesses that sit between providers and customers</p>
             <h1 className="font-display font-extrabold text-5xl sm:text-6xl lg:text-7xl tracking-tight leading-[1.02]">
-              You built the platform.
+              You built the business.
               <br />
               Would it run without you?
             </h1>
             <p className="text-xl text-white leading-relaxed max-w-xl">
-              Which providers to list. How to rank their plans. When to recommend one and when to stay neutral. What
-              to do when a partner changes its rates overnight. That judgement lives in your head and a few trusted
+              Brokers, comparison sites, agencies, resellers, organisers. Which providers to work with. How to rank
+              what they offer. When to recommend and when to stay neutral. What to do when a partner changes its
+              terms overnight. That judgement lives in your head and a few trusted
               inboxes. CriticalDash gets it out, checks what really works, and writes it down as runbooks your team,
               or an AI assistant, can follow.
             </p>
@@ -734,7 +735,7 @@ export default function HomePage() {
         <SectionHead
           label="The two-minute check"
           title="If you took three months off from Monday, what would still run?"
-          intro="Go through the eight jobs every comparison and sign-up platform depends on. For each one, pick the answer that's honestly true today."
+          intro="Go through eight jobs every business between providers and customers depends on. The wording uses a comparison platform as the example; read it for your own partners and customers. Pick the answer that's honestly true today."
         />
         <TwoMinuteCheck />
       </section>
@@ -866,7 +867,7 @@ export default function HomePage() {
 
       {/* Footer with Incrementic attribution */}
       <footer className="border-t border-line bg-surface px-6 py-10 text-center text-base text-muted space-y-3">
-        <div className="font-semibold text-ink">CriticalDash • Decisions and runbooks for comparison and sign-up platforms</div>
+        <div className="font-semibold text-ink">CriticalDash • Decisions and runbooks for businesses between providers and customers</div>
         <div>
           <Link href="/how-it-works" className="font-semibold text-ink underline underline-offset-2 hover:text-incrementic-red">
             How it works
