@@ -193,3 +193,52 @@ body {
     opacity: 0;
   }
 }
+
+/* The 404's sky (NotFoundSky.tsx): fog thins over an empty frame; the page has flown. */
+.lost-fog {
+  animation: lost-fog 12s ease-in-out infinite;
+}
+/* Hovering clears what's left of the fog. Still nothing there. */
+.lost-fog-veil {
+  transition: opacity 0.8s ease;
+}
+.lost-sky:hover .lost-fog-veil {
+  opacity: 0.15;
+}
+.lost-trail {
+  animation: lost-trail 1.6s linear infinite;
+}
+.lost-plane {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lost-plane 5s ease-in-out infinite;
+}
+
+@keyframes lost-fog {
+  0%, 100% { opacity: 0.95; transform: translateX(-10px); }
+  30% { opacity: 0.9; }
+  55%, 75% { opacity: 0.12; transform: translateX(28px); }
+}
+/* The dashes march along the trail towards the plane. */
+@keyframes lost-trail {
+  to { stroke-dashoffset: -9; }
+}
+@keyframes lost-plane {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(6px, -7px) rotate(-6deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lost-fog,
+  .lost-trail,
+  .lost-plane {
+    animation: none;
+  }
+  /* Thin enough, standing still, to see the frame is empty. */
+  .lost-fog {
+    opacity: 0.45;
+  }
+  .lost-fog-veil {
+    transition: none;
+  }
+}
