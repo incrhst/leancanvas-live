@@ -380,6 +380,12 @@ export default function HomePage() {
 
           <div className="flex items-center gap-3">
             <Link
+              href="/how-it-works"
+              className="hidden sm:inline whitespace-nowrap text-xs font-semibold text-incrementic-charcoal hover:text-incrementic-red px-3 py-1.5 transition-colors"
+            >
+              How it works
+            </Link>
+            <Link
               href="/login"
               className="whitespace-nowrap text-xs font-semibold text-incrementic-charcoal hover:text-incrementic-red px-3 py-1.5 transition-colors"
             >
@@ -652,6 +658,11 @@ export default function HomePage() {
       {/* Footer with Incrementic attribution */}
       <footer className="border-t border-line bg-surface px-6 py-8 text-center text-xs text-muted space-y-2">
         <div className="font-medium text-ink">CriticalDash • From guesses to runbooks</div>
+        <div>
+          <Link href="/how-it-works" className="font-semibold text-ink hover:text-incrementic-red hover:underline">
+            How it works
+          </Link>
+        </div>
         <div className="flex items-center justify-center gap-1.5 text-muted">
           <span>A project of</span>
           <a
