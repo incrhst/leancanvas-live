@@ -735,9 +735,9 @@ export default function HomePage() {
             <p className="text-lg font-semibold text-white/95">For businesses that sit between providers and customers</p>
             <HeroHeadline className="font-display font-extrabold text-5xl sm:text-6xl lg:text-7xl tracking-tight leading-[1.02]" />
             <p className="text-xl text-white leading-relaxed max-w-xl">
-              Which partners to work with, how to rank what they offer, what to do when one changes its terms. That
-              judgement lives in your head. CriticalDash gets it out, checks what really works, and writes it down as
-              runbooks your team can follow.
+              Partners change terms. Prices move. Someone wasn&rsquo;t in the meeting. CriticalDash keeps everyone
+              aligned on what&rsquo;s been decided, what&rsquo;s still open and who&rsquo;s making the call. When
+              you&rsquo;re aligned, you move forward with confidence.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 pt-1">
               <a
