@@ -1,5 +1,5 @@
 import React from "react";
-import { BookOpenCheckIcon, BoxesIcon, Columns3Icon, LayoutGridIcon, ShieldAlertIcon, TargetIcon } from "lucide-react";
+import { BookOpenCheckIcon, BoxesIcon, Columns3Icon, GavelIcon, LayoutGridIcon, ShieldAlertIcon } from "lucide-react";
 
 export type CanvasView = "goals" | "runbooks" | "canvas" | "overview" | "status" | "risks";
 
@@ -34,11 +34,11 @@ export function CanvasViewToggle({ view, riskCount, onChange }: CanvasViewToggle
         role="tab"
         aria-selected={view === "goals"}
         onClick={() => onChange("goals")}
-        title="Goals and what each one is waiting on: open, testing, decided, done"
+        title="The decision record: each goal and the calls it's waiting on, open, testing, decided, done"
         className={`${base} ${view === "goals" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
       >
-        <TargetIcon className="h-3.5 w-3.5" />
-        Goals
+        <GavelIcon className="h-3.5 w-3.5" />
+        Decisions
       </button>
       <button
         type="button"
@@ -88,15 +88,14 @@ export function CanvasViewToggle({ view, riskCount, onChange }: CanvasViewToggle
         role="tab"
         aria-selected={view === "risks"}
         onClick={() => onChange("risks")}
-        className={`${base} ${view === "risks" ? "bg-rose-600 text-white" : "text-muted hover:text-rose-700"}`}
+        className={`${base} ${view === "risks" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
       >
         <ShieldAlertIcon className="h-3.5 w-3.5" />
-        <span className="sm:hidden">Risks</span>
-        <span className="hidden sm:inline">Riskiest assumptions</span>
+        Risks
         {riskCount > 0 && (
           <span
             className={`rounded-full px-1.5 text-[10px] font-semibold ${
-              view === "risks" ? "bg-white/25 text-white" : "bg-rose-100 text-rose-700"
+              view === "risks" ? "bg-white/25 text-surface" : "bg-surface-2 text-muted"
             }`}
           >
             {riskCount}

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDownIcon, DownloadIcon, FileTextIcon, ImageIcon, Loader2Icon } from "lucide-react";
+import { AlignLeftIcon, BracesIcon, ChevronDownIcon, DownloadIcon, FileTextIcon, ImageIcon, Loader2Icon } from "lucide-react";
 import { ExportKind, ExportSheet } from "./ExportSheet";
 import { downloadSheetAsPdf, downloadSheetAsPng, exportFileName } from "../utils/export";
 import type { CanvasTemplateDef } from "../utils/canvasTemplates";
@@ -31,6 +31,10 @@ export interface ExportMenuProps {
   /** An export asked for by a link. It runs once, then onAutoExportHandled is called. */
   autoExport?: ExportRequest | null;
   onAutoExportHandled?: () => void;
+  /** Text downloads, listed under the PDF and PNG exports */
+  onExportSummary?: () => void;
+  onExportMarkdown?: () => void;
+  onExportJson?: () => void;
 }
 
 const KIND_LABEL: Record<ExportKind, string> = {
@@ -62,6 +66,9 @@ export function ExportMenu({
   stressResult,
   autoExport,
   onAutoExportHandled,
+  onExportSummary,
+  onExportMarkdown,
+  onExportJson,
 }: ExportMenuProps) {
   const [open, setOpen] = useState(false);
   const [job, setJob] = useState<ExportJob | null>(null);
@@ -146,7 +153,8 @@ export function ExportMenu({
         disabled={!!job}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-60"
+        title="Export as PDF, PNG, summary, Markdown or JSON"
+        className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-60"
       >
         {job ? <Loader2Icon size={13} className="animate-spin" /> : <DownloadIcon size={13} />}
         {job ? "Exporting..." : "Export"}
@@ -166,6 +174,21 @@ export function ExportMenu({
             hint={hasRisks ? undefined : "Run a stress test to rank the risks first."}
             onPick={(format) => startExport("risks", format)}
           />
+          {(onExportSummary || onExportMarkdown || onExportJson) && (
+            <>
+              <div className="my-2 border-t border-line" />
+              <p className="px-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">Text</p>
+              {onExportSummary && (
+                <TextExport icon={<AlignLeftIcon size={13} />} label="Summary" hint="One short paragraph per block" onClick={() => { setOpen(false); onExportSummary(); }} />
+              )}
+              {onExportMarkdown && (
+                <TextExport icon={<FileTextIcon size={13} />} label="Markdown" onClick={() => { setOpen(false); onExportMarkdown(); }} />
+              )}
+              {onExportJson && (
+                <TextExport icon={<BracesIcon size={13} />} label="JSON" onClick={() => { setOpen(false); onExportJson(); }} />
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -233,5 +256,20 @@ function ExportGroup({
       </div>
       {hint && <p className="px-1.5 pt-1.5 text-[11px] text-muted">{hint}</p>}
     </div>
+  );
+}
+
+function TextExport({ icon, label, hint, onClick }: { icon: React.ReactNode; label: string; hint?: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-2"
+    >
+      <span className="text-muted">{icon}</span>
+      <span className="font-medium">{label}</span>
+      {hint && <span className="text-[11px] text-muted">{hint}</span>}
+    </button>
   );
 }

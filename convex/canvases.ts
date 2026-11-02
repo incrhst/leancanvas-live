@@ -206,7 +206,8 @@ export async function listCanvasesForUser(ctx: QueryCtx, userId: Id<"users">) {
     .filter((c) => c.status !== "archived")
     .sort((a, b) => b.updatedAt - a.updatedAt);
 
-  // How many people are on each canvas; counts the creator even without a membership row
+  // How many people are on each canvas (counting the creator even without a membership row), and
+  // where its decisions stand: still open (open or testing) or made (decided or done)
   return await Promise.all(
     visible.map(async (c) => {
       const rows = await ctx.db
@@ -214,7 +215,17 @@ export async function listCanvasesForUser(ctx: QueryCtx, userId: Id<"users">) {
         .withIndex("by_canvas", (q) => q.eq("canvasId", c._id))
         .collect();
       const hasCreator = rows.some((r) => r.userId === c.createdBy);
-      return { ...c, memberCount: rows.length + (hasCreator ? 0 : 1) };
+      const items = await ctx.db
+        .query("items")
+        .withIndex("by_canvas", (q) => q.eq("canvasId", c._id))
+        .take(500);
+      const openDecisions = items.filter((i) => i.state === "open" || i.state === "testing").length;
+      return {
+        ...c,
+        memberCount: rows.length + (hasCreator ? 0 : 1),
+        openDecisions,
+        madeDecisions: items.length - openDecisions,
+      };
     })
   );
 }

@@ -13,7 +13,6 @@ import { NoteDetailPanel, NoteModal } from "../../../components/NoteDetailPanel"
 import { LaunchDayChip } from "../../../components/LaunchDayChip";
 import { PlanChip, PlanRequiredDialog } from "../../../components/PlanChip";
 import { DecisionsWaitingChip } from "../../../components/NoteDecision";
-import { CheckInsWaitingChip } from "../../../components/CheckIn";
 import { SnapshotsPanel } from "../../../components/SnapshotsPanel";
 import { noteMatchesEvidence, useEvidenceFilter } from "../../../utils/evidenceFilter";
 import { EvidenceLegend } from "../../../components/EvidenceLegend";
@@ -246,16 +245,12 @@ export default function CanvasEditorPage() {
             {user && <PlanChip canvasId={canvasId} />}
             <DecidedCountChip notes={notes} />
             {user && <DecisionsWaitingChip />}
-            {user && <CheckInsWaitingChip />}
           </>
         }
         onOpenShare={() => setIsShareModalOpen(true)}
         onOpenStressTest={() => setActivePanel((curr) => (curr === "stressTest" ? null : "stressTest"))}
         reviewHref={user ? `/canvas/${canvasId}/review` : undefined}
         onOpenSnapshots={user ? () => setActivePanel((curr) => (curr === "snapshots" ? null : "snapshots")) : undefined}
-        onExportMarkdown={handleExportMarkdown}
-        onExportSummary={handleExportSummary}
-        onExportJson={handleExportJson}
         exportMenu={
           <ExportMenu
             title={canvas.title}
@@ -265,6 +260,9 @@ export default function CanvasEditorPage() {
             // Wait for the stress test to load, so a risks export sees the real result
             autoExport={latestStressTest !== undefined ? exportRequest : null}
             onAutoExportHandled={clearExportRequest}
+            onExportSummary={handleExportSummary}
+            onExportMarkdown={handleExportMarkdown}
+            onExportJson={handleExportJson}
           />
         }
       />
