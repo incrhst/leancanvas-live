@@ -23,9 +23,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://lean.incrementic.com"),
-  title: "CriticalDash — Decisions and runbooks for businesses between providers and customers, by Incrementic",
+  title: "CriticalDash — One record of every decision, for businesses between providers and customers, by Incrementic",
   description:
-    "Which partners to work with, how to rank what they offer, what to do when one changes its terms. CriticalDash checks what works and turns it into runbooks your team can follow.",
+    "Campaigns change direction, policies change, new regulations land. CriticalDash is the record of every decision: what's decided, what's open and who's deciding, so everyone is aligned and you move forward with confidence.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "CriticalDash — by Incrementic",
-    description: "You built the business. Would it run without you? For brokers, comparison sites and agencies: see which partner, pricing and customer decisions are still guesses, and which run as written runbooks.",
+    description: "You built the business. Would it run without you? One record of every decision, so the whole team is aligned on what's decided, what's open and who's deciding.",
     url: "https://lean.incrementic.com",
     siteName: "CriticalDash",
     locale: "en_US",
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "CriticalDash — by Incrementic",
-    description: "You built the business. Would it run without you? For brokers, comparison sites and agencies: see which partner, pricing and customer decisions are still guesses, and which run as written runbooks.",
+    description: "You built the business. Would it run without you? One record of every decision, so the whole team is aligned on what's decided, what's open and who's deciding.",
     images: ["/og.svg"],
   },
 };
