@@ -2,6 +2,7 @@
 
 import React, { useRef, useState } from "react";
 import Link from "next/link";
+import { LegalLinks } from "@/components/LegalPage";
 import { LookUpSkyline } from "../components/LookUpSkyline";
 import { SkyAccent } from "../components/SkyAccent";
 import { HeroHeadline } from "../components/HeroHeadline";
@@ -938,11 +939,7 @@ export default function HomePage() {
       {/* Footer with Incrementic attribution */}
       <footer className="border-t border-line bg-surface px-6 py-10 text-center text-base text-muted space-y-3">
         <div className="font-semibold text-ink">CriticalDash • One record of every decision, for businesses between providers and customers</div>
-        <div>
-          <Link href="/how-it-works" className="font-semibold text-ink underline underline-offset-2 hover:text-incrementic-red">
-            How it works
-          </Link>
-        </div>
+        <LegalLinks />
         <div className="flex flex-wrap items-center justify-center gap-x-1.5">
           <span>A project of</span>
           <a
