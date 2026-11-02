@@ -12,6 +12,17 @@ function safeRedirect(target: string | null): string {
   return target;
 }
 
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.46a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.27-2.09 3.58-5.17 3.58-8.81z" />
+      <path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.94-2.9l-3.88-3.01c-1.07.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.71-4.95H1.28v3.11A12 12 0 0 0 12 24z" />
+      <path fill="#FBBC05" d="M5.29 14.29a7.2 7.2 0 0 1 0-4.58V6.6H1.28a12 12 0 0 0 0 10.8l4.01-3.11z" />
+      <path fill="#EA4335" d="M12 4.75c1.76 0 3.34.61 4.59 1.8l3.44-3.44A11.97 11.97 0 0 0 12 0 12 12 0 0 0 1.28 6.6l4.01 3.11C6.23 6.86 8.88 4.75 12 4.75z" />
+    </svg>
+  );
+}
+
 function LoginForm() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
@@ -27,6 +38,17 @@ function LoginForm() {
   useEffect(() => {
     if (isAuthenticated) window.location.assign(redirectUrl);
   }, [isAuthenticated, redirectUrl]);
+
+  const handleGoogle = async () => {
+    setError(null);
+    try {
+      // Redirects to Google, then back here; the effect above continues to the target.
+      await signIn("google", { redirectTo: `/login?redirect=${encodeURIComponent(redirectUrl)}` });
+    } catch (err) {
+      console.error(err);
+      setError("Could not start Google sign-in. Please try again.");
+    }
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +77,7 @@ function LoginForm() {
         </div>
         <h1 className="text-xl font-bold text-ink">Sign in to CriticalDash</h1>
         <p className="text-xs text-muted">
-          Enter your email and we&apos;ll send you a magic sign-in link
+          Continue with Google, or get a magic sign-in link by email
         </p>
       </div>
 
@@ -68,6 +90,22 @@ function LoginForm() {
           </p>
         </div>
       ) : (
+        <>
+        <button
+          type="button"
+          onClick={handleGoogle}
+          className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-line text-ink rounded-lg text-sm font-semibold hover:bg-canvas transition-colors shadow-sm"
+        >
+          <GoogleIcon className="w-4 h-4" />
+          Continue with Google
+        </button>
+
+        <div className="flex items-center gap-3 text-[11px] uppercase tracking-wide text-muted">
+          <span className="h-px flex-1 bg-line" />
+          or
+          <span className="h-px flex-1 bg-line" />
+        </div>
+
         <form onSubmit={handleSignIn} className="space-y-4">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-ink">Email Address</label>
@@ -92,6 +130,7 @@ function LoginForm() {
             {submitting ? "Sending link..." : "Continue with Magic Link"}
           </button>
         </form>
+        </>
       )}
     </div>
   );
