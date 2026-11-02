@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { MailIcon, ArrowRightIcon, CheckCircle2Icon } from "lucide-react";
+import { MailIcon, CheckCircle2Icon } from "lucide-react";
 
 function safeRedirect(target: string | null): string {
   // Only allow same-origin relative paths
@@ -27,6 +27,8 @@ function GoogleIcon({ className }: { className?: string }) {
 function LoginForm() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  // Google is the way in; email is the fallback for people without a Google account
+  const [useEmail, setUseEmail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const searchParams = useSearchParams();
@@ -77,9 +79,6 @@ function LoginForm() {
           LO
         </div>
         <h1 className="text-xl font-bold text-ink">Sign in to CriticalDash</h1>
-        <p className="text-xs text-muted">
-          Continue with Google, or get a magic sign-in link by email
-        </p>
       </div>
 
       {sent ? (
@@ -91,47 +90,54 @@ function LoginForm() {
           </p>
         </div>
       ) : (
-        <>
-        <button
-          type="button"
-          onClick={handleGoogle}
-          className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-line text-ink rounded-lg text-sm font-semibold hover:bg-canvas transition-colors shadow-sm"
-        >
-          <GoogleIcon className="w-4 h-4" />
-          Continue with Google
-        </button>
+        <div className="space-y-4">
+          <button
+            type="button"
+            onClick={handleGoogle}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-ink/20 text-ink rounded-lg text-sm font-semibold hover:bg-canvas transition-colors shadow-sm"
+          >
+            <GoogleIcon className="w-4 h-4" />
+            Continue with Google
+          </button>
 
-        <div className="flex items-center gap-3 text-[11px] uppercase tracking-wide text-muted">
-          <span className="h-px flex-1 bg-line" />
-          or
-          <span className="h-px flex-1 bg-line" />
-        </div>
-
-        <form onSubmit={handleSignIn} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-ink">Email Address</label>
-            <input
-              type="email"
-              required
-              placeholder="alex@startup.io"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full text-sm border border-line rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-accent/50"
-            />
-          </div>
+          {useEmail ? (
+            <form onSubmit={handleSignIn} className="space-y-2 pt-2 border-t border-line">
+              <label htmlFor="login-email" className="block pt-2 text-xs font-semibold text-ink">
+                We&apos;ll email you a sign-in link
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="login-email"
+                  type="email"
+                  required
+                  autoFocus
+                  placeholder="you@company.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="min-w-0 flex-1 text-sm border border-line rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-accent/50"
+                />
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="shrink-0 disabled:opacity-60 inline-flex items-center gap-1.5 px-3 py-2 border border-line bg-surface text-ink rounded-lg text-xs font-semibold hover:bg-surface-2 transition-colors"
+                >
+                  <MailIcon className="w-3.5 h-3.5" />
+                  {submitting ? "Sending..." : "Send"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setUseEmail(true)}
+              className="block w-full text-center text-xs text-muted underline underline-offset-2 hover:text-ink"
+            >
+              Use email instead
+            </button>
+          )}
 
           {error && <p className="text-xs text-rose-600">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full disabled:opacity-60 flex items-center justify-center gap-2 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:bg-accent/90 transition-colors shadow-sm"
-          >
-            <MailIcon className="w-4 h-4" />
-            {submitting ? "Sending link..." : "Continue with Magic Link"}
-          </button>
-        </form>
-        </>
+        </div>
       )}
 
       <p className="text-center text-[11px] text-muted">
