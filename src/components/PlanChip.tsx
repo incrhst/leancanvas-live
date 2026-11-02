@@ -11,8 +11,8 @@ const chipClass =
   "inline-flex items-center gap-1 whitespace-nowrap rounded border px-2 py-0.5 text-[11px] font-medium transition-colors";
 
 /**
- * Where the canvas's live plan stands: in its trial (days left), running, or paused. Links to
- * the plan page. Shows nothing on a free canvas.
+ * The canvas's live plan when it needs attention: in its trial (days left) or paused. Links to
+ * the plan page. Shows nothing on a free canvas or a running plan.
  */
 export function PlanChip({ canvasId }: { canvasId: Id<"canvases"> }) {
   const info = useQuery(api.billing.forCanvas, { canvasId });
@@ -37,12 +37,8 @@ export function PlanChip({ canvasId }: { canvasId: Id<"canvases"> }) {
       </Link>
     );
   }
-  return (
-    <Link href={href} className={`${chipClass} border-line bg-surface-2 text-ink hover:bg-surface`}>
-      <ZapIcon size={12} aria-hidden="true" />
-      Live plan
-    </Link>
-  );
+  // A running plan needs nothing from you, so it takes no room in the header
+  return null;
 }
 
 /**

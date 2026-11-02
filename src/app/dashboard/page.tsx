@@ -15,8 +15,6 @@ import type { CanvasTemplate } from "../../types/canvas";
 import {
   PlusIcon,
   LayoutGridIcon,
-  CalendarIcon,
-  ArrowRightIcon,
   LogOutIcon,
   SparklesIcon,
   UsersIcon,
@@ -73,6 +71,10 @@ export default function DashboardPage() {
       localStorage.setItem(SORT_STORAGE_KEY, key);
     } catch {}
   };
+
+  const hasOwned = !!canvases?.some((c) => c.role === "owner");
+  const hasShared = !!canvases?.some((c) => c.role !== "owner");
+  const templatesInUse = new Set(canvases?.map((c) => getCanvasTemplate(c.template).id)).size;
 
   const isFiltered = search.trim() !== "" || ownership !== "all" || templateFilter !== "all";
   const clearFilters = () => {
@@ -177,10 +179,7 @@ export default function DashboardPage() {
       <main className="max-w-5xl w-full mx-auto px-6 py-10 space-y-8 flex-1">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-ink">Workspaces & Canvases</h1>
-            <p className="text-xs text-muted">
-              Select an existing business model canvas or initialize a new one.
-            </p>
+            <h1 className="text-2xl font-bold text-ink">Your canvases</h1>
           </div>
 
           <button
@@ -191,9 +190,6 @@ export default function DashboardPage() {
             New Canvas
           </button>
         </div>
-
-        {/* Instructions for connecting an agent */}
-        <AgentConnectInstructions />
 
         {/* Modal for creating canvas */}
         {isCreating && (
@@ -289,6 +285,7 @@ export default function DashboardPage() {
               />
             </label>
             <div className="flex flex-wrap items-center gap-2">
+              {hasShared && hasOwned && (
               <select
                 aria-label="Filter by ownership"
                 value={ownership}
@@ -299,6 +296,8 @@ export default function DashboardPage() {
                 <option value="owned">Owned by me</option>
                 <option value="shared">Shared with me</option>
               </select>
+              )}
+              {templatesInUse > 1 && (
               <select
                 aria-label="Filter by template"
                 value={templateFilter}
@@ -310,6 +309,7 @@ export default function DashboardPage() {
                   <option key={t.id} value={t.id}>{t.label}</option>
                 ))}
               </select>
+              )}
               <select
                 aria-label="Sort canvases"
                 value={sortKey}
@@ -353,41 +353,49 @@ export default function DashboardPage() {
               href={`/canvas/${c._id}`}
               className="group rounded-2xl bg-surface border border-line p-5 space-y-3 hover:border-accent hover:shadow-md transition-all flex flex-col justify-between"
             >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
+              <div className="space-y-1.5">
+                {(c.status !== "active" || templatesInUse > 1) && (
                   <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-100 text-emerald-800">
-                      {c.status}
-                    </span>
-                    <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-stone-100 text-stone-700">
-                      {getCanvasTemplate(c.template).label}
-                    </span>
+                    {c.status !== "active" && (
+                      <span className="rounded px-2 py-0.5 text-[11px] font-medium bg-surface-2 text-muted">{c.status}</span>
+                    )}
+                    {templatesInUse > 1 && (
+                      <span className="rounded px-2 py-0.5 text-[11px] font-medium bg-surface-2 text-muted">
+                        {getCanvasTemplate(c.template).label}
+                      </span>
+                    )}
                   </div>
-                  <span className="text-[11px] text-muted flex items-center gap-1">
-                    <CalendarIcon className="w-3 h-3" />
-                    {formatDistanceToNow(c.updatedAt, { addSuffix: true })}
-                  </span>
-                </div>
+                )}
                 <h3 className="font-semibold text-ink group-hover:text-accent transition-colors line-clamp-1">
                   {c.title}
                 </h3>
-                <p className="text-xs text-muted line-clamp-2 leading-relaxed">
+                <p className="text-xs text-muted line-clamp-1">
                   {c.description || getCanvasTemplate(c.template).label}
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-line/60 flex items-center justify-between text-xs text-accent font-medium">
-                <span>Open Canvas</span>
-                <span className="flex items-center gap-3">
+              <div className="space-y-2 pt-1">
+                <p className="text-xs text-ink">
+                  {c.openDecisions + c.madeDecisions === 0 ? (
+                    <span className="text-muted">No decisions yet</span>
+                  ) : (
+                    <>
+                      <strong className="font-semibold">{c.openDecisions}</strong> open
+                      <span className="text-muted"> · </span>
+                      <strong className="font-semibold">{c.madeDecisions}</strong> made
+                    </>
+                  )}
+                </p>
+                <div className="flex items-center justify-between text-[11px] text-muted">
+                  <span>Updated {formatDistanceToNow(c.updatedAt, { addSuffix: true })}</span>
                   <span
-                    className="flex items-center gap-1 text-[11px] font-normal text-muted"
+                    className="flex items-center gap-1"
                     title={`${c.memberCount} ${c.memberCount === 1 ? "person" : "people"} on this canvas`}
                   >
                     <UsersIcon className="w-3 h-3" />
                     {c.memberCount}
                   </span>
-                  <ArrowRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </span>
+                </div>
               </div>
             </Link>
           ))}
@@ -395,6 +403,8 @@ export default function DashboardPage() {
           )}
         </div>
         )}
+        {/* Setup, not day-to-day: below the canvases */}
+        <AgentConnectInstructions />
       </main>
 
       {/* Discreet footer */}

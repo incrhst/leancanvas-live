@@ -740,7 +740,7 @@ function NeedsYou({
   );
 
   return (
-    <section className="rounded-lg border-2 border-accent/60 bg-accent-soft/40 p-4">
+    <section className={`rounded-lg p-4 ${empty ? "border border-line bg-surface" : "border-2 border-accent/60 bg-accent-soft/40"}`}>
       <h2 className="text-sm font-semibold text-ink">Needs you</h2>
       {empty ? (
         <p className="mt-2 text-xs text-muted">Nothing right now.</p>
@@ -854,7 +854,7 @@ export function GoalsBoard({ view, canEdit, canvasId, notes = [] }: GoalsBoardPr
         {view.goals.length === 0 && (
           <div className="rounded-lg border border-line bg-surface p-4 text-sm text-muted">
             <p className="font-medium text-ink">What are you working toward?</p>
-            <p className="mt-1">Add a goal, like &ldquo;Launch the product&rdquo;. Then list what needs deciding before you get there.</p>
+            <p className="mt-1">Add a goal, then what needs deciding to reach it.</p>
           </div>
         )}
 
@@ -890,7 +890,8 @@ export function GoalsBoard({ view, canEdit, canvasId, notes = [] }: GoalsBoardPr
 
       <aside className="space-y-4 lg:sticky lg:top-0 lg:self-start">
         {view.viewerId && <NeedsYou view={view} viewerId={view.viewerId} canEdit={canEdit} onOpenItem={openItem} />}
-        <TrackRecord stats={view.basisStats} />
+        {/* Nothing to show until a decision has been looked back on */}
+        {DECISION_BASES.some((b) => view.basisStats[b]) && <TrackRecord stats={view.basisStats} />}
       </aside>
     </div>
   );

@@ -1,16 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import {
-  ChevronRightIcon,
-  LayoutGridIcon,
-  Share2Icon,
-  SparklesIcon,
-  DownloadIcon,
-  FileTextIcon,
-  CameraIcon,
-  AlignLeftIcon,
-  PresentationIcon,
-} from "lucide-react";
+import { LayoutGridIcon, Share2Icon, SparklesIcon, CameraIcon, PresentationIcon } from "lucide-react";
 import { Role } from "../types/canvas";
 
 interface TopBarProps {
@@ -22,153 +12,84 @@ interface TopBarProps {
   onOpenSnapshots?: () => void;
   /** Link to review mode */
   reviewHref?: string;
-  onExportMarkdown?: () => void;
-  /** Plain-language summary for a non-technical reader */
-  onExportSummary?: () => void;
-  onExportJson?: () => void;
-  /** PDF and PNG export menu, rendered before the Markdown and JSON buttons */
+  /** Export menu: PDF, PNG and the text exports */
   exportMenu?: React.ReactNode;
-  /** Shown after the role badge, e.g. the launch day chip */
+  /** Shown after the title, e.g. the launch day chip */
   status?: React.ReactNode;
 }
+
+// Secondary actions stay quiet so Share is the one button that stands out
+const quietButton =
+  "inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted hover:bg-surface-2 hover:text-ink transition-colors";
 
 export function TopBar({
   title,
   role,
-  isPublicViewEnabled,
   onOpenShare,
   onOpenStressTest,
   onOpenSnapshots,
   reviewHref,
-  onExportMarkdown,
-  onExportSummary,
-  onExportJson,
   exportMenu,
   status,
 }: TopBarProps) {
-  const isAnonymous = role === "anonymous" || role === "viewer";
-
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-line bg-surface px-3 sm:gap-4 sm:px-4">
       <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         <Link
           href="/dashboard"
+          title="All canvases"
+          aria-label="All canvases"
           className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-ink text-surface hover:opacity-90"
         >
           <LayoutGridIcon size={15} aria-hidden="true" />
         </Link>
-        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
-          <a
-            href="https://incrementic.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hidden whitespace-nowrap text-muted text-xs hover:text-incrementic-red sm:inline transition-colors"
-          >
-            Incrementic
-          </a>
-          <ChevronRightIcon size={13} className="hidden text-subtle sm:inline" aria-hidden="true" />
-          <Link href="/dashboard" className="hidden whitespace-nowrap text-muted sm:inline hover:underline">
-            Dashboard
-          </Link>
-          <ChevronRightIcon size={14} className="hidden text-subtle sm:inline" aria-hidden="true" />
-          <h1 className="truncate font-semibold text-ink">{title}</h1>
-        </nav>
+        <h1 title={title} className="min-w-0 truncate text-sm font-semibold text-ink">
+          {title}
+        </h1>
 
-        {/* Role badge */}
-        <span
-          className={`hidden shrink-0 px-2 py-0.5 rounded text-[11px] font-medium border sm:inline-block ${
-            role === "owner"
-              ? "bg-purple-100 text-purple-800 border-purple-300"
-              : role === "editor"
-              ? "bg-blue-100 text-blue-800 border-blue-300"
-              : "bg-stone-100 text-stone-700 border-stone-300"
-          }`}
-        >
-          {role.toUpperCase()}
-        </span>
+        {/* Owners are the norm; only say so when you're not one */}
+        {role !== "owner" && (
+          <span className="hidden shrink-0 text-[11px] text-muted sm:inline">
+            {role === "editor" ? "Can edit" : "View only"}
+          </span>
+        )}
         {status && <div className="flex shrink-0 items-center gap-1.5">{status}</div>}
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-        {/* Export buttons */}
+      <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
         {exportMenu && <div className="hidden sm:block">{exportMenu}</div>}
-        {onExportSummary && (
-          <button
-            type="button"
-            onClick={onExportSummary}
-            title="Download a plain-language summary: one short paragraph per block"
-            className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted hover:text-ink rounded-md border border-line bg-surface hover:bg-surface-2 transition-colors"
-          >
-            <AlignLeftIcon size={13} />
-            Summary
-          </button>
-        )}
-        {onExportMarkdown && (
-          <button
-            type="button"
-            onClick={onExportMarkdown}
-            title="Export as Markdown"
-            className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted hover:text-ink rounded-md border border-line bg-surface hover:bg-surface-2 transition-colors"
-          >
-            <FileTextIcon size={13} />
-            Markdown
-          </button>
-        )}
-        {onExportJson && (
-          <button
-            type="button"
-            onClick={onExportJson}
-            title="Export as JSON"
-            className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted hover:text-ink rounded-md border border-line bg-surface hover:bg-surface-2 transition-colors"
-          >
-            <DownloadIcon size={13} />
-            JSON
-          </button>
-        )}
 
         {reviewHref && (
           <Link
             href={reviewHref}
             title="Review mode: tests and results, open decisions, and changes since the last snapshot"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 text-xs font-medium text-ink hover:bg-surface-2 transition-colors"
+            className={quietButton}
           >
             <PresentationIcon size={14} />
-            <span className="hidden sm:inline">Review</span>
+            <span className="hidden lg:inline">Review</span>
           </Link>
         )}
 
         {onOpenSnapshots && (
-          <button
-            type="button"
-            onClick={onOpenSnapshots}
-            title="Snapshots: freeze the canvas and compare"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 text-xs font-medium text-ink hover:bg-surface-2 transition-colors"
-          >
+          <button type="button" onClick={onOpenSnapshots} title="Snapshots: freeze the canvas and compare" className={quietButton}>
             <CameraIcon size={14} />
-            <span className="hidden sm:inline">Snapshots</span>
+            <span className="hidden lg:inline">Snapshots</span>
           </button>
         )}
 
-        {/* Stress test button */}
         {onOpenStressTest && (
-          <button
-            type="button"
-            onClick={onOpenStressTest}
-            title="Stress test"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-accent/30 bg-accent-soft px-2.5 text-xs font-semibold text-accent hover:bg-accent-soft/80 transition-colors sm:px-3"
-          >
+          <button type="button" onClick={onOpenStressTest} title="Stress test" className={quietButton}>
             <SparklesIcon size={14} />
-            <span className="hidden sm:inline">Stress Test</span>
+            <span className="hidden lg:inline">Stress test</span>
           </button>
         )}
 
-        {/* Share modal */}
         {onOpenShare && (
           <button
             type="button"
             onClick={onOpenShare}
             title="Share"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-accent px-2.5 text-xs font-medium text-white hover:bg-accent/90 transition-colors shadow-sm sm:px-3"
+            className="ml-1 inline-flex h-8 items-center gap-1.5 rounded-md bg-accent px-2.5 text-xs font-medium text-white hover:bg-accent/90 transition-colors shadow-sm sm:px-3"
           >
             <Share2Icon size={14} />
             <span className="hidden sm:inline">Share</span>
