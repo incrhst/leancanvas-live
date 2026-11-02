@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { LegalLinks } from "@/components/LegalPage";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -792,11 +793,7 @@ export default function HowItWorks() {
 
       <footer className="border-t border-line bg-surface px-6 py-10 text-center text-base text-muted space-y-3">
         <div className="font-semibold text-ink">CriticalDash • Decisions and runbooks for businesses between providers and customers</div>
-        <div>
-          <Link href="/" className="font-semibold text-ink underline underline-offset-2 hover:text-incrementic-red">
-            Back to the home page
-          </Link>
-        </div>
+        <LegalLinks />
         <div className="flex flex-wrap items-center justify-center gap-x-1.5">
           <span>A project of</span>
           <a

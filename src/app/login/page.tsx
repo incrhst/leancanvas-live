@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
@@ -132,6 +133,12 @@ function LoginForm() {
         </form>
         </>
       )}
+
+      <p className="text-center text-[11px] text-muted">
+        By continuing you agree to our{" "}
+        <Link href="/terms" className="underline underline-offset-2 hover:text-ink">Terms</Link> and{" "}
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-ink">Privacy policy</Link>.
+      </p>
     </div>
   );
 }
