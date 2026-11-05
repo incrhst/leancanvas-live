@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { LayoutGridIcon, Share2Icon, SparklesIcon, CameraIcon, PresentationIcon } from "lucide-react";
+import { BotIcon, LayoutGridIcon, Share2Icon, SparklesIcon, CameraIcon, PresentationIcon } from "lucide-react";
 import { Role } from "../types/canvas";
 
 interface TopBarProps {
@@ -10,6 +10,8 @@ interface TopBarProps {
   onOpenShare?: () => void;
   onOpenStressTest?: () => void;
   onOpenSnapshots?: () => void;
+  /** Show how to connect an AI assistant. Signed-in people only: the connector needs an account. */
+  onOpenConnectAi?: () => void;
   /** Link to review mode */
   reviewHref?: string;
   /** Export menu: PDF, PNG and the text exports */
@@ -28,6 +30,7 @@ export function TopBar({
   onOpenShare,
   onOpenStressTest,
   onOpenSnapshots,
+  onOpenConnectAi,
   reviewHref,
   exportMenu,
   status,
@@ -81,6 +84,13 @@ export function TopBar({
           <button type="button" onClick={onOpenStressTest} title="Stress test" className={quietButton}>
             <SparklesIcon size={14} />
             <span className="hidden lg:inline">Stress test</span>
+          </button>
+        )}
+
+        {onOpenConnectAi && (
+          <button type="button" onClick={onOpenConnectAi} title="Connect Claude, ChatGPT or Gemini" className={`${quietButton} hidden sm:inline-flex`}>
+            <BotIcon size={14} aria-hidden="true" />
+            <span className="sr-only lg:not-sr-only">Connect AI</span>
           </button>
         )}
 
