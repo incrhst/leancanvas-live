@@ -1,66 +1,117 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { TopBar } from "../../../components/TopBar";
 import { CanvasBoard } from "../../../components/CanvasBoard";
-import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
+import { CanvasOverview } from "../../../components/CanvasOverview";
+import { CanvasPresence } from "../../../components/CanvasPresence";
+import { NoteDetailPanel, NoteModal } from "../../../components/NoteDetailPanel";
+import { LaunchDayChip } from "../../../components/LaunchDayChip";
+import { PlanChip, PlanRequiredDialog } from "../../../components/PlanChip";
+import { DecisionsWaitingChip } from "../../../components/NoteDecision";
+import { SnapshotsPanel } from "../../../components/SnapshotsPanel";
+import { noteMatchesEvidence, useEvidenceFilter } from "../../../utils/evidenceFilter";
+import { EvidenceLegend } from "../../../components/EvidenceLegend";
+import { matchesDriverFilter, DriverFilter, DriverFilterValue } from "../../../components/DriverControls";
+import { MarketFilter, marketsOf, matchesMarketFilter } from "../../../components/MarketControls";
+import { CanvasMember, CanvasPerson, MembersContext, PeopleContext } from "../../../utils/members";
+import { todayLocal } from "../../../utils/testFields";
+import { LaunchDateContext } from "../../../utils/launchDate";
+import { useMediaQuery, useSetQueryParams } from "../../../utils/urlState";
+import { plainSummary, summaryFromNotes } from "../../../utils/plainSummary";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { ShareModal } from "../../../components/ShareModal";
 import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptionsView";
-import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/CanvasViewToggle";
+import {
+  CanvasView,
+  CanvasViewToggle,
+  canvasViewParam,
+  parseCanvasView,
+  riskRanksFor,
+} from "../../../components/CanvasViewToggle";
+import { DecidedCountChip, PlanStatusBoard } from "../../../components/PlanStatusBoard";
+import { GoalsBoard } from "../../../components/GoalsBoard";
+import { RunbooksBoard } from "../../../components/RunbooksBoard";
+import { ConnectAiDialog } from "../../../components/AgentConnectInstructions";
 import { useAuth } from "../../../components/ConvexClientProvider";
 import { NoteItem, BlockId, EvidenceState, StressTestResult } from "../../../types/canvas";
+import { NoteSearch, NoteSearchButton, useNoteSearchShortcut } from "../../../components/NoteSearch";
+import { ExportMenu, parseExportRequest } from "../../../components/ExportMenu";
 import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
 import { getCanvasTemplate } from "../../../utils/canvasTemplates";
 
 type NoteBlock = Doc<"notes">["block"];
-const EVIDENCE_CYCLE: EvidenceState[] = [
-  "unknown",
-  "assumption",
-  "observed",
-  "supported",
-  "contradicted",
-  "decision",
-];
-
 export default function CanvasEditorPage() {
   const params = useParams();
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const view: CanvasView = searchParams.get("view") === "risks" ? "risks" : "canvas";
-  const setView = (next: CanvasView) => {
-    router.replace(next === "risks" ? `${pathname}?view=risks` : pathname, { scroll: false });
-  };
+  const setQueryParams = useSetQueryParams();
+  // An export a link asked for, e.g. ?export=risks-pdf. The param is cleared once it has run.
+  const exportRequest = parseExportRequest(searchParams.get("export"));
+  const clearExportRequest = () => setQueryParams({ export: null });
+  // The open note lives in the URL (?note=<id>) so it can be bookmarked and shared
+  const selectedId = searchParams.get("note");
+  // Opening or closing a note goes back to its usual place; ?noteView=modal expands it into a dialog
+  const setSelectedId = (noteId: string | null) => setQueryParams({ note: noteId, noteView: null });
+  const setNoteExpanded = (expanded: boolean) => setQueryParams({ noteView: expanded ? "modal" : null });
+  // Wide screens open the note in its place on the board; phones (and the risks view) use the panel
+  const isDesktop = useMediaQuery("(min-width: 768px)");
   const canvasId = (params?.id as string) as Id<"canvases">;
   const { user, isLoading } = useAuth();
 
   const data = useQuery(api.canvases.getCanvas, isLoading ? "skip" : { canvasId });
+  // Everyone starts on goals; the status board and canvas are a tab over
+  const defaultView: CanvasView = "goals";
+  const view = parseCanvasView(searchParams.get("view"), defaultView);
+  const setView = (next: CanvasView) => setQueryParams({ view: canvasViewParam(next, defaultView) });
+  const noteInline = isDesktop && view === "canvas";
+  const goalsView = useQuery(api.goals.view, data && view === "goals" ? { canvasId } : "skip");
+  const runbooksView = useQuery(api.runbooks.view, data && view === "runbooks" ? { canvasId } : "skip");
   const latestStressTest = useQuery(api.stressTests.getLatestStressTest, data ? { canvasId } : "skip");
   const addNote = useMutation(api.notes.addNote);
   const updateNote = useMutation(api.notes.updateNote);
   const deleteNote = useMutation(api.notes.deleteNote);
+  const addReasonToLatestChange = useMutation(api.notes.addReasonToLatestChange);
   const setPublicView = useMutation(api.canvases.setPublicView);
+  const updateCanvasMeta = useMutation(api.canvases.updateCanvasMeta);
   const setPublicViewPassword = useMutation(api.canvases.setPublicViewPassword);
   const createInvite = useMutation(api.invites.createInvite);
   const runStressTest = useAction(api.stressTests.runStressTest);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activePanel, setActivePanel] = useState<"detail" | "stressTest" | null>(null);
+  const [activePanel, setActivePanel] = useState<"detail" | "stressTest" | "snapshots" | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isConnectAiOpen, setIsConnectAiOpen] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [driverFilter, setDriverFilter] = useState<DriverFilterValue>("all");
+  const [marketFilter, setMarketFilter] = useState("all");
+  const evidence = useEvidenceFilter();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  useNoteSearchShortcut(() => setIsSearchOpen(true));
 
   const notes: NoteItem[] = data?.notes ?? [];
   const role = data?.currentUserRole ?? "viewer";
   const canEdit = role === "owner" || role === "editor";
   const stressResult: StressTestResult | null = latestStressTest ?? null;
   const selectedNote = notes.find((n) => n._id === selectedId) || null;
+  const noteExpanded = !!selectedNote && searchParams.get("noteView") === "modal";
   const riskRanks = riskRanksFor(stressResult?.riskiestAssumptions);
+  const members = useMemo(
+    () => new Map<string, CanvasMember>((data?.members ?? []).map((m) => [m.id, m])),
+    [data?.members]
+  );
+  const people = useMemo<CanvasPerson[]>(
+    () => (data?.people ?? []).map((p) => ({ ...p, id: p.id as string })),
+    [data?.people]
+  );
+  const allMarkets = marketsOf(notes);
+  const visibleNotes = notes.filter(
+    (n) => matchesDriverFilter(n, driverFilter, user?.id) && matchesMarketFilter(n, marketFilter)
+  );
 
   if (isLoading || data === undefined) {
     return (
@@ -93,15 +144,9 @@ export default function CanvasEditorPage() {
 
   // Add Note
   const handleAddNote = (block: BlockId, text: string) => {
-    void addNote({ canvasId, block: block as NoteBlock, content: text });
-  };
-
-  // Cycle Evidence State
-  const handleCycleEvidence = (noteId: string) => {
-    const note = notes.find((n) => n._id === noteId);
-    if (!note) return;
-    const nextState = EVIDENCE_CYCLE[(EVIDENCE_CYCLE.indexOf(note.evidenceState) + 1) % EVIDENCE_CYCLE.length];
-    void updateNote({ noteId: noteId as Id<"notes">, evidenceState: nextState });
+    // While showing one person's notes, new notes are theirs, so they don't vanish from view
+    const driver = driverFilter === "mine" ? user?.id : driverFilter === "all" || driverFilter === "unassigned" ? undefined : driverFilter;
+    void addNote({ canvasId, block: block as NoteBlock, content: text, ownerId: driver as Id<"users"> | undefined });
   };
 
   // Update Note Content
@@ -110,16 +155,15 @@ export default function CanvasEditorPage() {
   };
 
   // Update Note Evidence directly
-  const handleUpdateEvidence = (noteId: string, state: EvidenceState) => {
-    void updateNote({ noteId: noteId as Id<"notes">, evidenceState: state });
-  };
+  const handleUpdateEvidence = (noteId: string, state: EvidenceState) =>
+    updateNote({ noteId: noteId as Id<"notes">, evidenceState: state });
 
   // Delete Note
   const handleDeleteNote = (noteId: string) => {
     void deleteNote({ noteId: noteId as Id<"notes"> });
     if (selectedId === noteId) {
       setSelectedId(null);
-      setActivePanel(null);
+      if (activePanel === "detail") setActivePanel(null);
     }
   };
 
@@ -136,6 +180,20 @@ export default function CanvasEditorPage() {
   };
 
   // Export handlers
+  const handleExportSummary = () => {
+    const summary = plainSummary(
+      summaryFromNotes({
+        title: canvas.title,
+        today: todayLocal(),
+        launchDate: canvas.launchDate,
+        blocks: template.blocks,
+        notes,
+        nameOf: (userId) => members.get(userId)?.name,
+      })
+    );
+    downloadFile(`${template.fileSlug}-${canvasId}-summary.txt`, summary, "text/plain");
+  };
+
   const handleExportMarkdown = () => {
     const md = exportCanvasMarkdown(canvas.title, template, notes, stressResult);
     downloadFile(`${template.fileSlug}-${canvasId}.md`, md, "text/markdown");
@@ -146,104 +204,261 @@ export default function CanvasEditorPage() {
     downloadFile(`${template.fileSlug}-${canvasId}.json`, json, "application/json");
   };
 
+  const renderNoteDetail = (note: NoteItem, variant: "panel" | "inline" | "modal") => (
+    <NoteDetailPanel
+      note={note}
+      variant={variant}
+      onToggleModal={() => setNoteExpanded(variant !== "modal")}
+      blockTitle={template.blocks.find((b) => b.id === note.block)?.title || note.block}
+      canEdit={canEdit}
+      onClose={() => {
+        setSelectedId(null);
+        // Leave a snapshots or stress test panel open beside an inline note
+        if (activePanel === "detail") setActivePanel(null);
+      }}
+      onUpdate={(content) => handleUpdateNote(note._id, content)}
+      onUpdateEvidence={(state) => handleUpdateEvidence(note._id, state)}
+      onUpdateTest={(patch) => void updateNote({ noteId: note._id as Id<"notes">, ...patch })}
+      onUpdateDriver={(driverId) =>
+        void updateNote({ noteId: note._id as Id<"notes">, ownerId: driverId as Id<"users"> | null })
+      }
+      onUpdateMarkets={(markets) => void updateNote({ noteId: note._id as Id<"notes">, markets })}
+      allMarkets={allMarkets}
+      onAddReason={(reason) => addReasonToLatestChange({ noteId: note._id as Id<"notes">, reason })}
+      onDelete={() => handleDeleteNote(note._id)}
+      blockTitleOf={(blockId) => template.blocks.find((b) => b.id === blockId)?.title || blockId}
+    />
+  );
+  // A note opened from a link has no panel chosen yet: show it
+  const panel = activePanel ?? (selectedNote ? "detail" : null);
+
   return (
     <div className="flex h-screen w-full flex-col bg-canvas text-ink overflow-hidden">
+      {user && <PlanRequiredDialog canvasId={canvasId} />}
       <TopBar
         title={canvas.title}
         role={user ? role : "anonymous"}
         isPublicViewEnabled={canvas.isPublicViewEnabled}
+        status={
+          <>
+            {user && <CanvasPresence key={canvasId} canvasId={canvasId} currentUserId={user.id} />}
+            <LaunchDayChip
+              launchDate={canvas.launchDate}
+              onChange={canEdit ? (launchDate) => void updateCanvasMeta({ canvasId, launchDate }) : undefined}
+            />
+            {user && <PlanChip canvasId={canvasId} />}
+            <DecidedCountChip notes={notes} />
+            {user && <DecisionsWaitingChip />}
+          </>
+        }
         onOpenShare={() => setIsShareModalOpen(true)}
         onOpenStressTest={() => setActivePanel((curr) => (curr === "stressTest" ? null : "stressTest"))}
-        onExportMarkdown={handleExportMarkdown}
-        onExportJson={handleExportJson}
+        reviewHref={user ? `/canvas/${canvasId}/review` : undefined}
+        onOpenSnapshots={user ? () => setActivePanel((curr) => (curr === "snapshots" ? null : "snapshots")) : undefined}
+        onOpenConnectAi={user ? () => setIsConnectAiOpen(true) : undefined}
+        exportMenu={
+          <ExportMenu
+            title={canvas.title}
+            template={template}
+            notes={notes}
+            stressResult={stressResult}
+            // Wait for the stress test to load, so a risks export sees the real result
+            autoExport={latestStressTest !== undefined ? exportRequest : null}
+            onAutoExportHandled={clearExportRequest}
+            onExportSummary={handleExportSummary}
+            onExportMarkdown={handleExportMarkdown}
+            onExportJson={handleExportJson}
+          />
+        }
       />
 
-      <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
-        {/* Board */}
-        <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3">
-          <CanvasViewToggle
-            view={view}
-            riskCount={stressResult?.riskiestAssumptions.length ?? 0}
-            onChange={setView}
-          />
-          {view === "risks" ? (
-            <RiskiestAssumptionsView
-              blocks={template.blocks}
-              result={stressResult}
-              notes={notes}
-              canEdit={canEdit}
-              canRun={canEdit}
-              isRunning={isTesting}
-              onRunTest={handleRunStressTest}
-              onUpdateEvidence={handleUpdateEvidence}
-              onOpenNote={(noteId) => {
-                setView("canvas");
-                setSelectedId(noteId);
-                setActivePanel("detail");
-              }}
-            />
-          ) : (
-          <CanvasBoard
-            blocks={template.blocks}
-            riskRanks={riskRanks}
-            notes={notes}
-            selectedId={selectedId}
-            canEdit={canEdit}
-            onSelect={(id) => {
-              if (selectedId === id) {
-                setSelectedId(null);
-                setActivePanel(null);
-              } else {
-                setSelectedId(id);
-                setActivePanel("detail");
-              }
-            }}
-            onAdd={canEdit ? handleAddNote : undefined}
-            onCycleEvidence={canEdit ? handleCycleEvidence : undefined}
-            onDelete={canEdit ? handleDeleteNote : undefined}
-          />
-          )}
-        </div>
-
-        {/* Side Panel (Note Detail or Stress Test) */}
-        {activePanel && (
-          <aside className="w-full shrink-0 border-t border-line bg-surface lg:h-full lg:w-[360px] lg:border-l lg:border-t-0 shadow-sm z-10 flex flex-col">
-            {activePanel === "detail" && selectedNote && (
-              <NoteDetailPanel
-                note={selectedNote}
-                blockTitle={
-                  template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block
-                }
+      <MembersContext.Provider value={members}>
+      <PeopleContext.Provider value={people}>
+        <LaunchDateContext.Provider value={canvas.launchDate}>
+          <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
+            {/* Board */}
+            <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CanvasViewToggle
+                  view={view}
+                  riskCount={stressResult?.riskiestAssumptions.length ?? 0}
+                  onChange={setView}
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <NoteSearchButton onClick={() => setIsSearchOpen(true)} />
+                {(view === "canvas" || view === "overview") && (
+                  <>
+                    <MarketFilter markets={allMarkets} value={marketFilter} onChange={setMarketFilter} />
+                    <DriverFilter value={driverFilter} currentUserId={user?.id} onChange={setDriverFilter} />
+                  </>
+                )}
+                </div>
+              </div>
+              {(view === "canvas" || view === "overview") && (
+              <EvidenceLegend
+                filter={evidence.filter}
+                notes={visibleNotes}
+                onToggle={evidence.toggle}
+                onShowNeedsEvidence={evidence.showNeedsEvidence}
+                onClear={evidence.clear}
+                onModeChange={evidence.setMode}
+              />
+              )}
+              {view === "goals" ? (
+                <GoalsBoard
+                  view={goalsView}
+                  canEdit={canEdit}
+                  canvasId={canvasId}
+                  notes={notes.map((n) => ({ _id: n._id, content: n.content }))}
+                />
+              ) : view === "runbooks" ? (
+                <RunbooksBoard view={runbooksView} blocks={template.blocks} canEdit={canEdit} canRun={!!user} />
+              ) : view === "status" ? (
+                <PlanStatusBoard
+                  blocks={template.blocks}
+                  notes={notes}
+                  selectedId={selectedId}
+                  onOpenNote={(noteId) => {
+                    setSelectedId(noteId);
+                    setActivePanel("detail");
+                  }}
+                  onShowCanvas={() => setView("canvas")}
+                />
+              ) : view === "risks" ? (
+                <RiskiestAssumptionsView
+                  blocks={template.blocks}
+                  result={stressResult}
+                  notes={notes}
+                  canEdit={canEdit}
+                  canRun={canEdit}
+                  isRunning={isTesting}
+                  onRunTest={handleRunStressTest}
+                  onUpdateEvidence={handleUpdateEvidence}
+                  onOpenNote={(noteId) => {
+                    setView("canvas");
+                    setSelectedId(noteId);
+                    setActivePanel("detail");
+                  }}
+                />
+              ) : view === "overview" && isDesktop ? (
+                <CanvasOverview
+                  blocks={template.blocks}
+                  notes={visibleNotes}
+                  evidenceFilter={evidence.filter}
+                  onOpenNote={(noteId) => {
+                    setView("canvas");
+                    setSelectedId(noteId);
+                    setActivePanel("detail");
+                  }}
+                />
+              ) : (
+              <CanvasBoard
+                blocks={template.blocks}
+                riskRanks={riskRanks}
+                notes={visibleNotes}
+                evidenceFilter={evidence.filter}
+                selectedId={selectedId}
                 canEdit={canEdit}
-                onClose={() => {
-                  setSelectedId(null);
-                  setActivePanel(null);
+                onSelect={(id) => {
+                  if (selectedId === id) {
+                    setSelectedId(null);
+                    setActivePanel(null);
+                  } else {
+                    setSelectedId(id);
+                    setActivePanel("detail");
+                  }
                 }}
-                onUpdate={(content) => handleUpdateNote(selectedNote._id, content)}
-                onUpdateEvidence={(state) => handleUpdateEvidence(selectedNote._id, state)}
-                onDelete={() => handleDeleteNote(selectedNote._id)}
+                onAdd={canEdit ? handleAddNote : undefined}
+                onDelete={canEdit ? handleDeleteNote : undefined}
+                renderOpenNote={noteInline && !noteExpanded ? (note) => renderNoteDetail(note, "inline") : undefined}
               />
-            )}
+              )}
+            </div>
 
-            {activePanel === "stressTest" && (
-              <StressTestPanel
-                template={template}
-                result={stressResult}
-                isRunning={isTesting}
-                canRun={canEdit}
-                onRunTest={handleRunStressTest}
-                onClose={() => setActivePanel(null)}
-                onViewRisks={() => {
-                  setView("risks");
-                  setActivePanel(null);
-                }}
-              />
+            {/* Side Panel (Note Detail or Stress Test) */}
+            {panel && !(panel === "detail" && (noteInline || noteExpanded)) && (
+              <aside className="w-full shrink-0 border-t border-line bg-surface lg:h-full lg:w-[360px] lg:border-l lg:border-t-0 shadow-sm z-10 flex flex-col">
+                {panel === "detail" && selectedNote && renderNoteDetail(selectedNote, "panel")}
+
+                {panel === "snapshots" && (
+                  <SnapshotsPanel
+                    canvasId={canvasId}
+                    canEdit={canEdit}
+                    isOwner={role === "owner"}
+                    launchDate={canvas.launchDate}
+                    blockTitleOf={(blockId) => template.blocks.find((b) => b.id === blockId)?.title || blockId}
+                    onClose={() => setActivePanel(null)}
+                    onOpenNote={(noteId) => {
+                      setView("canvas");
+                      setSelectedId(noteId);
+                      setActivePanel("detail");
+                    }}
+                  />
+                )}
+
+                {panel === "stressTest" && (
+                  <StressTestPanel
+                    template={template}
+                    result={stressResult}
+                    isRunning={isTesting}
+                    canRun={canEdit}
+                    onRunTest={handleRunStressTest}
+                    onClose={() => setActivePanel(null)}
+                    onViewRisks={() => {
+                      setView("risks");
+                      setActivePanel(null);
+                    }}
+                  />
+                )}
+              </aside>
             )}
-          </aside>
-        )}
-      </main>
+          </main>
+
+          {noteExpanded && selectedNote && (
+            <NoteModal
+              label={`Note in ${template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block}`}
+              onDismiss={() => setNoteExpanded(false)}
+            >
+              {renderNoteDetail(selectedNote, "modal")}
+            </NoteModal>
+          )}
+        </LaunchDateContext.Provider>
+      </PeopleContext.Provider>
+      </MembersContext.Provider>
+
+      {isSearchOpen && (
+        <MembersContext.Provider value={members}>
+      <PeopleContext.Provider value={people}>
+        <NoteSearch
+          notes={notes}
+          blocks={template.blocks}
+          onClose={() => setIsSearchOpen(false)}
+          onSelect={(noteId) => {
+            const note = notes.find((n) => n._id === noteId);
+            // Reveal a note the current filters would hide
+            if (note && !visibleNotes.includes(note)) {
+              setDriverFilter("all");
+              setMarketFilter("all");
+            }
+            if (note && evidence.filter.mode === "hide" && !noteMatchesEvidence(note, evidence.filter)) {
+              evidence.clear();
+            }
+            setIsSearchOpen(false);
+            setView("canvas");
+            setSelectedId(noteId);
+            setActivePanel("detail");
+            setTimeout(() => {
+              document.getElementById(`note-${noteId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+            }, 80);
+          }}
+        />
+        </PeopleContext.Provider>
+      </MembersContext.Provider>
+      )}
 
       {/* Share Modal */}
+      {isConnectAiOpen && <ConnectAiDialog onClose={() => setIsConnectAiOpen(false)} />}
+
       {isShareModalOpen && (
         <ShareModal
           canvasId={canvasId}

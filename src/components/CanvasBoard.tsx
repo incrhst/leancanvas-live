@@ -1,5 +1,7 @@
 import React from "react";
 import { CanvasBlock } from "./CanvasBlock";
+import { MobileCanvasBoard } from "./MobileCanvasBoard";
+import type { EvidenceFilter } from "../utils/evidenceFilter";
 import type { BlockDef, BlockId, NoteItem } from "../types/canvas";
 
 interface CanvasBoardProps {
@@ -10,10 +12,12 @@ interface CanvasBoardProps {
   /** noteId -> 1-based rank from the latest stress test's riskiest assumptions */
   riskRanks?: Record<string, number>;
   canEdit?: boolean;
+  evidenceFilter?: EvidenceFilter;
   onSelect: (id: string) => void;
   onAdd?: (blockId: BlockId, text: string) => void;
-  onCycleEvidence?: (noteId: string) => void;
   onDelete?: (noteId: string) => void;
+  /** Desktop grid only: renders the open note in its place (phones keep the side panel) */
+  renderOpenNote?: (note: NoteItem) => React.ReactNode;
 }
 
 export function CanvasBoard({
@@ -22,13 +26,29 @@ export function CanvasBoard({
   selectedId,
   riskRanks,
   canEdit = true,
+  evidenceFilter,
   onSelect,
   onAdd,
-  onCycleEvidence,
   onDelete,
+  renderOpenNote,
 }: CanvasBoardProps) {
   return (
-    <div className="relative w-full h-full min-h-[720px]">
+    <>
+    {/* Phones get one block at a time with a minimap dock; md and up get the full grid. */}
+    <div className="md:hidden">
+      <MobileCanvasBoard
+        blocks={blocks}
+        notes={notes}
+        selectedId={selectedId}
+        riskRanks={riskRanks}
+        canEdit={canEdit}
+        evidenceFilter={evidenceFilter}
+        onSelect={onSelect}
+        onAdd={onAdd}
+        onDelete={onDelete}
+      />
+    </div>
+    <div className="relative hidden w-full h-full min-h-[720px] md:block">
       <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-line bg-line md:grid-cols-2 lg:h-full lg:grid-cols-10 lg:grid-rows-[minmax(240px,1fr)_minmax(240px,1fr)_minmax(180px,0.8fr)]">
         {blocks.map((block) => (
           <CanvasBlock
@@ -38,13 +58,15 @@ export function CanvasBoard({
             selectedId={selectedId}
             riskRanks={riskRanks}
             canEdit={canEdit}
+            evidenceFilter={evidenceFilter}
             onSelect={onSelect}
             onAdd={onAdd ? (text) => onAdd(block.id, text) : undefined}
-            onCycleEvidence={onCycleEvidence}
             onDelete={onDelete}
+            renderOpenNote={renderOpenNote}
           />
         ))}
       </div>
     </div>
+    </>
   );
 }

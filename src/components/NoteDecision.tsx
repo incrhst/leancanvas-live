@@ -1,0 +1,668 @@
+import React, { useContext, useEffect, useState } from "react";
+import Link from "next/link";
+import { useMutation, useQuery } from "convex/react";
+import { Clock3Icon, GavelIcon, LinkIcon, PlusIcon, XIcon } from "lucide-react";
+import { api } from "../../convex/_generated/api";
+import { Id } from "../../convex/_generated/dataModel";
+import { DecisionStatus, NoteItem } from "../types/canvas";
+import { MembersContext, PeopleContext } from "../utils/members";
+import { formatCalendarDate, formatPlanDate, todayLocal } from "../utils/testFields";
+import { LaunchDateContext } from "../utils/launchDate";
+import { useAuth } from "./ConvexClientProvider";
+import { defaultOutcomeLine, isPastDue } from "../../convex/lib/decisionText";
+import { convexErrorMessage } from "../utils/convexError";
+
+export type DecisionAnswer = "approve" | "reject" | "change" | "choose";
+
+const STATUS_LABEL: Record<DecisionStatus, string> = {
+  open: "Decision needed",
+  approved: "Approved",
+  rejected: "Rejected",
+  changes_requested: "Changes requested",
+  decided: "Decided",
+};
+
+const MAX_OPTIONS = 4;
+
+/** Whether `choice` only puts the decision off (it leaves the note's evidence state alone). */
+export function isDeferral(decision: { deferOptions?: string[] }, choice?: string) {
+  return !!choice && !!decision.deferOptions?.includes(choice);
+}
+
+/** "Approved", or the option chosen: "Decided: Build in-house", "Put off: Decide after day 3". */
+export function outcomeLabel(decision: { status: DecisionStatus; choice?: string; deferOptions?: string[] }) {
+  if (decision.status !== "decided" || !decision.choice) return STATUS_LABEL[decision.status];
+  return `${isDeferral(decision, decision.choice) ? "Put off" : "Decided"}: ${decision.choice}`;
+}
+
+/** "Sign the agency / Decide after day 3 (puts it off)" */
+function optionsLine(decision: { options?: string[]; deferOptions?: string[] }) {
+  return decision.options?.map((o) => (isDeferral(decision, o) ? `${o} (puts it off)` : o)).join(" / ");
+}
+
+/**
+ * What happens if nobody decides: "If nothing is decided by 1 November, we sign the agency."
+ * Past the due date on an open request, it says plainly that the default now applies. It only
+ * says so; nothing on the note changes until someone answers.
+ */
+export function DecisionDefault({
+  decision,
+  size = "sm",
+}: {
+  decision: { defaultOutcome?: string; dueDate: string; status: DecisionStatus };
+  size?: "sm" | "lg";
+}) {
+  const today = todayLocal();
+  const line = defaultOutcomeLine(decision, today);
+  if (!line) return null;
+  const applies = decision.status === "open" && isPastDue(decision.dueDate, today);
+  const text = size === "lg" ? "rounded-xl px-4 py-3 text-[15px] leading-snug" : "rounded-lg px-3 py-2 text-xs";
+  return (
+    <p
+      className={`flex items-start gap-2 border ${text} ${
+        applies ? "border-amber-400 bg-amber-100 text-amber-950" : "border-amber-200 bg-amber-50 text-amber-950"
+      }`}
+    >
+      <Clock3Icon
+        className={`${size === "lg" ? "mt-0.5 h-[18px] w-[18px]" : "mt-0.5 h-3.5 w-3.5"} shrink-0 text-amber-800`}
+        aria-hidden="true"
+      />
+      <span>
+        {line}
+      </span>
+    </p>
+  );
+}
+
+const errorMessage = convexErrorMessage;
+
+/** One line on a note card while a decision is open or was sent back. Answered decisions show as the Decision state. */
+export function DecisionSummary({ note }: { note: NoteItem }) {
+  const members = useContext(MembersContext);
+  const launchDate = useContext(LaunchDateContext);
+  const decision = note.decision;
+  if (!decision || (decision.status !== "open" && decision.status !== "changes_requested")) return null;
+
+  const decider = members.get(decision.deciderId ?? "")?.name ?? decision.deciderName;
+  const overdue = decision.status === "open" && isPastDue(decision.dueDate, todayLocal());
+  const fallback = defaultOutcomeLine(decision, todayLocal());
+  return (
+    <p
+      className={`mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[11px] ${overdue ? "font-semibold text-rose-700" : "text-muted"}`}
+      title={`${STATUS_LABEL[decision.status]}: ${decision.question}${fallback ? `\n${fallback}` : ""}`}
+    >
+      <GavelIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+      {decision.status === "open" ? (
+        <>
+          <span className="font-semibold text-ink">{decider ? `Waiting on ${decider.split(" ")[0]}` : "Decision needed"}</span>
+          <span aria-hidden="true">·</span>
+          <span>
+            {overdue
+              ? decision.defaultOutcome
+                ? "overdue, default applies"
+                : "overdue"
+              : `due ${formatPlanDate(launchDate, decision.dueDate).replace(/^Day/, "day")}`}
+          </span>
+        </>
+      ) : (
+        <span className="font-semibold text-ink">Changes requested</span>
+      )}
+    </p>
+  );
+}
+
+/**
+ * The decision answer buttons, shared by the note panel and the /decisions page: approve / reject,
+ * or one button per option when the request has options.
+ */
+export function DecisionAnswerForm({
+  noteId,
+  options,
+  deferOptions,
+  onAnswered,
+}: {
+  noteId: string;
+  options?: string[];
+  deferOptions?: string[];
+  onAnswered?: (answer: DecisionAnswer, choice?: string) => void;
+}) {
+  const answerDecision = useMutation(api.decisions.answerDecision);
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const answer = async (kind: DecisionAnswer, choice?: string) => {
+    if (kind === "change" && !comment.trim()) {
+      setError("Say what should change, then press Ask for a change.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await answerDecision({ noteId: noteId as Id<"notes">, answer: kind, choice, comment: comment.trim() || undefined });
+      onAnswered?.(kind, choice);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const button = "flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold disabled:opacity-50 transition-colors";
+  return (
+    <div className="space-y-2">
+      <textarea
+        rows={2}
+        value={comment}
+        maxLength={500}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder="Comment (needed if you ask for a change)"
+        className="w-full resize-none rounded-lg border border-line bg-surface p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+      />
+      {options ? (
+        <div className="grid gap-2">
+          {options.map((option) =>
+            isDeferral({ deferOptions }, option) ? (
+              <button
+                key={option}
+                type="button"
+                disabled={busy}
+                onClick={() => answer("choose", option)}
+                className={`${button} border border-line bg-surface text-ink hover:bg-surface-2`}
+              >
+                {option}
+                <span className="block text-[11px] font-normal text-muted">Puts it off; the note stays open</span>
+              </button>
+            ) : (
+              <button
+                key={option}
+                type="button"
+                disabled={busy}
+                onClick={() => answer("choose", option)}
+                className={`${button} bg-ink text-surface hover:opacity-90`}
+              >
+                {option}
+              </button>
+            )
+          )}
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <button type="button" disabled={busy} onClick={() => answer("approve")} className={`${button} bg-emerald-600 text-white hover:bg-emerald-700`}>
+            Approve
+          </button>
+          <button type="button" disabled={busy} onClick={() => answer("reject")} className={`${button} bg-rose-600 text-white hover:bg-rose-700`}>
+            Reject
+          </button>
+        </div>
+      )}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => answer("change")}
+        className={`${button} w-full border border-line bg-surface text-ink hover:bg-surface-2`}
+      >
+        Ask for a change
+      </button>
+      {error && <p className="text-xs text-rose-700">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * The decision section of the note panel: ask for a decision (editors), answer it (the decider,
+ * whatever their role), withdraw it (editors), or read the outcome.
+ */
+export function NoteDecisionSection({ note, canEdit }: { note: NoteItem; canEdit: boolean }) {
+  const members = useContext(MembersContext);
+  const people = useContext(PeopleContext);
+  const { user } = useAuth();
+  const requestDecision = useMutation(api.decisions.requestDecision);
+  const withdrawDecision = useMutation(api.decisions.withdrawDecision);
+  const replaceDecisionLink = useMutation(api.decisions.replaceDecisionLink);
+  const [asking, setAsking] = useState(false);
+  const [question, setQuestion] = useState("");
+  // "user:<id>", "person:<id>", or "new" for someone without an account, named below
+  const [decider, setDecider] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [defaultOutcome, setDefaultOutcome] = useState("");
+  // null = approve / reject; otherwise the decider picks one of these. `defer` = it only puts the decision off.
+  const [options, setOptions] = useState<{ label: string; defer: boolean }[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [linkNotice, setLinkNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAsking(false);
+    setError(null);
+    setLinkNotice(null);
+  }, [note._id]);
+
+  const decision = note.decision;
+  if (!decision && !canEdit) return null;
+  // The public link has no member list: show the request read-only, without who asked
+  if (members.size === 0) return decision ? <PublicDecision decision={decision} /> : null;
+  const nameOf = (id: string) => members.get(id)?.name ?? "Former member";
+  const isDecider = !!user && !!decision?.deciderId && decision.deciderId === user.id;
+  // Members by their current name; people without an account by the name the server sends
+  const deciderName = decision
+    ? (members.get(decision.deciderId ?? "")?.name ?? decision.deciderName ?? "Former member")
+    : "";
+  const withoutAccount = !!decision?.deciderPersonId;
+
+  const startAsking = () => {
+    setQuestion(note.content);
+    setDecider("");
+    setNewName("");
+    setNewEmail("");
+    setDueDate("");
+    setDefaultOutcome("");
+    setOptions(null);
+    setError(null);
+    setAsking(true);
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await requestDecision({
+        noteId: note._id as Id<"notes">,
+        question,
+        ...(decider === "new"
+          ? { decider: { name: newName, email: newEmail } }
+          : decider.startsWith("person:")
+            ? { deciderPersonId: decider.slice("person:".length) as Id<"people"> }
+            : { deciderId: decider.slice("user:".length) as Id<"users"> }),
+        dueDate,
+        defaultOutcome: defaultOutcome.trim() || undefined,
+        options: options ? options.map((o) => o.label.trim()).filter(Boolean) : undefined,
+        deferOptions: options?.filter((o) => o.defer && o.label.trim()).map((o) => o.label.trim()),
+      });
+      setAsking(false);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const changeLink = async (off: boolean) => {
+    setLinkNotice(null);
+    try {
+      await replaceDecisionLink({ noteId: note._id as Id<"notes">, off });
+      setLinkNotice(
+        off
+          ? withoutAccount
+            ? "Link turned off. They have no account, so they can't answer until you send a new link."
+            : "Link turned off. They can still answer in the app."
+          : "New link emailed. The old one no longer works."
+      );
+    } catch (err) {
+      setLinkNotice(errorMessage(err));
+    }
+  };
+
+  const heading = (
+    <span className="flex items-center gap-1.5 text-xs font-semibold text-muted">
+      <GavelIcon className="h-3.5 w-3.5" aria-hidden="true" />
+      Decision
+    </span>
+  );
+
+  if (decision?.status === "open") {
+    return (
+      <div className="space-y-2">
+        {heading}
+        <div className="space-y-1 rounded-lg border border-line bg-surface-2 p-3 text-xs">
+          <p className="text-sm font-semibold text-ink">{decision.question}</p>
+          <p className="text-muted">
+            {nameOf(decision.requestedBy)} asked {isDecider ? "you" : deciderName} · due{" "}
+            {formatCalendarDate(decision.dueDate)}
+          </p>
+          {decision.options && <p className="text-muted">Options: {optionsLine(decision)}</p>}
+        </div>
+        <DecisionDefault decision={decision} />
+        {isDecider && <DecisionAnswerForm noteId={note._id} options={decision.options} deferOptions={decision.deferOptions} />}
+        {canEdit && (
+          <div className="space-y-1">
+            {!isDecider && (
+              <p className="flex items-center gap-1.5 text-[11px] text-muted">
+                <LinkIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+                {withoutAccount
+                  ? decision.linkTokenHash
+                    ? "No account: they answer from the emailed link."
+                    : "No account and no link: send a link so they can answer."
+                  : decision.linkTokenHash
+                    ? "Their emailed link answers without signing in."
+                    : "No answer link. They answer in the app."}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              {!isDecider && (
+                <button type="button" onClick={() => void changeLink(false)} className="text-[11px] text-muted underline hover:text-ink">
+                  {decision.linkTokenHash ? "Send a new link" : "Send a link"}
+                </button>
+              )}
+              {!isDecider && decision.linkTokenHash && (
+                <button type="button" onClick={() => void changeLink(true)} className="text-[11px] text-muted underline hover:text-ink">
+                  Turn off link
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void withdrawDecision({ noteId: note._id as Id<"notes"> })}
+                className="text-[11px] text-muted underline hover:text-rose-600"
+              >
+                Withdraw request
+              </button>
+            </div>
+            {linkNotice && <p className="text-[11px] text-ink">{linkNotice}</p>}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {heading}
+      {decision && (
+        <div className="space-y-1 rounded-lg border border-line bg-surface-2 p-3 text-xs">
+          <p className="font-semibold text-ink">
+            {outcomeLabel(decision)} by {deciderName}
+          </p>
+          <p className="text-muted">{decision.question}</p>
+          {decision.comment && <p className="italic text-ink">“{decision.comment}”</p>}
+          {decision.answeredVia === "link" && (
+            <p className="text-muted">
+              Answered from the emailed link
+              {decision.answeredByName && decision.answeredByName !== deciderName
+                ? `, signed “${decision.answeredByName}”`
+                : ""}
+            </p>
+          )}
+        </div>
+      )}
+
+      {canEdit &&
+        (asking ? (
+          <form onSubmit={submit} className="space-y-2 rounded-lg border border-line p-3">
+            <label className="block space-y-1">
+              <span className="text-[11px] font-medium text-muted">Question</span>
+              <textarea
+                rows={2}
+                required
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                className="w-full resize-none rounded-lg border border-line bg-surface p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block space-y-1">
+                <span className="text-[11px] font-medium text-muted">Who decides</span>
+                <select
+                  required
+                  value={decider}
+                  onChange={(e) => setDecider(e.target.value)}
+                  className="w-full rounded-lg border border-line bg-surface p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  <option value="" disabled>
+                    Choose…
+                  </option>
+                  <optgroup label="On this canvas">
+                    {[...members.values()]
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((m) => (
+                        <option key={m.id} value={`user:${m.id}`}>
+                          {m.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                  {people.some((p) => !p.stopped) && (
+                    <optgroup label="No account">
+                      {people
+                        .filter((p) => !p.stopped)
+                        .map((p) => (
+                          <option key={p.id} value={`person:${p.id}`}>
+                            {p.name}
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
+                  <option value="new">Someone new…</option>
+                </select>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[11px] font-medium text-muted">Needed by</span>
+                <input
+                  type="date"
+                  required
+                  value={dueDate}
+                  min={todayLocal()}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="w-full rounded-lg border border-line bg-surface p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+              </label>
+            </div>
+            {decider === "new" && (
+              <div className="space-y-2 rounded-lg bg-surface-2 p-2.5">
+                <div className="space-y-2">
+                  <label className="block space-y-1">
+                    <span className="text-[11px] font-medium text-muted">Their name</span>
+                    <input
+                      type="text"
+                      required
+                      autoFocus
+                      value={newName}
+                      maxLength={80}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="e.g. Daren Brown"
+                      className="w-full rounded-lg border border-line bg-surface p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-[11px] font-medium text-muted">Their email</span>
+                    <input
+                      type="email"
+                      required
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="daren@example.com"
+                      className="w-full rounded-lg border border-line bg-surface p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+                  </label>
+                </div>
+                <p className="text-[11px] text-muted">
+                  They don't need an account and never see the canvas: just this question, from a link in their email.
+                </p>
+              </div>
+            )}
+            <label className="block space-y-1">
+              <span className="text-[11px] font-medium text-muted">If nobody decides by then (optional)</span>
+              <input
+                type="text"
+                value={defaultOutcome}
+                maxLength={200}
+                onChange={(e) => setDefaultOutcome(e.target.value)}
+                placeholder="e.g. We sign the agency"
+                className="w-full rounded-lg border border-line bg-surface p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </label>
+            <fieldset className="space-y-1.5">
+              <legend className="text-[11px] font-medium text-muted">Answers</legend>
+              <div className="flex gap-1 rounded-lg border border-line p-0.5 text-xs">
+                {[
+                  { label: "Approve or reject", value: false },
+                  { label: "Pick an option", value: true },
+                ].map(({ label, value }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    aria-pressed={(options !== null) === value}
+                    onClick={() => setOptions(value ? options ?? [{ label: "", defer: false }, { label: "", defer: false }] : null)}
+                    className={`flex-1 rounded-md px-2 py-1 font-medium ${
+                      (options !== null) === value ? "bg-ink text-surface" : "text-muted hover:text-ink"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {options && (
+                <div className="space-y-1.5">
+                  {options.map((option, i) => (
+                    <div key={i} className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        required={i < 2}
+                        value={option.label}
+                        maxLength={60}
+                        onChange={(e) => setOptions(options.map((o, j) => (j === i ? { ...o, label: e.target.value } : o)))}
+                        placeholder={["e.g. Sign the agency", "e.g. Build in-house", "e.g. Ask me Friday", "Another option"][i]}
+                        aria-label={`Option ${i + 1}`}
+                        className="w-full rounded-lg border border-line bg-surface p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+                      />
+                      <label
+                        title="Choosing this only puts the decision off: the note isn't marked as decided"
+                        className="flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs text-muted hover:bg-surface-2 hover:text-ink"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={option.defer}
+                          onChange={(e) => setOptions(options.map((o, j) => (j === i ? { ...o, defer: e.target.checked } : o)))}
+                          className="h-4 w-4 accent-ink"
+                        />
+                        Puts it off
+                      </label>
+                      {i >= 2 && (
+                        <button
+                          type="button"
+                          onClick={() => setOptions(options.filter((_, j) => j !== i))}
+                          aria-label={`Remove option ${i + 1}`}
+                          className="grid w-8 shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-ink"
+                        >
+                          <XIcon className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {/* Keeps the "Puts it off" column lined up with the rows that have a remove button */}
+                      {i < 2 && options.length > 2 && <span className="w-8 shrink-0" aria-hidden="true" />}
+                    </div>
+                  ))}
+                  {options.length < MAX_OPTIONS && (
+                    <button
+                      type="button"
+                      onClick={() => setOptions([...options, { label: "", defer: false }])}
+                      className="flex items-center gap-1 text-[11px] font-medium text-muted hover:text-ink"
+                    >
+                      <PlusIcon className="h-3 w-3" aria-hidden="true" />
+                      Add an option
+                    </button>
+                  )}
+                </div>
+              )}
+            </fieldset>
+            <p className="text-[11px] text-muted">
+              They'll get an email with a link that answers from their phone, no sign-in needed, even with view-only access.
+            </p>
+            {error && <p className="text-xs text-rose-700">{error}</p>}
+            <div className="flex gap-2">
+              <button type="submit" className="rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-surface">
+                Send request
+              </button>
+              <button type="button" onClick={() => setAsking(false)} className="rounded-md px-3 py-1.5 text-xs text-muted hover:text-ink">
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button
+            type="button"
+            onClick={startAsking}
+            className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-2"
+          >
+            {decision ? "Ask again" : "Ask for a decision"}
+          </button>
+        ))}
+    </div>
+  );
+}
+
+/** A decision on the public link: what's asked, by when, the default, and the outcome once made. */
+function PublicDecision({ decision }: { decision: NonNullable<NoteItem["decision"]> }) {
+  return (
+    <div className="space-y-2">
+      <span className="flex items-center gap-1.5 text-xs font-semibold text-muted">
+        <GavelIcon className="h-3.5 w-3.5" aria-hidden="true" />
+        Decision
+      </span>
+      <div className="space-y-1 rounded-lg border border-line bg-surface-2 p-3 text-xs">
+        <p className="font-semibold text-ink">
+          {decision.status === "open"
+            ? `${decision.deciderName ? `Waiting on ${decision.deciderName}` : "Decision needed"} · due ${formatCalendarDate(decision.dueDate)}`
+            : outcomeLabel(decision)}
+        </p>
+        <p className="text-muted">{decision.question}</p>
+        {decision.status === "open" && decision.options && <p className="text-muted">Options: {optionsLine(decision)}</p>}
+      </div>
+      <DecisionDefault decision={decision} />
+    </div>
+  );
+}
+
+/** "2 decisions for you", linking to /decisions. Hidden when there are none. */
+export function DecisionsWaitingChip() {
+  const open = useQuery(api.decisions.myOpenDecisions);
+  if (!open || open.length === 0) return null;
+  return (
+    <Link
+      href="/decisions"
+      title={`${open.length} ${open.length === 1 ? "decision" : "decisions"} waiting for you`}
+      className="inline-flex items-center gap-1 whitespace-nowrap rounded border border-ink bg-ink px-2 py-0.5 text-[11px] font-semibold text-surface hover:opacity-90"
+    >
+      <GavelIcon size={12} aria-hidden="true" />
+      {open.length}
+      <span className="hidden sm:inline">{open.length === 1 ? "decision" : "decisions"} for you</span>
+    </Link>
+  );
+}
+
+export interface WaitingDecision {
+  noteId: string;
+  canvasId: string;
+  canvasTitle: string;
+  noteText: string;
+  question: string;
+  dueDate: string;
+  defaultOutcome?: string;
+  options?: string[];
+  deferOptions?: string[];
+  requestedBy: string;
+}
+
+/** One decision on the /decisions page: what's asked, by whom, by when, and the answer buttons. */
+export function DecisionCard({
+  decision: d,
+  onAnswered,
+}: {
+  decision: WaitingDecision;
+  onAnswered?: (answer: DecisionAnswer, choice?: string) => void;
+}) {
+  const overdue = isPastDue(d.dueDate, todayLocal());
+  return (
+    <article className="space-y-3 rounded-xl border border-line bg-surface p-4 shadow-sm">
+      <div className="space-y-1">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+          <Link href={`/canvas/${d.canvasId}`} className="hover:underline">
+            {d.canvasTitle}
+          </Link>
+        </p>
+        <h2 className="text-base font-semibold leading-snug text-ink">{d.question}</h2>
+        <p className={`text-xs ${overdue ? "font-semibold text-rose-700" : "text-muted"}`}>
+          Asked by {d.requestedBy} · {overdue ? "overdue, was " : ""}due {formatCalendarDate(d.dueDate)}
+        </p>
+      </div>
+      {d.noteText !== d.question && <p className="rounded-lg bg-surface-2 p-2.5 text-sm text-ink">{d.noteText}</p>}
+      <DecisionDefault decision={{ ...d, status: "open" }} />
+      <DecisionAnswerForm noteId={d.noteId} options={d.options} deferOptions={d.deferOptions} onAnswered={onAnswered} />
+    </article>
+  );
+}

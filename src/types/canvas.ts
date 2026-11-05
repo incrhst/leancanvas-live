@@ -79,6 +79,49 @@ export interface BlockDef {
   emphasis?: boolean;
 }
 
+export type Verdict = "pass" | "fail" | "inconclusive";
+
+export interface LatestResult {
+  text: string;
+  /** YYYY-MM-DD */
+  date: string;
+  verdict?: Verdict;
+  /** Sent from a result link by someone without an account */
+  via?: "link";
+  byName?: string;
+}
+
+export type DecisionStatus = "open" | "approved" | "rejected" | "changes_requested" | "decided";
+
+export interface DecisionRequest {
+  question: string;
+  /** A canvas member, or (deciderPersonId) someone without an account; exactly one is set */
+  deciderId?: string;
+  deciderPersonId?: string;
+  /** YYYY-MM-DD */
+  dueDate: string;
+  /** What happens if nobody decides by dueDate */
+  defaultOutcome?: string;
+  /** Choices instead of approve / reject */
+  options?: string[];
+  /** The options that put the decision off; choosing one leaves the note's evidence state alone */
+  deferOptions?: string[];
+  requestedBy: string;
+  requestedAt: number;
+  status: DecisionStatus;
+  /** The option picked, when status is "decided" */
+  choice?: string;
+  comment?: string;
+  answeredAt?: number;
+  /** Answered from the emailed link, without signing in */
+  answeredVia?: "link";
+  answeredByName?: string;
+  /** Set while the emailed answer link works */
+  linkTokenHash?: string;
+  /** The decider's name, from the server (members and people without accounts alike) */
+  deciderName?: string;
+}
+
 export interface NoteItem {
   _id: string;
   canvasId?: string;
@@ -86,6 +129,17 @@ export interface NoteItem {
   content: string;
   order: number;
   evidenceState: EvidenceState;
+  measure?: string;
+  passMark?: string;
+  /** YYYY-MM-DD */
+  reviewDate?: string;
+  latestResult?: LatestResult;
+  ownerId?: string;
+  /** Markets where the note holds; none means every market */
+  markets?: string[];
+  decision?: DecisionRequest;
+  /** How runnable it is; unset means guess. Codified only via a live runbook */
+  stage?: "guess" | "tested" | "repeatable" | "codified";
   createdBy?: string;
   updatedAt: number;
 }

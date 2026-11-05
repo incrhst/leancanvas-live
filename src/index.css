@@ -61,3 +61,184 @@ body {
   background-image: radial-gradient(rgba(76, 78, 86, 0.15) 1.5px, transparent 1.5px);
   background-size: 16px 16px;
 }
+
+/* Fog: guesses look hazy and clear as they're proven. Felt, never explained. */
+.fog-drift {
+  background:
+    radial-gradient(40% 35% at 20% 30%, rgb(255 255 255 / 0.35), transparent 70%),
+    radial-gradient(35% 30% at 75% 20%, rgb(255 255 255 / 0.28), transparent 70%),
+    radial-gradient(45% 40% at 60% 85%, rgb(255 255 255 / 0.3), transparent 70%);
+  filter: blur(24px);
+  animation: fog-drift 38s ease-in-out infinite alternate;
+  transition: opacity 0.4s linear;
+}
+
+@keyframes fog-drift {
+  from {
+    transform: translate3d(-4%, 0, 0) scale(1.05);
+  }
+  to {
+    transform: translate3d(4%, -3%, 0) scale(1.12);
+  }
+}
+
+/* A veil over a block: --fog from 0 (clear) to 1 (thick). Lifts on hover or focus. */
+.fog-veil {
+  position: relative;
+}
+.fog-veil > .fog-veil-layer {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(255 255 255 / calc(var(--fog, 0) * 0.45));
+  backdrop-filter: blur(calc(var(--fog, 0) * 1.1px));
+  -webkit-backdrop-filter: blur(calc(var(--fog, 0) * 1.1px));
+  transition:
+    opacity 0.5s ease,
+    background 0.6s ease,
+    backdrop-filter 0.6s ease;
+}
+.fog-veil:hover > .fog-veil-layer,
+.fog-veil:focus-within > .fog-veil-layer {
+  opacity: 0;
+}
+
+/* Text in haze: softly blurred and faded by --fog; sharp on hover or focus. */
+.fog-text {
+  filter: blur(calc(var(--fog, 0) * 0.7px));
+  opacity: calc(1 - var(--fog, 0) * 0.35);
+  transition:
+    filter 0.6s ease,
+    opacity 0.6s ease;
+}
+.fog-text:hover,
+.fog-text:focus-within,
+*:hover > .fog-text,
+*:focus-visible > .fog-text {
+  filter: none;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fog-drift {
+    animation: none;
+  }
+  .fog-veil > .fog-veil-layer,
+  .fog-text {
+    transition: none;
+  }
+}
+
+/* Sky accents (SkyAccent.tsx): bits of the hero's sky passing through the page. */
+.sky-accent-cloud {
+  animation: sky-accent-cloud 24s ease-in-out infinite alternate;
+}
+.sky-accent-flock {
+  animation: sky-accent-flock 21s linear infinite;
+  animation-delay: -6s;
+}
+.sky-accent-wing {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sky-accent-flap 0.6s ease-in-out infinite;
+}
+.sky-accent-paper {
+  animation: sky-accent-paper 17s ease-in-out infinite;
+  animation-delay: -3s;
+}
+.sky-accent-balloon {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: sky-accent-bob 6s ease-in-out infinite;
+}
+
+@keyframes sky-accent-cloud {
+  from { transform: translateX(-28px); }
+  to { transform: translateX(28px); }
+}
+/* Cross the margin, then leave it empty for a while. */
+@keyframes sky-accent-flock {
+  0% { transform: translate(-220px, 40px); opacity: 0; }
+  5% { opacity: 1; }
+  40% { transform: translate(220px, -40px); opacity: 1; }
+  45%, 100% { transform: translate(260px, -48px); opacity: 0; }
+}
+@keyframes sky-accent-flap {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(-0.5); }
+}
+@keyframes sky-accent-paper {
+  0% { transform: translate(-160px, 30px) rotate(8deg); opacity: 0; }
+  6% { opacity: 1; }
+  20% { transform: translate(-40px, -18px) rotate(-12deg); }
+  35% { transform: translate(60px, 14px) rotate(10deg); }
+  50% { transform: translate(170px, -10px) rotate(-4deg); opacity: 1; }
+  55%, 100% { transform: translate(200px, -14px) rotate(-4deg); opacity: 0; }
+}
+@keyframes sky-accent-bob {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-8px) rotate(4deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sky-accent-cloud,
+  .sky-accent-wing,
+  .sky-accent-balloon {
+    animation: none;
+  }
+  .sky-accent-flock,
+  .sky-accent-paper {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* The 404's sky (NotFoundSky.tsx): fog thins over an empty frame; the page has flown. */
+.lost-fog {
+  animation: lost-fog 12s ease-in-out infinite;
+}
+/* Hovering clears what's left of the fog. Still nothing there. */
+.lost-fog-veil {
+  transition: opacity 0.8s ease;
+}
+.lost-sky:hover .lost-fog-veil {
+  opacity: 0.15;
+}
+.lost-trail {
+  animation: lost-trail 1.6s linear infinite;
+}
+.lost-plane {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lost-plane 5s ease-in-out infinite;
+}
+
+@keyframes lost-fog {
+  0%, 100% { opacity: 0.95; transform: translateX(-10px); }
+  30% { opacity: 0.9; }
+  55%, 75% { opacity: 0.12; transform: translateX(28px); }
+}
+/* The dashes march along the trail towards the plane. */
+@keyframes lost-trail {
+  to { stroke-dashoffset: -9; }
+}
+@keyframes lost-plane {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(6px, -7px) rotate(-6deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lost-fog,
+  .lost-trail,
+  .lost-plane {
+    animation: none;
+  }
+  /* Thin enough, standing still, to see the frame is empty. */
+  .lost-fog {
+    opacity: 0.45;
+  }
+  .lost-fog-veil {
+    transition: none;
+  }
+}

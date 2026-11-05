@@ -2,7 +2,11 @@ import React from "react";
 import { AnimatePresence } from "framer-motion";
 import { StickyNote } from "./StickyNote";
 import { AddNoteInput } from "./AddNoteInput";
+import { noteMatchesEvidence } from "../utils/evidenceFilter";
+import type { EvidenceFilter } from "../utils/evidenceFilter";
 import type { BlockDef, NoteItem } from "../types/canvas";
+import { StageChip } from "./StageControls";
+import { blockStage } from "../../convex/lib/runbookModel";
 
 interface CanvasBlockProps {
   block: BlockDef;
@@ -10,10 +14,12 @@ interface CanvasBlockProps {
   selectedId: string | null;
   riskRanks?: Record<string, number>;
   canEdit?: boolean;
+  evidenceFilter?: EvidenceFilter;
   onSelect: (id: string) => void;
   onAdd?: (text: string) => void;
-  onCycleEvidence?: (noteId: string) => void;
   onDelete?: (noteId: string) => void;
+  /** Renders the open note in its place on the board; without it the open note is a highlighted card */
+  renderOpenNote?: (note: NoteItem) => React.ReactNode;
 }
 
 export function CanvasBlock({
@@ -22,11 +28,19 @@ export function CanvasBlock({
   selectedId,
   riskRanks,
   canEdit = true,
+  evidenceFilter,
   onSelect,
   onAdd,
-  onCycleEvidence,
   onDelete,
+  renderOpenNote,
 }: CanvasBlockProps) {
+  const filtering = !!evidenceFilter && evidenceFilter.active.length > 0;
+  // A box is only as runnable as its least runnable note
+  const stage = blockStage(notes);
+  const matching = notes.filter((n) => noteMatchesEvidence(n, evidenceFilter));
+  const listed = filtering && evidenceFilter.mode === "hide" ? matching : notes;
+  const holdsSelected = !renderOpenNote && !!selectedId && notes.some((n) => n._id === selectedId);
+  const quiet = !!renderOpenNote && !!selectedId;
   const listClass =
     block.layout === "wide"
       ? "grid content-start gap-2 sm:grid-cols-2 xl:grid-cols-3"
@@ -35,7 +49,9 @@ export function CanvasBlock({
   return (
     <section
       aria-labelledby={`block-${block.id}`}
-      className={`flex min-h-[220px] flex-col border border-line lg:min-h-0 ${
+      className={`relative flex min-h-[220px] flex-col border lg:min-h-0 ${
+        holdsSelected ? "z-[1] border-accent/60 ring-1 ring-accent/60" : "border-line"
+      } ${
         block.emphasis ? "bg-surface-2" : "bg-surface"
       } ${block.area}`}
     >
@@ -51,8 +67,9 @@ export function CanvasBlock({
               {block.title}
             </h2>
             <span className="text-[11px] font-medium text-muted bg-stone-100 px-1.5 py-0.5 rounded-full">
-              {notes.length}
+              {filtering ? `${matching.length} of ${notes.length}` : notes.length}
             </span>
+            {stage && <StageChip stage={stage} small />}
           </div>
           <p className="truncate text-[11px] text-muted">{block.prompt}</p>
         </div>
@@ -61,20 +78,29 @@ export function CanvasBlock({
       <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
         <div className={listClass}>
           <AnimatePresence initial={false}>
-            {notes.map((note) => (
+            {listed.map((note) =>
+              renderOpenNote && note._id === selectedId ? (
+                // Same key as the card, so opening swaps it in place without an exit animation
+                <React.Fragment key={note._id}>{renderOpenNote(note)}</React.Fragment>
+              ) : (
               <StickyNote
                 key={note._id}
                 note={note}
                 selected={selectedId === note._id}
                 riskRank={riskRanks?.[note._id]}
                 canEdit={canEdit}
+                dimmed={filtering && !noteMatchesEvidence(note, evidenceFilter)}
+                quiet={quiet}
                 onSelect={() => onSelect(note._id)}
-                onCycleEvidence={() => onCycleEvidence && onCycleEvidence(note._id)}
                 onDelete={() => onDelete && onDelete(note._id)}
               />
-            ))}
+              )
+            )}
           </AnimatePresence>
         </div>
+        {filtering && matching.length === 0 && evidenceFilter.mode === "hide" && notes.length > 0 && (
+          <p className="px-2 py-4 text-center text-xs text-muted">No notes in the selected states</p>
+        )}
       </div>
 
       {canEdit && onAdd && (

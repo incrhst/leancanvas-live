@@ -1,162 +1,946 @@
 "use client";
 
-import React from "react";
+import React, { useRef, useState } from "react";
 import Link from "next/link";
-import { SparklesIcon, ShieldCheckIcon, UsersIcon, ArrowRightIcon } from "lucide-react";
+import { LegalLinks } from "@/components/LegalPage";
+import { LookUpSkyline } from "../components/LookUpSkyline";
+import { SkyAccent } from "../components/SkyAccent";
+import { HeroHeadline } from "../components/HeroHeadline";
+import { UseCases } from "../components/UseCases";
+import { ExplainerVideo } from "../components/ExplainerVideo";
+import {
+  AlertTriangleIcon,
+  ArrowDownIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  BookOpenCheckIcon,
+  BotIcon,
+  CheckCheckIcon,
+  ChevronDownIcon,
+  HistoryIcon,
+  LightbulbIcon,
+  ListChecksIcon,
+  RefreshCwIcon,
+  RepeatIcon,
+  RotateCcwIcon,
+  ShuffleIcon,
+  SirenIcon,
+  SmartphoneIcon,
+  UserMinusIcon,
+  UsersIcon,
+  type LucideIcon,
+} from "lucide-react";
+
+/** How thick the fog is on an element, 0 (clear) to 1 (thick). See .fog-veil and .fog-text. */
+function fog(level: number): React.CSSProperties {
+  return { ["--fog" as string]: level } as React.CSSProperties;
+}
+
+/** A veil over a block that lifts on hover or focus. */
+function FogVeil({ level }: { level: number }) {
+  return <span aria-hidden="true" className="fog-veil-layer" style={fog(level)} />;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Content
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The exposure. Every figure is from a cited source; keep it that way. */
+const EXPOSURE = [
+  {
+    figure: "42%",
+    body: "of what a company knows lives with one person. When they leave, it leaves with them.",
+    source: "Panopto and YouGov, 1,001 US workers",
+    href: "https://panopto.com/?p=2088",
+  },
+  {
+    figure: "~3x",
+    body: "slower recovery when the team improvises instead of following a playbook written in advance.",
+    source: "Google, Site Reliability Engineering",
+    href: "https://sre.google/sre-book/introduction/",
+  },
+  {
+    figure: "11% → 7%",
+    body: "major complications after surgery, once teams switched from memory to a written checklist.",
+    source: "Haynes, Gawande et al., NEJM 2009, 7,688 patients",
+    href: "https://news.harvard.edu/gazette/story/2009/01/surgical-safety-checklist-drops-deaths-and-complications-by-more-than-one-third/",
+  },
+  {
+    figure: "61%",
+    body: "of managers say at least half the time they spend deciding is wasted.",
+    source: "McKinsey survey of 1,200+ managers, 2018",
+    href: "https://www.mckinsey.com/capabilities/people-and-organization/our-insights/three-keys-to-faster-better-decisions",
+  },
+];
+
+/** Where it goes wrong when decisions live in heads and threads, in ordinary weeks. */
+const HIDDEN_RISKS = [
+  {
+    icon: ShuffleIcon,
+    title: "The campaign changed direction, and half the team didn't hear",
+    body: "It was agreed in a call on Tuesday. By Friday, sales is still pitching last month's offer and the partner is asking which one is real.",
+  },
+  {
+    icon: SirenIcon,
+    title: "A policy changed, and customers got the old answer",
+    body: "The refund window moved from 30 days to 14. Support found out from a customer who'd been told 30, in writing.",
+  },
+  {
+    icon: AlertTriangleIcon,
+    title: "A new regulation lands, and nobody's sure who owns it",
+    body: "Everyone has read the notice. Nobody has decided what changes on Monday, or who decides, so it waits until the deadline.",
+  },
+  {
+    icon: UserMinusIcon,
+    title: "The person who knows why hands in their notice",
+    body: "Why that partner comes first, why that fee was waived, what was promised to whom. All of it was in their head and their inbox.",
+  },
+  {
+    icon: RefreshCwIcon,
+    title: "The same argument, every quarter",
+    body: "Nobody wrote down what was decided or why, so each new person reopens it, and the decision gets made again from scratch.",
+  },
+  {
+    icon: HistoryIcon,
+    title: "Three people, three answers",
+    body: "Can they cancel after a week? Is the deposit refundable? Support, sales and the partner each remember the decision differently.",
+  },
+];
+
+/* --- The two-minute check ------------------------------------------------------------------- */
+
+const PARTS = [
+  "Which campaigns you're running this quarter, and why",
+  "What you recommend to customers, and when you stay neutral",
+  "Your policies: refunds, cancellations, deposits",
+  "How you meet the rules that apply to you",
+  "Which partners you work with, and on what terms",
+  "Your prices and fees",
+  "Who can make which calls",
+  "What changed this month",
+];
+
+type Answer = 0 | 1 | 2 | 3;
+
+/** How foggy each answer leaves a decision: only in your head is thick, everyone aligned is clear. */
+const ANSWER_FOG: Record<Answer, number> = { 0: 0.85, 1: 0.55, 2: 0.2, 3: 0 };
+
+const ANSWERS: { value: Answer; label: string; short: string; tile: string; chosen: string }[] = [
+  {
+    value: 0,
+    label: "Only I know how",
+    short: "Only in your head",
+    tile: "bg-rose-50 border-rose-300 text-rose-900",
+    chosen: "border-rose-500 bg-rose-50 text-rose-900 ring-2 ring-rose-200",
+  },
+  {
+    value: 1,
+    label: "A few people know, but it isn't written down",
+    short: "In a few heads",
+    tile: "bg-amber-50 border-amber-300 text-amber-900",
+    chosen: "border-amber-500 bg-amber-50 text-amber-900 ring-2 ring-amber-200",
+  },
+  {
+    value: 2,
+    label: "It's written down somewhere",
+    short: "Written somewhere",
+    tile: "bg-teal-50 border-teal-300 text-teal-900",
+    chosen: "border-teal-500 bg-teal-50 text-teal-900 ring-2 ring-teal-200",
+  },
+  {
+    value: 3,
+    label: "On the record, and everyone works from it",
+    short: "Everyone aligned",
+    tile: "bg-emerald-50 border-emerald-300 text-emerald-900",
+    chosen: "border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-200",
+  },
+];
+
+/** The fog thins stage by stage: an open question is hazy, a decision everyone works from is sharp. */
+const STAGE_FOG = [0.8, 0.5, 0.2, 0];
+
+/* --- Quotes and the four stages ------------------------------------------------------------- */
+
+type Quote = { text: string; who: string; credit?: React.ReactNode };
+
+const TYSON: Quote = { text: "Everybody has a plan until they get punched in the mouth.", who: "Mike Tyson" };
+const BEZOS: Quote = {
+  text: "Good intentions never work, you need good mechanisms to make anything happen.",
+  who: "Jeff Bezos",
+};
+
+/**
+ * The life of a decision, from a question to everyone working from it. The headings, read in order,
+ * make the case on their own. Keep quote wording and attributions exact.
+ */
+const STAGES: {
+  icon: LucideIcon;
+  name: string;
+  heading: string;
+  status: string;
+  statusTint: string;
+  looksLike: string;
+  example: string;
+  weDo: React.ReactNode;
+  quotes: Quote[];
+  /** Show the note on handing routine work to AI beside this stage's quotes */
+  ai?: boolean;
+}[] = [
+  {
+    icon: LightbulbIcon,
+    name: "Asked",
+    heading: "Every decision starts as a question",
+    status: "Needs a call",
+    statusTint: "border-rose-300 bg-rose-50 text-rose-900",
+    looksLike: "Something changes and someone has to make a call: a campaign, a policy, a new rule.",
+    example: "A broker\u2019s operations lead: \u201cThe new disclosure rule starts in March. What do we change?\u201d",
+    weDo: "Puts the question on the record with who\u2019s deciding and the date it\u2019s needed by. If nobody decides in time, the default you set applies, so nothing waits on one inbox.",
+    quotes: [TYSON],
+  },
+  {
+    icon: CheckCheckIcon,
+    name: "Decided",
+    heading: "Make the call, and say why",
+    status: "Decided",
+    statusTint: "border-amber-300 bg-amber-50 text-amber-900",
+    looksLike: "Someone chooses, with a reason: a test, figures, an expert\u2019s view or a judgement call.",
+    example: "The head of advice answers from the link on their phone: show commission on every quote from 1 March.",
+    weDo: "Records what was chosen, why, who decided and when. The person deciding answers from a link, with no account and no password.",
+    quotes: [
+      { text: "Real artists ship.", who: "Steve Jobs" },
+    ],
+  },
+  {
+    icon: BookOpenCheckIcon,
+    name: "On the record",
+    heading: "One source of truth",
+    status: "Everyone can see it",
+    statusTint: "border-teal-300 bg-teal-50 text-teal-900",
+    looksLike: "The decision sits on one page with every other one, so nobody has to ask what was agreed.",
+    example: "Sales, support and the partner all get the same answer: commission is shown on every quote.",
+    weDo: "Keeps every decision on one page the people you invite can see, with a board of what\u2019s decided, what\u2019s open and who\u2019s deciding. What works becomes a runbook anyone can follow.",
+    quotes: [
+      BEZOS,
+      {
+        text: "Civilization advances by extending the number of important operations which we can perform without thinking about them.",
+        who: "Alfred North Whitehead",
+        credit: (
+          <>
+            British mathematician and philosopher, co-author of <i>Principia Mathematica</i>
+          </>
+        ),
+      },
+    ],
+    ai: true,
+  },
+  {
+    icon: RepeatIcon,
+    name: "Revisited",
+    heading: "When things change, change it once",
+    status: "Everyone aligned",
+    statusTint: "border-emerald-300 bg-emerald-50 text-emerald-900",
+    looksLike: "Partners, prices and rules keep moving. Decisions have to move with them, and everyone has to know.",
+    example: "The guidance changes in June. The decision is reopened, and the old one stays on the record with the date it changed.",
+    weDo: "On the review date it asks the question most businesses never ask: did it pan out? A new decision replaces the old one, which is kept, never written over.",
+    quotes: [
+      {
+        text: "The only way to win is to learn faster than anyone else.",
+        who: "Eric Ries",
+        credit: (
+          <>
+            author of <i>The Lean Startup</i>
+          </>
+        ),
+      },
+    ],
+  },
+];
+
+const CONTROLS = [
+  {
+    icon: CheckCheckIcon,
+    tint: "bg-red-50 border-red-200 text-incrementic-red",
+    title: "One record of every decision",
+    body: "What was chosen, why (a test, figures, an expert's view or a judgement call), who decided and when. When a decision changes, the old one is kept, never written over.",
+  },
+  {
+    icon: ListChecksIcon,
+    tint: "bg-teal-50 border-teal-200 text-teal-800",
+    title: "What's decided, what's open, who's deciding",
+    body: "One board shows every call still waiting, who it's waiting on and when it's due, next to everything already agreed.",
+  },
+  {
+    icon: SmartphoneIcon,
+    tint: "bg-stone-100 border-stone-200 text-incrementic-charcoal",
+    title: "Answers from a phone, no password",
+    body: "Ask the person who should decide, like \u201cshow commission on every quote from 1 March?\u201d, with a date and what happens if they don't answer. They reply from a link on their phone.",
+  },
+  {
+    icon: UsersIcon,
+    tint: "bg-violet-50 border-violet-200 text-violet-800",
+    title: "Everyone works from the same page",
+    body: "Invite the team as editors or viewers, or share a read-only link with a partner. Nobody has to ask you what was agreed.",
+  },
+  {
+    icon: BookOpenCheckIcon,
+    tint: "bg-emerald-50 border-emerald-200 text-emerald-800",
+    title: "Runbooks anyone can follow",
+    body: "Turn a decision that works into the steps to carry it out. Anyone can run it as a checklist, and a step that keeps failing gets flagged.",
+  },
+  {
+    icon: BotIcon,
+    tint: "bg-sky-50 border-sky-200 text-sky-800",
+    title: "Works with AI, if you want it",
+    body: "Entirely optional. If you use Claude, it can read the record, list what's open and record decisions, and every change it makes is labelled as made by AI.",
+  },
+];
+
+const FAQ: { q: string; a: React.ReactNode }[] = [
+  {
+    q: "Who is it for?",
+    a: "Businesses that sit between providers and customers: brokers, comparison sites, travel and relocation agencies, recruitment agencies, resellers and event organisers. If you depend on partners, see their terms change and earn per customer you place, it's built around the decisions you make every week.",
+  },
+  {
+    q: "Do I need to be good with computers?",
+    a: "If you can use email and a web browser, you can use CriticalDash. People who only need to answer a question do it from a link on their phone, with no account and no password.",
+  },
+  {
+    q: "What does it cost to start?",
+    a: "Nothing. Starting your decision record and finding your blind spots is free.",
+  },
+  {
+    q: "Who can see what I put in?",
+    a: "Only the people you invite, and you choose whether each one can make changes or only look. There's also a read-only link you can share, which is off until you turn it on and can be protected with a password.",
+  },
+  {
+    q: "Do I have to use AI?",
+    a: "No. Everything works without it. If you already use Claude, you can connect it, and every change it makes is clearly labelled.",
+  },
+  {
+    q: "How does everyone stay in the loop?",
+    a: "Every decision sits on one page that the people you invite can see, with who made it and why. Questions go to the person who has to answer them, as a link they open on their phone, and a weekly check-in asks for anything that's changed. Partners can get a read-only link.",
+  },
+  {
+    q: "What's a runbook?",
+    a: "A written, step-by-step way of doing one job, like a recipe or a pilot's checklist, that has been proven to work and is clear enough for someone new to follow. In CriticalDash a runbook can only go live once the guesses it rests on have been proven, and anyone can tick through it as a checklist and log how the run went.",
+  },
+  {
+    q: "I've seen plenty of business tools come and go. Why this one?",
+    a: "Most tools store documents and chat. CriticalDash keeps one record of what's been decided, who decided and why, what's still waiting on someone, and whether each decision worked out. That's the record a new hire, a partner's due diligence or a buyer will ask for.",
+  },
+];
+
+/* ------------------------------------------------------------------------------------------------
+ * Pieces
+ * ---------------------------------------------------------------------------------------------- */
+
+function QuoteBlock({ q, tone = "light", size = "md" }: { q: Quote; tone?: "light" | "hero"; size?: "md" | "lg" }) {
+  const hero = tone === "hero";
+  return (
+    <figure className="space-y-2.5">
+      <blockquote
+        className={`font-display font-semibold leading-snug ${hero ? "text-white" : "text-ink"} ${
+          size === "lg" ? "text-xl sm:text-2xl" : "text-lg sm:text-xl"
+        }`}
+      >
+        &ldquo;{q.text}&rdquo;
+      </blockquote>
+      <figcaption className={`text-base leading-snug ${hero ? "text-white/90" : "text-muted"}`}>
+        <span className={`font-semibold ${hero ? "text-white" : "text-ink"}`}>{q.who}</span>
+        {q.credit && <>, {q.credit}</>}
+      </figcaption>
+    </figure>
+  );
+}
+
+function SectionHead({
+  label,
+  title,
+  intro,
+  accent,
+}: {
+  label: string;
+  title: React.ReactNode;
+  intro?: React.ReactNode;
+  /** A bit of the hero's sky, drifting in the empty space to the right of the heading */
+  accent?: React.ReactNode;
+}) {
+  return (
+    <div className="relative space-y-3 max-w-3xl">
+      {accent && <div className="absolute left-full top-2 ml-16">{accent}</div>}
+      <p className="text-base font-semibold text-incrementic-red">{label}</p>
+      <h2 className="font-display font-bold text-3xl sm:text-4xl text-ink leading-tight">{title}</h2>
+      {intro && <p className="text-lg text-muted leading-relaxed">{intro}</p>}
+    </div>
+  );
+}
+
+/** "If you took three months off from Monday, would the team know what's been decided?" Nothing is stored or sent. */
+function TwoMinuteCheck() {
+  const [answers, setAnswers] = useState<(Answer | null)[]>(() => PARTS.map(() => null));
+  const answered = answers.filter((a) => a !== null).length;
+  const done = answered === PARTS.length;
+  const runsWithoutYou = answers.filter((a) => a === 3).length;
+  const inHeads = answers.filter((a) => a === 0 || a === 1).length;
+  const onlyYou = answers.filter((a) => a === 0).length;
+
+  const set = (i: number, v: Answer) => setAnswers((prev) => prev.map((a, j) => (j === i ? v : a)));
+  const reset = () => setAnswers(PARTS.map(() => null));
+
+  let verdict: string;
+  if (inHeads >= 5) {
+    verdict =
+      "Most of what's been decided lives in people's heads. That's common when a business grew on its founders' judgement, and it's the first thing worth fixing: everyone ends up asking you.";
+  } else if (runsWithoutYou >= 6) {
+    verdict =
+      "You're in better shape than most. CriticalDash keeps it that way as campaigns, policies and rules change.";
+  } else {
+    verdict =
+      "Some of it is written down. The decisions still in people's heads are where a resignation, a policy change or a new regulation would hurt most.";
+  }
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:items-start">
+      {/* Questions */}
+      <div>
+      <ol className="space-y-4">
+        {PARTS.map((part, i) => (
+          <li key={part}>
+            <fieldset className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+              <legend className="sr-only">{part}</legend>
+              <p className="font-display font-bold text-lg text-ink mb-3" aria-hidden="true">
+                <span className="text-muted font-normal mr-2">{i + 1}.</span>
+                {part}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {ANSWERS.map((opt) => {
+                  const checked = answers[i] === opt.value;
+                  return (
+                    <label
+                      key={opt.value}
+                      className={`flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl border px-4 py-2.5 text-base transition-colors focus-within:ring-2 focus-within:ring-incrementic-red focus-within:ring-offset-2 ${
+                        checked ? opt.chosen : "border-line bg-surface text-ink hover:bg-stone-50"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name={`part-${i}`}
+                        value={opt.value}
+                        checked={checked}
+                        onChange={() => set(i, opt.value)}
+                        className="h-5 w-5 shrink-0 accent-incrementic-red"
+                      />
+                      <span className={checked ? "font-semibold" : ""}>{opt.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          </li>
+        ))}
+      </ol>
+
+      {/* On small screens the result sits below the questions; keep progress in view while answering. */}
+      <div className="lg:hidden sticky bottom-3 z-20 mt-4">
+        <a
+          href="#check-result"
+          className="flex min-h-[56px] items-center justify-between gap-3 rounded-full bg-incrementic-ink px-5 text-base font-semibold text-white shadow-xl"
+        >
+          <span>
+            {answered} of {PARTS.length} answered
+          </span>
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+            {done ? "See result" : "Result"}
+            <ArrowDownIcon className="h-4 w-4" aria-hidden="true" />
+          </span>
+        </a>
+      </div>
+      </div>
+
+      {/* Live result */}
+      <aside id="check-result" className="scroll-mt-20 lg:sticky lg:top-24 space-y-4" aria-live="polite">
+        <div className="rounded-2xl border border-line bg-surface p-6 shadow-md space-y-5">
+          <div className="flex items-baseline justify-between gap-3">
+            <h3 className="font-display font-bold text-xl text-ink">Your business at a glance</h3>
+            <span className="text-base text-muted whitespace-nowrap">
+              {answered} of {PARTS.length}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {PARTS.map((part, i) => {
+              const a = answers[i];
+              const opt = a === null ? null : ANSWERS[a];
+              return (
+                <div
+                  key={part}
+                  tabIndex={0}
+                  className={`fog-veil rounded-xl border px-3 py-2.5 transition-colors ${
+                    opt ? opt.tile : "border-dashed border-stone-300 bg-stone-50 text-stone-500"
+                  }`}
+                >
+                  <p className="text-sm font-semibold leading-tight">{part}</p>
+                  <p className="text-sm mt-0.5">{opt ? opt.short : "Not answered yet"}</p>
+                  <FogVeil level={a === null ? 1 : ANSWER_FOG[a]} />
+                </div>
+              );
+            })}
+          </div>
+
+          {done ? (
+            <div className="space-y-3 border-t border-line pt-5">
+              <p className="font-display font-bold text-2xl text-ink leading-snug">
+                The team is aligned on {runsWithoutYou} of {PARTS.length}.
+              </p>
+              {onlyYou > 0 && (
+                <p className="text-lg text-incrementic-red font-semibold">
+                  {onlyYou === 1 ? "1 decision is" : `${onlyYou} decisions are`} known only to you.
+                </p>
+              )}
+              <p className="text-lg text-ink leading-relaxed">{verdict}</p>
+              <div className="flex flex-col sm:flex-row gap-3 pt-1">
+                <Link
+                  href="/dashboard"
+                  className="inline-flex min-h-[52px] items-center justify-center rounded-full bg-incrementic-red px-6 text-base font-semibold text-white shadow-md hover:bg-[#D93D34] transition-colors"
+                >
+                  Put it on the record, free
+                </Link>
+                <button
+                  type="button"
+                  onClick={reset}
+                  className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-full border border-line bg-surface px-6 text-base font-semibold text-ink hover:bg-stone-50"
+                >
+                  <RotateCcwIcon className="h-4 w-4" aria-hidden="true" />
+                  Start again
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="border-t border-line pt-5 text-lg text-muted leading-relaxed">
+              Answer all {PARTS.length} to see how much the team could act on without asking you. Nothing you choose here
+              is saved or sent anywhere.
+            </p>
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+/** Step through the four stages, one at a time. */
+function StageExplorer() {
+  const [active, setActive] = useState(0);
+  const stage = STAGES[active];
+  const Icon = stage.icon;
+  const last = STAGES.length - 1;
+
+  return (
+    <div className="space-y-6">
+      {/* Stage picker */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2" role="tablist" aria-label="The four stages">
+        {STAGES.map((s, i) => {
+          const selected = i === active;
+          const SIcon = s.icon;
+          return (
+            <button
+              key={s.name}
+              type="button"
+              role="tab"
+              id={`stage-tab-${i}`}
+              aria-selected={selected}
+              aria-controls="stage-panel"
+              onClick={() => setActive(i)}
+              className={`flex min-h-[64px] items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-incrementic-red focus-visible:ring-offset-2 ${
+                selected
+                  ? "border-incrementic-ink bg-incrementic-ink text-white shadow-md"
+                  : "border-line bg-surface text-ink hover:bg-stone-50"
+              }`}
+            >
+              <span
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base font-bold ${
+                  selected ? "bg-white text-incrementic-ink" : "bg-red-50 text-incrementic-red border border-red-200"
+                }`}
+              >
+                {i + 1}
+              </span>
+              <span className={`min-w-0 ${selected ? "" : "fog-text"}`} style={selected ? undefined : fog(STAGE_FOG[i])}>
+                <span className="flex items-center gap-1.5 font-display font-bold text-base sm:text-lg leading-tight">
+                  <SIcon className="hidden sm:block h-4 w-4 shrink-0" aria-hidden="true" />
+                  {s.name}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Stage panel */}
+      <div
+        id="stage-panel"
+        role="tabpanel"
+        aria-labelledby={`stage-tab-${active}`}
+        className="rounded-3xl border border-line bg-surface p-6 sm:p-10 shadow-sm"
+      >
+        <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-incrementic-red">
+                <Icon className="h-6 w-6" aria-hidden="true" />
+              </span>
+              <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${stage.statusTint}`}>
+                {stage.status}
+              </span>
+            </div>
+            <h3 className="font-display font-extrabold text-3xl sm:text-4xl text-ink leading-tight">
+              {stage.heading}
+            </h3>
+            <dl className="space-y-4 text-lg leading-relaxed">
+              <div>
+                <dt className="font-semibold text-ink">What it looks like</dt>
+                <dd className="text-muted">{stage.looksLike}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-ink">For example</dt>
+                <dd className="fog-text text-ink" style={fog(STAGE_FOG[active] * 0.6)} tabIndex={0}>
+                  {stage.example}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-ink">What CriticalDash does</dt>
+                <dd className="text-muted">{stage.weDo}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="space-y-6 rounded-2xl bg-stone-50 border border-line p-6 sm:p-8">
+            {stage.quotes.map((q, i) => (
+              <React.Fragment key={q.who}>
+                {i > 0 && <div className="border-t border-line" />}
+                <QuoteBlock q={q} size="lg" />
+              </React.Fragment>
+            ))}
+            {stage.ai && (
+              <p className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-base text-sky-950">
+                <BotIcon className="mt-1 h-4 w-4 shrink-0 text-sky-700" aria-hidden="true" />
+                <span>
+                  <b>Whitehead wrote that in 1911.</b> It&rsquo;s the case for a record an AI assistant can read too: once
+                  a decision is written down, nobody has to think it through again, or ask you what it was.
+                </span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-8 flex items-center justify-between gap-3 border-t border-line pt-6">
+          <button
+            type="button"
+            onClick={() => setActive((a) => Math.max(0, a - 1))}
+            disabled={active === 0}
+            className="inline-flex min-h-[48px] items-center gap-2 rounded-full border border-line bg-surface px-5 text-base font-semibold text-ink hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
+            Back
+          </button>
+          <span className="text-base text-muted whitespace-nowrap">
+            <span className="hidden sm:inline">Stage </span>
+            {active + 1} of {STAGES.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => setActive((a) => Math.min(last, a + 1))}
+            disabled={active === last}
+            className="inline-flex min-h-[48px] items-center gap-2 rounded-full bg-incrementic-ink px-5 text-base font-semibold text-white hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next
+            <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      <p className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-lg text-amber-950">
+        <AlertTriangleIcon className="mt-1 h-5 w-5 shrink-0 text-amber-700" aria-hidden="true" />
+        <span>
+          <b>A decision nobody heard about isn&rsquo;t made yet.</b> If it isn&rsquo;t on the record, people keep acting on
+          the old one, and the call gets made again.
+        </span>
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Page
+ * ---------------------------------------------------------------------------------------------- */
 
 export default function HomePage() {
+  const heroRef = useRef<HTMLElement>(null);
+
   return (
     <div className="min-h-screen bg-canvas text-ink flex flex-col justify-between selection:bg-incrementic-red selection:text-white">
       {/* Top Navbar */}
-      <nav className="sticky top-0 z-50 border-b border-line bg-surface/90 backdrop-blur-md px-6 py-3.5">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* The Incrementic Red Badge / Signal */}
-            <div className="w-8 h-8 rounded-lg bg-incrementic-red text-white font-display font-bold flex items-center justify-center text-sm shadow-sm">
-              LC
+      <nav className="sticky top-0 z-50 border-b border-line bg-surface/95 backdrop-blur-md px-5 sm:px-6 py-3.5">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-incrementic-red text-white font-display font-bold flex items-center justify-center text-sm shadow-sm">
+              CD
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="font-display font-bold text-lg tracking-tight text-incrementic-ink">
-                LeanCanvas Live
+              <span className="font-display font-bold text-lg sm:text-xl tracking-tight text-incrementic-ink">
+                CriticalDash
               </span>
-              <span className="hidden sm:inline font-mono text-[11px] text-muted">
-                by Incrementic
-              </span>
+              <span className="hidden md:inline text-sm text-muted">by Incrementic</span>
             </div>
-          </div>
+          </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Link
+              href="/how-it-works"
+              className="hidden md:inline-flex min-h-[44px] items-center whitespace-nowrap text-base font-semibold text-incrementic-charcoal hover:text-incrementic-red px-3 transition-colors"
+            >
+              How it works
+            </Link>
             <Link
               href="/login"
-              className="text-xs font-semibold text-incrementic-charcoal hover:text-incrementic-red px-3 py-1.5 transition-colors"
+              className="inline-flex min-h-[44px] items-center whitespace-nowrap text-base font-semibold text-incrementic-charcoal hover:text-incrementic-red px-3 transition-colors"
             >
-              Sign In
+              Sign in
             </Link>
             <Link
               href="/dashboard"
-              className="text-xs font-semibold bg-incrementic-ink text-white hover:bg-black px-4 py-2 rounded-lg transition-all shadow-sm"
+              className="hidden sm:inline-flex min-h-[44px] items-center whitespace-nowrap text-base font-semibold bg-incrementic-ink text-white hover:bg-black px-5 rounded-full transition-all shadow-sm"
             >
-              Launch Canvas
+              Your dashboard
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section inspired by user uploaded image + Incrementic Red / Halftone */}
-      <header className="relative w-full bg-gradient-to-b from-[#EA5148] via-[#E84A41] to-[#D93D34] text-white overflow-hidden py-24 sm:py-32 px-6">
-        {/* Halftone dot pattern overlay */}
-        <div className="absolute inset-0 bg-halftone pointer-events-none opacity-40 mix-blend-overlay" />
-        
-        {/* Soft radial glow at bottom center */}
-        <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-white/20 blur-3xl rounded-full pointer-events-none" />
-
-        <div className="relative max-w-4xl mx-auto text-center space-y-7 z-10 flex flex-col items-center">
-          {/* Eyebrow Capsule (matching the pill in inspiration) */}
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 border border-white/30 backdrop-blur-md text-white text-xs font-medium hover:bg-white/25 transition-all shadow-sm group"
-          >
-            <span className="font-mono text-[11px] uppercase tracking-wider text-white/90">
-              Shape & Ship • Ash Maurya Framework
-            </span>
-            <div className="w-4 h-4 rounded-full bg-white text-incrementic-red flex items-center justify-center text-[10px] font-bold group-hover:translate-x-0.5 transition-transform">
-              →
+      {/* Hero */}
+      {/* Looking up between towers; they converge behind the quotes */}
+      <header ref={heroRef} className="relative w-full bg-[#0F3A33] text-white overflow-hidden py-16 sm:py-24 px-5 sm:px-6">
+        {/* Pinned on wide screens: the street stays put while the copy and quotes scroll over it.
+            The clip-path keeps the fixed layer inside the hero. */}
+        <div aria-hidden="true" className="hidden lg:block absolute inset-0 [clip-path:inset(0)] pointer-events-none">
+          <LookUpSkyline className="fixed inset-0 right-[-36%]" zoom={1.45} track={heroRef} />
+        </div>
+        <div aria-hidden="true" className="absolute inset-0 bg-[#0A2622]/45 lg:bg-transparent lg:bg-gradient-to-r lg:from-[#0A2622]/80 lg:via-[#0A2622]/40 lg:via-45% lg:to-transparent lg:to-60% pointer-events-none" />
+        <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-12 items-center">
+          <div className="space-y-7">
+            <p className="text-lg font-semibold text-white/95">For businesses that sit between providers and customers</p>
+            <HeroHeadline className="font-display font-extrabold text-5xl sm:text-6xl lg:text-7xl tracking-tight leading-[1.02]" />
+            <p className="text-xl text-white leading-relaxed max-w-xl">
+              Campaigns change direction. Policies change. New regulations land. Someone wasn&rsquo;t in the
+              meeting. CriticalDash is the record
+              of every decision: what&rsquo;s been decided, what&rsquo;s still open and who&rsquo;s making the call.
+              One source of truth, so everyone is aligned and you move forward with confidence.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 pt-1">
+              <a
+                href="#check"
+                className="inline-flex min-h-[56px] items-center justify-center gap-2 rounded-full bg-[#C8352D] px-7 font-display font-semibold text-lg text-white shadow-xl hover:bg-[#B32E27] transition-colors"
+              >
+                Take the 2-minute check
+                <ArrowDownIcon className="h-5 w-5" aria-hidden="true" />
+              </a>
+              <Link
+                href="/dashboard"
+                className="inline-flex min-h-[56px] items-center justify-center rounded-full border-2 border-white/80 bg-[#0A2622]/60 px-7 font-display font-semibold text-lg text-white hover:bg-[#0A2622]/80 transition-colors"
+              >
+                Start free
+              </Link>
             </div>
-          </Link>
+          </div>
 
-          {/* Punchy Hero Title (Sora font, tight leading) */}
-          <h1 className="font-display font-extrabold text-4xl sm:text-6xl md:text-7xl tracking-tight text-white leading-[1.05] max-w-3xl">
-            The shortest distance to your next validated business.
-          </h1>
-
-          {/* Subtitle */}
-          <p className="text-white/90 text-base sm:text-lg max-w-2xl font-normal leading-relaxed">
-            Realtime multiplayer Lean Canvas with automated 7-dimension AI stress testing,
-            evidence-state claim tracking, and instant anonymous read-only sharing.
-          </p>
-
-          {/* Call to Action Button */}
-          <div className="pt-3">
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-white text-incrementic-ink font-display font-semibold text-sm hover:bg-white/95 shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
-            >
-              Start building for free
-            </Link>
+          {/* The plan breaks, so build mechanisms */}
+          <div className="relative">
+            {/* On phones the panel sits low, so the street is redrawn tall and centred on it. The mask
+                keeps the copy above on plain green: the street opens up just above the panel. */}
+            <LookUpSkyline
+              className="lg:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[2700px] -z-10 [mask-image:linear-gradient(to_bottom,transparent_36%,black_42%)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_36%,black_42%)]"
+              aspect={1 / 3}
+              sky={{ rx: 384, ry: 470 }}
+            />
+            <div className="rounded-3xl border border-[#9FE0C2]/40 bg-[#0A2622]/85 backdrop-blur-md p-6 sm:p-8 space-y-6 shadow-2xl">
+              <div className="fog-text" style={fog(0.45)} tabIndex={0}>
+                <QuoteBlock q={TYSON} tone="hero" size="lg" />
+              </div>
+              <div className="flex items-center gap-3 text-white/90" aria-hidden="true">
+                <span className="h-px flex-1 bg-white/40" />
+                <span className="text-base font-semibold">so</span>
+                <span className="h-px flex-1 bg-white/40" />
+              </div>
+              <QuoteBlock q={BEZOS} tone="hero" size="lg" />
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Feature Highlights with Incrementic clean grid */}
-      <section className="max-w-6xl mx-auto px-6 py-20 w-full space-y-12">
-        <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 border-b border-line pb-6">
-          <div>
-            <span className="font-mono text-xs uppercase tracking-widest text-incrementic-red">
-              01 • Framework
-            </span>
-            <h2 className="font-display font-bold text-2xl sm:text-3xl text-ink mt-1">
-              Built for speed, rigor, and clarity.
-            </h2>
-          </div>
-          <p className="text-muted text-xs sm:text-sm max-w-md">
-            Cut filler, test riskiest assumptions, and prove market demand before investing capital.
-          </p>
+      {/* The big picture, in a minute */}
+      <section id="explainer" className="scroll-mt-20 max-w-6xl mx-auto px-5 sm:px-6 pt-20 w-full space-y-10">
+        <SectionHead
+          label="The big picture"
+          title="Why it matters, in a minute."
+          intro="How an insurance broker keeps the whole team on the same decisions. Turn the sound up; captions are in the player."
+        />
+        <ExplainerVideo />
+      </section>
+
+      {/* The check */}
+      <section id="check" className="scroll-mt-20 max-w-6xl mx-auto px-5 sm:px-6 pt-20 pb-8 w-full space-y-10">
+        <SectionHead
+          label="The two-minute check"
+          title="If you took three months off from Monday, would the team know what's been decided?"
+          intro="Go through eight kinds of decision every business between providers and customers makes. For each, pick the answer that's honestly true today."
+        />
+        <TwoMinuteCheck />
+      </section>
+
+      {/* Exposure */}
+      <section className="max-w-6xl mx-auto px-5 sm:px-6 py-16 w-full space-y-10">
+        <SectionHead
+          label="Why it matters"
+          title="Every decision that lives in one head is a risk you're already carrying."
+          accent={<SkyAccent kind="cloud" className="w-44" />}
+          intro="These aren't our numbers. Each one links to its source."
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {EXPOSURE.map((c) => (
+            <div key={c.figure} className="rounded-2xl bg-surface border border-line p-6 space-y-3 shadow-sm">
+              <p className="font-display font-extrabold text-5xl text-incrementic-red tabular-nums whitespace-nowrap">
+                {c.figure}
+              </p>
+              <p className="text-lg text-ink leading-snug">{c.body}</p>
+              <a
+                href={c.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-base text-muted underline underline-offset-2 hover:text-ink"
+              >
+                {c.source}
+              </a>
+            </div>
+          ))}
         </div>
+      </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Card 1 */}
-          <div className="rounded-2xl bg-surface border border-line p-6 space-y-4 hover:border-incrementic-red/40 transition-colors shadow-sm">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center font-bold">
-              <ShieldCheckIcon className="w-5 h-5" />
+      {/* Hidden risks */}
+      <section className="max-w-6xl mx-auto px-5 sm:px-6 py-16 w-full space-y-10">
+        <SectionHead
+          label="Where it's hiding"
+          title="It's rarely the decision that hurts. It's the half of the team that never heard about it."
+          accent={<SkyAccent kind="flock" className="w-32 mt-6" />}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {HIDDEN_RISKS.map(({ icon: Icon, title, body }) => (
+            <div key={title} className="rounded-2xl bg-surface border border-line p-6 space-y-3 shadow-sm">
+              <div className="w-11 h-11 rounded-xl bg-red-50 border border-red-200 text-incrementic-red flex items-center justify-center">
+                <Icon className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <h3 className="font-display font-bold text-xl text-ink leading-snug">{title}</h3>
+              <p className="text-lg text-muted leading-relaxed">{body}</p>
             </div>
-            <div className="space-y-1">
-              <h3 className="font-display font-bold text-base text-ink">
-                Evidence States on Claims
-              </h3>
-              <p className="text-xs text-muted leading-relaxed">
-                Categorize each note as <em>assumption</em>, <em>observed</em>, <em>supported</em>, or <em>contradicted</em>. Never mistake an unproven hypothesis for traction.
-              </p>
-            </div>
-          </div>
+          ))}
+        </div>
+      </section>
 
-          {/* Card 2 */}
-          <div className="rounded-2xl bg-surface border border-line p-6 space-y-4 hover:border-incrementic-red/40 transition-colors shadow-sm">
-            <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 text-incrementic-red flex items-center justify-center font-bold">
-              <SparklesIcon className="w-5 h-5" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="font-display font-bold text-base text-ink">
-                7-Dimension AI Stress Engine
-              </h3>
-              <p className="text-xs text-muted leading-relaxed">
-                Instant diagnostic on Clarity, Desirability, Viability, Feasibility, Defensibility, Timing, and Mission with concrete recommended experiments.
-              </p>
-            </div>
-          </div>
+      {/* Four stages */}
+      <section className="max-w-6xl mx-auto px-5 sm:px-6 py-16 w-full space-y-10">
+        <SectionHead
+          label="From a question to everyone aligned"
+          title="Every decision goes through four stages. Step through them."
+          accent={<SkyAccent kind="paper" className="w-16 mt-8 ml-20" />}
+          intro="Pick a stage, or use Next. Each one comes with what the people who'd know have said about it."
+        />
+        <StageExplorer />
+      </section>
 
-          {/* Card 3 */}
-          <div className="rounded-2xl bg-surface border border-line p-6 space-y-4 hover:border-incrementic-red/40 transition-colors shadow-sm">
-            <div className="w-10 h-10 rounded-xl bg-stone-100 border border-stone-200 text-incrementic-charcoal flex items-center justify-center font-bold">
-              <UsersIcon className="w-5 h-5" />
+      {/* How it's used: one decision followed from the call to the checklist */}
+      <section id="use-cases" className="scroll-mt-20 max-w-6xl mx-auto px-5 sm:px-6 py-16 w-full space-y-10">
+        <SectionHead
+          label="How it's used"
+          title="One decision, from the call to the checklist."
+          intro="Pick a business. Each follows a single decision: who made the call and why, what went on the record for everyone, how the team carries it out, and whether it held up when someone looked back."
+          accent={<SkyAccent kind="cloud" className="w-36 mt-4" />}
+        />
+        <UseCases />
+      </section>
+
+      {/* Controls available today */}
+      <section className="max-w-6xl mx-auto px-5 sm:px-6 py-16 w-full space-y-10">
+        <SectionHead
+          label="What you can use today"
+          title="Every decision on the record. Everyone on the same page."
+          intro={
+            <>
+              Want the detail?{" "}
+              <Link href="/how-it-works" className="font-semibold text-incrementic-red underline underline-offset-2">
+                See how it works, step by step
+              </Link>
+              .
+            </>
+          }
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {CONTROLS.map(({ icon: Icon, tint, title, body }) => (
+            <div key={title} className="rounded-2xl bg-surface border border-line p-6 space-y-4 shadow-sm">
+              <div className={`w-11 h-11 rounded-xl border flex items-center justify-center ${tint}`}>
+                <Icon className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="font-display font-bold text-xl text-ink">{title}</h3>
+                <p className="text-lg text-muted leading-relaxed">{body}</p>
+              </div>
             </div>
-            <div className="space-y-1">
-              <h3 className="font-display font-bold text-base text-ink">
-                Secure Anonymous View Links
-              </h3>
-              <p className="text-xs text-muted leading-relaxed">
-                Share a read-only snapshot with mentors or angels in one click without forcing signups. Keep edits strictly authenticated.
-              </p>
-            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Plain answers */}
+      <section className="max-w-4xl mx-auto px-5 sm:px-6 py-16 w-full space-y-8">
+        <SectionHead label="Plain answers" title="The questions people usually ask first" />
+        <div className="rounded-2xl border border-line bg-surface shadow-sm divide-y divide-line">
+          {FAQ.map(({ q, a }) => (
+            <details key={q} className="group">
+              <summary className="flex min-h-[64px] cursor-pointer list-none items-center justify-between gap-4 px-6 py-4 font-display font-bold text-lg sm:text-xl text-ink hover:bg-stone-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-incrementic-red [&::-webkit-details-marker]:hidden">
+                {q}
+                <ChevronDownIcon
+                  className="h-6 w-6 shrink-0 text-incrementic-red transition-transform group-open:rotate-180"
+                  aria-hidden="true"
+                />
+              </summary>
+              <p className="px-6 pb-6 text-lg text-muted leading-relaxed">{a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      {/* Closing call to action */}
+      <section className="px-5 sm:px-6 pt-4 pb-20 w-full">
+        <div className="relative max-w-6xl mx-auto rounded-3xl bg-gradient-to-b from-[#EA5148] to-[#D93D34] text-white px-6 sm:px-10 py-12 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
+          <div className="space-y-3">
+            <h2 className="font-display font-bold text-3xl sm:text-4xl leading-tight">
+              Get everyone on the same page, one decision at a time.
+            </h2>
+            <p className="text-xl text-white/95 max-w-xl">
+              Start with the decision people ask you about most.
+            </p>
           </div>
+          {/* The hero's balloon, tied to the panel */}
+          <SkyAccent kind="balloon" className="absolute -top-[86px] right-16 w-10" />
+          <Link
+            href="/dashboard"
+            className="inline-flex min-h-[56px] items-center justify-center whitespace-nowrap px-8 rounded-full bg-white text-incrementic-ink font-display font-semibold text-lg hover:bg-white/95 shadow-lg transition-all shrink-0"
+          >
+            Start your decision record, free
+          </Link>
         </div>
       </section>
 
       {/* Footer with Incrementic attribution */}
-      <footer className="border-t border-line bg-surface px-6 py-8 text-center text-xs text-muted space-y-2">
-        <div className="font-medium text-ink">
-          LeanCanvas Live • Ash Maurya Lean Startup Framework
-        </div>
-        <div className="flex items-center justify-center gap-1.5 text-muted">
+      <footer className="border-t border-line bg-surface px-6 py-10 text-center text-base text-muted space-y-3">
+        <div className="font-semibold text-ink">CriticalDash • One record of every decision, for businesses between providers and customers</div>
+        <LegalLinks />
+        <div className="flex flex-wrap items-center justify-center gap-x-1.5">
           <span>A project of</span>
           <a
             href="https://incrementic.com"

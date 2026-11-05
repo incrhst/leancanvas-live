@@ -1,6 +1,8 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireEditor, requireAuth, getCurrentUser, getCanvasRole } from "./lib/auth";
+import { displayName } from "./lib/members";
+import { emailUser, siteUrl } from "./lib/notify";
 
 /**
  * Creates an invite token (magic link or email) for a canvas.
@@ -105,10 +107,13 @@ export const acceptInvite = mutation({
       )
       .first();
 
+    // What changed for this person: joined, moved up to editor, or nothing (already a member)
+    let change: "joined" | "upgraded" | null = null;
     if (existing) {
       // Upgrade role if invite has higher privilege
       if (existing.role === "viewer" && invite.role === "editor") {
         await ctx.db.patch(existing._id, { role: "editor" });
+        change = "upgraded";
       }
     } else {
       await ctx.db.insert("canvasMembers", {
@@ -116,6 +121,7 @@ export const acceptInvite = mutation({
         userId: user._id,
         role: invite.role,
       });
+      change = "joined";
     }
 
     // Mark single-use or record acceptance
@@ -128,6 +134,29 @@ export const acceptInvite = mutation({
       message: `joined as ${invite.role}`,
       createdAt: Date.now(),
     });
+
+    // Tell the canvas owner someone came in on an invite (unless the owner is the one joining)
+    if (change) {
+      const canvas = await ctx.db.get(invite.canvasId);
+      if (canvas && canvas.createdBy !== user._id) {
+        const inviter = await ctx.db.get(invite.createdBy);
+        const who = displayName(user);
+        const whatHappened =
+          change === "joined"
+            ? `${who} joined "${canvas.title}" as ${invite.role === "editor" ? "an editor" : "a viewer"}.`
+            : `${who} is now an editor on "${canvas.title}" (was a viewer).`;
+        await emailUser(ctx, canvas.createdBy, {
+          subject: `${who} joined ${canvas.title}`,
+          text: [
+            whatHappened,
+            ...(user.email && user.email !== who ? [`Email: ${user.email}`] : []),
+            `Invited by: ${invite.createdBy === canvas.createdBy ? "you" : displayName(inviter)}`,
+            "",
+            `Open the canvas: ${siteUrl()}/canvas/${canvas._id}`,
+          ].join("\n"),
+        });
+      }
+    }
 
     return invite.canvasId;
   },

@@ -1,14 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import {
-  ChevronRightIcon,
-  CloudIcon,
-  LayoutGridIcon,
-  Share2Icon,
-  SparklesIcon,
-  DownloadIcon,
-  FileTextIcon,
-} from "lucide-react";
+import { BotIcon, LayoutGridIcon, Share2Icon, SparklesIcon, CameraIcon, PresentationIcon } from "lucide-react";
 import { Role } from "../types/canvas";
 
 interface TopBarProps {
@@ -17,111 +9,100 @@ interface TopBarProps {
   isPublicViewEnabled: boolean;
   onOpenShare?: () => void;
   onOpenStressTest?: () => void;
-  onExportMarkdown?: () => void;
-  onExportJson?: () => void;
+  onOpenSnapshots?: () => void;
+  /** Show how to connect an AI assistant. Signed-in people only: the connector needs an account. */
+  onOpenConnectAi?: () => void;
+  /** Link to review mode */
+  reviewHref?: string;
+  /** Export menu: PDF, PNG and the text exports */
+  exportMenu?: React.ReactNode;
+  /** Shown after the title, e.g. the launch day chip */
+  status?: React.ReactNode;
 }
+
+// Secondary actions stay quiet so Share is the one button that stands out
+const quietButton =
+  "inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted hover:bg-surface-2 hover:text-ink transition-colors";
 
 export function TopBar({
   title,
   role,
-  isPublicViewEnabled,
   onOpenShare,
   onOpenStressTest,
-  onExportMarkdown,
-  onExportJson,
+  onOpenSnapshots,
+  onOpenConnectAi,
+  reviewHref,
+  exportMenu,
+  status,
 }: TopBarProps) {
-  const isAnonymous = role === "anonymous" || role === "viewer";
-
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-4">
-      <div className="flex min-w-0 items-center gap-3">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-line bg-surface px-3 sm:gap-4 sm:px-4">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         <Link
           href="/dashboard"
+          title="All canvases"
+          aria-label="All canvases"
           className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-ink text-surface hover:opacity-90"
         >
           <LayoutGridIcon size={15} aria-hidden="true" />
         </Link>
-        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
-          <a
-            href="https://incrementic.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hidden whitespace-nowrap text-muted text-xs hover:text-incrementic-red sm:inline transition-colors"
-          >
-            Incrementic
-          </a>
-          <ChevronRightIcon size={13} className="hidden text-subtle sm:inline" aria-hidden="true" />
-          <Link href="/dashboard" className="hidden whitespace-nowrap text-muted sm:inline hover:underline">
-            Dashboard
-          </Link>
-          <ChevronRightIcon size={14} className="hidden text-subtle sm:inline" aria-hidden="true" />
-          <h1 className="truncate font-semibold text-ink">{title}</h1>
-        </nav>
-        <span className="hidden items-center gap-1.5 whitespace-nowrap text-xs text-muted md:inline-flex">
-          <CloudIcon size={13} aria-hidden="true" />
-          Convex live
-        </span>
+        <h1 title={title} className="min-w-0 truncate text-sm font-semibold text-ink">
+          {title}
+        </h1>
 
-        {/* Role badge */}
-        <span
-          className={`px-2 py-0.5 rounded text-[11px] font-medium border ${
-            role === "owner"
-              ? "bg-purple-100 text-purple-800 border-purple-300"
-              : role === "editor"
-              ? "bg-blue-100 text-blue-800 border-blue-300"
-              : "bg-stone-100 text-stone-700 border-stone-300"
-          }`}
-        >
-          {role.toUpperCase()}
-        </span>
+        {/* Owners are the norm; only say so when you're not one */}
+        {role !== "owner" && (
+          <span className="hidden shrink-0 text-[11px] text-muted sm:inline">
+            {role === "editor" ? "Can edit" : "View only"}
+          </span>
+        )}
+        {status && <div className="flex shrink-0 items-center gap-1.5">{status}</div>}
       </div>
 
-      <div className="flex shrink-0 items-center gap-2">
-        {/* Export buttons */}
-        {onExportMarkdown && (
-          <button
-            type="button"
-            onClick={onExportMarkdown}
-            title="Export as Markdown"
-            className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted hover:text-ink rounded-md border border-line bg-surface hover:bg-surface-2 transition-colors"
+      <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+        {exportMenu && <div className="hidden sm:block">{exportMenu}</div>}
+
+        {reviewHref && (
+          <Link
+            href={reviewHref}
+            title="Review mode: tests and results, open decisions, and changes since the last snapshot"
+            className={quietButton}
           >
-            <FileTextIcon size={13} />
-            Markdown
-          </button>
+            <PresentationIcon size={14} />
+            <span className="hidden lg:inline">Review</span>
+          </Link>
         )}
-        {onExportJson && (
-          <button
-            type="button"
-            onClick={onExportJson}
-            title="Export as JSON"
-            className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted hover:text-ink rounded-md border border-line bg-surface hover:bg-surface-2 transition-colors"
-          >
-            <DownloadIcon size={13} />
-            JSON
+
+        {onOpenSnapshots && (
+          <button type="button" onClick={onOpenSnapshots} title="Snapshots: freeze the canvas and compare" className={quietButton}>
+            <CameraIcon size={14} />
+            <span className="hidden lg:inline">Snapshots</span>
           </button>
         )}
 
-        {/* Stress test button */}
         {onOpenStressTest && (
-          <button
-            type="button"
-            onClick={onOpenStressTest}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-accent/30 bg-accent-soft px-3 text-xs font-semibold text-accent hover:bg-accent-soft/80 transition-colors"
-          >
+          <button type="button" onClick={onOpenStressTest} title="Stress test" className={quietButton}>
             <SparklesIcon size={14} />
-            Stress Test
+            <span className="hidden lg:inline">Stress test</span>
           </button>
         )}
 
-        {/* Share modal */}
+        {onOpenConnectAi && (
+          <button type="button" onClick={onOpenConnectAi} title="Connect Claude, ChatGPT or Gemini" className={`${quietButton} hidden sm:inline-flex`}>
+            <BotIcon size={14} aria-hidden="true" />
+            <span className="sr-only lg:not-sr-only">Connect AI</span>
+          </button>
+        )}
+
         {onOpenShare && (
           <button
             type="button"
             onClick={onOpenShare}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-accent px-3 text-xs font-medium text-white hover:bg-accent/90 transition-colors shadow-sm"
+            title="Share"
+            className="ml-1 inline-flex h-8 items-center gap-1.5 rounded-md bg-accent px-2.5 text-xs font-medium text-white hover:bg-accent/90 transition-colors shadow-sm sm:px-3"
           >
             <Share2Icon size={14} />
-            Share
+            <span className="hidden sm:inline">Share</span>
           </button>
         )}
       </div>

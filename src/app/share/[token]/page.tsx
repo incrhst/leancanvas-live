@@ -4,27 +4,49 @@ import React, { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
-import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { CanvasBoard } from "../../../components/CanvasBoard";
-import { NoteDetailPanel } from "../../../components/NoteDetailPanel";
+import { NoteDetailPanel, NoteModal } from "../../../components/NoteDetailPanel";
+import { LaunchDayChip } from "../../../components/LaunchDayChip";
+import { noteMatchesEvidence, useEvidenceFilter } from "../../../utils/evidenceFilter";
+import { EvidenceLegend } from "../../../components/EvidenceLegend";
+import { LaunchDateContext } from "../../../utils/launchDate";
+import { useMediaQuery, useSetQueryParams } from "../../../utils/urlState";
 import { StressTestPanel } from "../../../components/StressTestPanel";
 import { RiskiestAssumptionsView } from "../../../components/RiskiestAssumptionsView";
-import { CanvasView, CanvasViewToggle, riskRanksFor } from "../../../components/CanvasViewToggle";
+import {
+  CanvasView,
+  CanvasViewToggle,
+  canvasViewParam,
+  parseCanvasView,
+  riskRanksFor,
+} from "../../../components/CanvasViewToggle";
+import { DecidedCountChip, PlanStatusBoard } from "../../../components/PlanStatusBoard";
+import { GoalsBoard } from "../../../components/GoalsBoard";
+import { RunbooksBoard } from "../../../components/RunbooksBoard";
 import { NoteItem, StressTestResult } from "../../../types/canvas";
 import { GlobeIcon, SparklesIcon, LogInIcon, FileTextIcon, DownloadIcon, LockIcon } from "lucide-react";
+import { NoteSearch, NoteSearchButton, useNoteSearchShortcut } from "../../../components/NoteSearch";
+import { ExportMenu } from "../../../components/ExportMenu";
 import { exportCanvasMarkdown, downloadFile } from "../../../utils/export";
 import { getCanvasTemplate } from "../../../utils/canvasTemplates";
 
 export default function PublicSharePage() {
   const params = useParams();
   const token = (params?.token as string) || "";
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const view: CanvasView = searchParams.get("view") === "risks" ? "risks" : "canvas";
-  const setView = (next: CanvasView) => {
-    router.replace(next === "risks" ? `${pathname}?view=risks` : pathname, { scroll: false });
-  };
+  const setQueryParams = useSetQueryParams();
+  // Guests start on goals, like members; the status board and full canvas are a tab away
+  const view = parseCanvasView(searchParams.get("view"), "goals");
+  const setView = (next: CanvasView) => setQueryParams({ view: canvasViewParam(next, "goals") });
+  // The open note lives in the URL (?note=<id>) so it can be bookmarked and shared
+  const selectedId = searchParams.get("note");
+  // Opening or closing a note goes back to its usual place; ?noteView=modal expands it into a dialog
+  const setSelectedId = (noteId: string | null) => setQueryParams({ note: noteId, noteView: null });
+  const setNoteExpanded = (expanded: boolean) => setQueryParams({ noteView: expanded ? "modal" : null });
+  // Wide screens open the note in its place on the board; phones (and the risks view) use the panel
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const noteInline = isDesktop && view === "canvas";
 
   const grantKey = `leancanvas_share_grant_${token}`;
   const [grant, setGrant] = useState<string | undefined>(undefined);
@@ -33,11 +55,21 @@ export default function PublicSharePage() {
     api.canvases.getCanvasByPublicToken,
     grantLoaded ? { token, grant } : "skip"
   );
+  const goalsView = useQuery(
+    api.goals.viewByPublicToken,
+    grantLoaded && view === "goals" ? { token, grant } : "skip"
+  );
+  const runbooksView = useQuery(
+    api.runbooks.viewByPublicToken,
+    grantLoaded && view === "runbooks" ? { token, grant } : "skip"
+  );
   const [password, setPassword] = useState("");
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [unlocking, setUnlocking] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showStressTest, setShowStressTest] = useState(false);
+  const evidence = useEvidenceFilter();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  useNoteSearchShortcut(() => setIsSearchOpen(true));
 
   // Restore a viewing pass from this browser session, if any
   useEffect(() => {
@@ -144,15 +176,34 @@ export default function PublicSharePage() {
     );
   }
 
-  const notes: NoteItem[] = data.notes;
+  // The public link shares a decision's wording and outcome, not who asked (member ids stay private)
+  const notes: NoteItem[] = data.notes.map((n) => ({
+    ...n,
+    decision: n.decision && { ...n.decision, deciderId: "", requestedBy: "", requestedAt: 0 },
+  }));
   const publicStressTest: StressTestResult | null = data.latestStressTest;
   const selectedNote = notes.find((n) => n._id === selectedId) || null;
+  const noteExpanded = !!selectedNote && searchParams.get("noteView") === "modal";
   const template = getCanvasTemplate(data.canvas.template);
 
   const handleExportMarkdown = () => {
     const md = exportCanvasMarkdown(`${data.canvas.title} (Public View)`, template, notes, publicStressTest);
     downloadFile(`${template.fileSlug}-public.md`, md, "text/markdown");
   };
+
+  const renderNoteDetail = (note: NoteItem, variant: "panel" | "inline" | "modal") => (
+    <NoteDetailPanel
+      note={note}
+      variant={variant}
+      onToggleModal={() => setNoteExpanded(variant !== "modal")}
+      blockTitle={template.blocks.find((b) => b.id === note.block)?.title || note.block}
+      canEdit={false} // Read-only
+      onClose={() => setSelectedId(null)}
+      onUpdate={() => {}}
+      onUpdateEvidence={() => {}}
+      onDelete={() => {}}
+    />
+  );
 
   return (
     <div className="flex h-screen w-full flex-col bg-canvas text-ink overflow-hidden">
@@ -174,15 +225,25 @@ export default function PublicSharePage() {
       </div>
 
       {/* Header */}
-      <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-4">
-        <div className="flex items-center gap-3">
+      <header className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <h1 className="font-bold text-base text-ink">{data.canvas.title}</h1>
           <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-stone-100 text-stone-700 border border-stone-300">
             VIEWER (READ-ONLY)
           </span>
+          <LaunchDayChip launchDate={data.canvas.launchDate} />
+          <DecidedCountChip notes={notes} />
         </div>
 
         <div className="flex items-center gap-2">
+          <ExportMenu
+            title={data.canvas.title}
+            badge="Public view"
+            template={template}
+            notes={notes}
+            stressResult={publicStressTest}
+          />
+
           <button
             type="button"
             onClick={handleExportMarkdown}
@@ -204,67 +265,119 @@ export default function PublicSharePage() {
       </header>
 
       {/* Main Board (canEdit = false) */}
-      <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3">
-          <CanvasViewToggle
-            view={view}
-            riskCount={publicStressTest?.riskiestAssumptions.length ?? 0}
-            onChange={setView}
-          />
-          {view === "risks" ? (
-            <RiskiestAssumptionsView
-              blocks={template.blocks}
-              result={publicStressTest}
-              notes={notes}
-              onOpenNote={(noteId) => {
-                setView("canvas");
-                setSelectedId(noteId);
-              }}
-            />
-          ) : (
-          <CanvasBoard
-            blocks={template.blocks}
-            riskRanks={riskRanksFor(publicStressTest?.riskiestAssumptions)}
-            notes={notes}
-            selectedId={selectedId}
-            canEdit={false} // Strictly read-only for anonymous users
-            onSelect={(id) => setSelectedId((curr) => (curr === id ? null : id))}
-          />
-          )}
-        </div>
-
-        {/* Read-only side panel */}
-        {(selectedNote || showStressTest) && (
-          <aside className="w-full shrink-0 border-t border-line bg-surface lg:h-full lg:w-[360px] lg:border-l lg:border-t-0 shadow-sm z-10 flex flex-col">
-            {showStressTest ? (
-              <StressTestPanel
-                template={template}
-                result={publicStressTest}
-                isRunning={false}
-                canRun={false} // Anonymous users cannot run mutations or trigger AI actions
-                onRunTest={() => {}}
-                onClose={() => setShowStressTest(false)}
-                onViewRisks={() => {
-                  setView("risks");
+      <LaunchDateContext.Provider value={data.canvas.launchDate}>
+        <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CanvasViewToggle
+                view={view}
+                riskCount={publicStressTest?.riskiestAssumptions.length ?? 0}
+                onChange={setView}
+              />
+              <NoteSearchButton onClick={() => setIsSearchOpen(true)} />
+            </div>
+            {view === "canvas" && (
+              <EvidenceLegend
+                filter={evidence.filter}
+                notes={notes}
+                onToggle={evidence.toggle}
+                onShowNeedsEvidence={evidence.showNeedsEvidence}
+                onClear={evidence.clear}
+                onModeChange={evidence.setMode}
+              />
+            )}
+            {view === "goals" ? (
+              <GoalsBoard view={goalsView} canEdit={false} canvasId={data.canvas._id} />
+            ) : view === "runbooks" ? (
+              <RunbooksBoard view={runbooksView} blocks={template.blocks} canEdit={false} canRun={false} />
+            ) : view === "status" ? (
+              <PlanStatusBoard
+                blocks={template.blocks}
+                notes={notes}
+                selectedId={selectedId}
+                onOpenNote={(noteId) => {
                   setShowStressTest(false);
+                  setSelectedId(noteId);
+                }}
+                onShowCanvas={() => setView("canvas")}
+              />
+            ) : view === "risks" ? (
+              <RiskiestAssumptionsView
+                blocks={template.blocks}
+                result={publicStressTest}
+                notes={notes}
+                onOpenNote={(noteId) => {
+                  setView("canvas");
+                  setSelectedId(noteId);
                 }}
               />
-            ) : selectedNote ? (
-              <NoteDetailPanel
-                note={selectedNote}
-                blockTitle={
-                  template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block
-                }
-                canEdit={false} // Read-only
-                onClose={() => setSelectedId(null)}
-                onUpdate={() => {}}
-                onUpdateEvidence={() => {}}
-                onDelete={() => {}}
-              />
-            ) : null}
-          </aside>
+            ) : (
+            <CanvasBoard
+              blocks={template.blocks}
+              riskRanks={riskRanksFor(publicStressTest?.riskiestAssumptions)}
+              notes={notes}
+              evidenceFilter={evidence.filter}
+              selectedId={selectedId}
+              canEdit={false} // Strictly read-only for anonymous users
+              onSelect={(id) => setSelectedId(selectedId === id ? null : id)}
+              renderOpenNote={noteInline && !noteExpanded ? (note) => renderNoteDetail(note, "inline") : undefined}
+            />
+            )}
+          </div>
+
+          {/* Read-only side panel */}
+          {((selectedNote && !noteInline && !noteExpanded) || showStressTest) && (
+            <aside className="w-full shrink-0 border-t border-line bg-surface lg:h-full lg:w-[360px] lg:border-l lg:border-t-0 shadow-sm z-10 flex flex-col">
+              {showStressTest ? (
+                <StressTestPanel
+                  template={template}
+                  result={publicStressTest}
+                  isRunning={false}
+                  canRun={false} // Anonymous users cannot run mutations or trigger AI actions
+                  onRunTest={() => {}}
+                  onClose={() => setShowStressTest(false)}
+                  onViewRisks={() => {
+                    setView("risks");
+                    setShowStressTest(false);
+                  }}
+                />
+              ) : selectedNote ? (
+                renderNoteDetail(selectedNote, "panel")
+              ) : null}
+            </aside>
+          )}
+        </main>
+
+        {noteExpanded && selectedNote && (
+          <NoteModal
+            label={`Note in ${template.blocks.find((b) => b.id === selectedNote.block)?.title || selectedNote.block}`}
+            onDismiss={() => setNoteExpanded(false)}
+          >
+            {renderNoteDetail(selectedNote, "modal")}
+          </NoteModal>
         )}
-      </main>
+      </LaunchDateContext.Provider>
+
+      {isSearchOpen && (
+        <NoteSearch
+          notes={notes}
+          blocks={template.blocks}
+          onClose={() => setIsSearchOpen(false)}
+          onSelect={(noteId) => {
+            const note = notes.find((n) => n._id === noteId);
+            if (note && evidence.filter.mode === "hide" && !noteMatchesEvidence(note, evidence.filter)) {
+              evidence.clear();
+            }
+            setIsSearchOpen(false);
+            setView("canvas");
+            setShowStressTest(false);
+            setSelectedId(noteId);
+            setTimeout(() => {
+              document.getElementById(`note-${noteId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+            }, 80);
+          }}
+        />
+      )}
     </div>
   );
 }

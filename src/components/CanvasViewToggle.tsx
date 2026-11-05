@@ -1,7 +1,22 @@
 import React from "react";
-import { LayoutGridIcon, ShieldAlertIcon } from "lucide-react";
+import { BookOpenCheckIcon, BoxesIcon, Columns3Icon, GavelIcon, LayoutGridIcon, ShieldAlertIcon } from "lucide-react";
 
-export type CanvasView = "canvas" | "risks";
+export type CanvasView = "goals" | "runbooks" | "canvas" | "overview" | "status" | "risks";
+
+/**
+ * The view in the URL (?view=), or the default when there's none. Everyone starts on goals, the
+ * decisions each one is waiting on; the status board and canvas hold the notes behind them.
+ */
+export function parseCanvasView(param: string | null, defaultView: CanvasView): CanvasView {
+  return param === "goals" || param === "runbooks" || param === "canvas" || param === "overview" || param === "status" || param === "risks"
+    ? param
+    : defaultView;
+}
+
+/** The ?view= value for a view: none for the default, so plain links stay plain. */
+export function canvasViewParam(view: CanvasView, defaultView: CanvasView): string | null {
+  return view === defaultView ? null : view;
+}
 
 interface CanvasViewToggleProps {
   view: CanvasView;
@@ -17,6 +32,39 @@ export function CanvasViewToggle({ view, riskCount, onChange }: CanvasViewToggle
       <button
         type="button"
         role="tab"
+        aria-selected={view === "goals"}
+        onClick={() => onChange("goals")}
+        title="The decision record: each goal and the calls it's waiting on, open, testing, decided, done"
+        className={`${base} ${view === "goals" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
+      >
+        <GavelIcon className="h-3.5 w-3.5" />
+        Decisions
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "runbooks"}
+        onClick={() => onChange("runbooks")}
+        title="SOPs and runbooks: the parts of the business that run without you"
+        className={`${base} ${view === "runbooks" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
+      >
+        <BookOpenCheckIcon className="h-3.5 w-3.5" />
+        Runbooks
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "status"}
+        onClick={() => onChange("status")}
+        title="The plan in three columns: needs a call, testing, agreed"
+        className={`${base} ${view === "status" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
+      >
+        <Columns3Icon className="h-3.5 w-3.5" />
+        Status
+      </button>
+      <button
+        type="button"
+        role="tab"
         aria-selected={view === "canvas"}
         onClick={() => onChange("canvas")}
         className={`${base} ${view === "canvas" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
@@ -24,19 +72,30 @@ export function CanvasViewToggle({ view, riskCount, onChange }: CanvasViewToggle
         <LayoutGridIcon className="h-3.5 w-3.5" />
         Canvas
       </button>
+      {/* The 2.5D overview needs room; phones keep the canvas. */}
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "overview"}
+        onClick={() => onChange("overview")}
+        className={`${base} hidden md:inline-flex ${view === "overview" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
+      >
+        <BoxesIcon className="h-3.5 w-3.5" />
+        Overview
+      </button>
       <button
         type="button"
         role="tab"
         aria-selected={view === "risks"}
         onClick={() => onChange("risks")}
-        className={`${base} ${view === "risks" ? "bg-rose-600 text-white" : "text-muted hover:text-rose-700"}`}
+        className={`${base} ${view === "risks" ? "bg-ink text-surface" : "text-muted hover:text-ink"}`}
       >
         <ShieldAlertIcon className="h-3.5 w-3.5" />
-        Riskiest assumptions
+        Risks
         {riskCount > 0 && (
           <span
             className={`rounded-full px-1.5 text-[10px] font-semibold ${
-              view === "risks" ? "bg-white/25 text-white" : "bg-rose-100 text-rose-700"
+              view === "risks" ? "bg-white/25 text-surface" : "bg-surface-2 text-muted"
             }`}
           >
             {riskCount}

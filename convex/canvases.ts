@@ -1,6 +1,12 @@
 import { query, mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { hashPassword, verifyPassword } from "./lib/password";
+import { checkDate } from "./lib/testFields";
+import { displayName } from "./lib/members";
+import { deleteSnapshotRows } from "./lib/snapshots";
+import { requireLivePlan } from "./lib/plans";
+import { deciderNameOf } from "./lib/decisions";
+import { deletePeople, listPeople } from "./lib/people";
 import { requireAuth, requireOwner, requireEditor, getCurrentUser, getCanvasRole, Role, sha256Hex } from "./lib/auth";
 import { Doc, Id } from "./_generated/dataModel";
 import { MutationCtx, QueryCtx } from "./_generated/server";
@@ -82,7 +88,7 @@ const SEED_NOTES: Record<CanvasTemplate, SeedNote[]> = {
 export async function createCanvasForUser(
   ctx: MutationCtx,
   user: Doc<"users">,
-  args: { title: string; description?: string; seedNotes?: boolean; template?: CanvasTemplate }
+  args: { title: string; description?: string; seedNotes?: boolean; template?: CanvasTemplate; launchDate?: string }
 ): Promise<Id<"canvases">> {
   const template = args.template ?? "lean";
 
@@ -110,6 +116,7 @@ export async function createCanvasForUser(
     title,
     description: args.description?.trim() || undefined,
     template,
+    launchDate: args.launchDate?.trim() ? checkDate(args.launchDate.trim(), "launchDate") : undefined,
     status: "active",
     publicViewToken: crypto.randomUUID(),
     isPublicViewEnabled: false,
@@ -123,6 +130,9 @@ export async function createCanvasForUser(
     userId: user._id,
     role: "owner",
   });
+
+  // A launch date makes it a live plan from the start
+  if (args.launchDate?.trim()) await requireLivePlan(ctx, (await ctx.db.get(canvasId))!);
 
   // Seed initial notes
   if (args.seedNotes !== false) {
@@ -192,9 +202,32 @@ export async function listCanvasesForUser(ctx: QueryCtx, userId: Id<"users">) {
     if (!canvasMap.has(canvas._id)) canvasMap.set(canvas._id, { ...canvas, role: "owner" });
   }
 
-  return Array.from(canvasMap.values())
+  const visible = Array.from(canvasMap.values())
     .filter((c) => c.status !== "archived")
     .sort((a, b) => b.updatedAt - a.updatedAt);
+
+  // How many people are on each canvas (counting the creator even without a membership row), and
+  // where its decisions stand: still open (open or testing) or made (decided or done)
+  return await Promise.all(
+    visible.map(async (c) => {
+      const rows = await ctx.db
+        .query("canvasMembers")
+        .withIndex("by_canvas", (q) => q.eq("canvasId", c._id))
+        .collect();
+      const hasCreator = rows.some((r) => r.userId === c.createdBy);
+      const items = await ctx.db
+        .query("items")
+        .withIndex("by_canvas", (q) => q.eq("canvasId", c._id))
+        .take(500);
+      const openDecisions = items.filter((i) => i.state === "open" || i.state === "testing").length;
+      return {
+        ...c,
+        memberCount: rows.length + (hasCreator ? 0 : 1),
+        openDecisions,
+        madeDecisions: items.length - openDecisions,
+      };
+    })
+  );
 }
 
 /**
@@ -247,7 +280,7 @@ export const getCanvas = query({
         const u = await ctx.db.get(m.userId);
         return {
           id: m.userId,
-          name: u?.name || "Anonymous",
+          name: displayName(u),
           email: u?.email || "",
           imageUrl: u?.image,
           role: m.role,
@@ -257,10 +290,19 @@ export const getCanvas = query({
 
     const { publicViewPasswordHash, ...canvasFields } = canvas;
 
+    // Deciders without an account aren't members, so every decision carries its decider's name
+    const withDeciderNames = await Promise.all(
+      notes.map(async (n) =>
+        n.decision ? { ...n, decision: { ...n.decision, deciderName: await deciderNameOf(ctx, n.decision) } } : n
+      )
+    );
+
     return {
       canvas: { ...canvasFields, template: templateOf(canvas), hasPublicViewPassword: !!publicViewPasswordHash },
-      notes: notes.sort((a, b) => a.order - b.order),
+      notes: withDeciderNames.sort((a, b) => a.order - b.order),
       members: memberDetails,
+      // Who can be asked to decide without an account. Viewers can't ask, so they don't get the list.
+      people: role === "viewer" ? [] : await listPeople(ctx, canvas._id, { withEmail: true }),
       currentUserRole: role,
       isAnonymous: !user,
     };
@@ -307,7 +349,7 @@ async function recordFailure(
  * Checks a viewing pass issued by unlockPublicView. Passes are invalidated whenever the
  * link password is changed or removed (publicViewPasswordSetAt changes).
  */
-async function isValidGrant(ctx: QueryCtx, canvas: Doc<"canvases">, grant?: string) {
+export async function isValidGrant(ctx: QueryCtx, canvas: Doc<"canvases">, grant?: string) {
   if (!grant) return false;
   const grantHash = await sha256Hex(grant);
   const grantDoc = await ctx.db
@@ -445,12 +487,20 @@ export const getCanvasByPublicToken = query({
       .order("desc")
       .first();
 
+    // Decisions show the decider's name, not their id, and never the answer link
+    const deciderNames = new Map<string, string>();
+    for (const n of notes) {
+      const key = n.decision && (n.decision.deciderId ?? n.decision.deciderPersonId);
+      if (n.decision && key && !deciderNames.has(key)) deciderNames.set(key, await deciderNameOf(ctx, n.decision));
+    }
+
     return {
       canvas: {
         _id: canvas._id,
         title: canvas.title,
         description: canvas.description,
         template: templateOf(canvas),
+        launchDate: canvas.launchDate,
         status: canvas.status,
         updatedAt: canvas.updatedAt,
       },
@@ -461,6 +511,29 @@ export const getCanvasByPublicToken = query({
           content: n.content,
           order: n.order,
           evidenceState: n.evidenceState,
+          stage: n.stage,
+          measure: n.measure,
+          passMark: n.passMark,
+          reviewDate: n.reviewDate,
+          // A result sent via link keeps that mark here, but not the name its sender typed
+          latestResult: n.latestResult && {
+            text: n.latestResult.text,
+            date: n.latestResult.date,
+            verdict: n.latestResult.verdict,
+            via: n.latestResult.via,
+          },
+          markets: n.markets,
+          decision: n.decision && {
+            question: n.decision.question,
+            dueDate: n.decision.dueDate,
+            defaultOutcome: n.decision.defaultOutcome,
+            options: n.decision.options,
+            deferOptions: n.decision.deferOptions,
+            status: n.decision.status,
+            choice: n.decision.choice,
+            answeredAt: n.decision.answeredAt,
+            deciderName: deciderNames.get(n.decision.deciderId ?? n.decision.deciderPersonId ?? ""),
+          },
           updatedAt: n.updatedAt,
         }))
         .sort((a, b) => a.order - b.order),
@@ -487,30 +560,60 @@ export const updateCanvasMeta = mutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     status: v.optional(v.union(v.literal("draft"), v.literal("active"), v.literal("archived"))),
+    // null clears it
+    launchDate: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const { user } = await requireEditor(ctx, args.canvasId);
-    const canvas = await ctx.db.get(args.canvasId);
-    if (!canvas) throw new Error("Canvas not found");
-
-    const updates: Partial<typeof canvas> = {
-      updatedAt: Date.now(),
-    };
-    if (args.title !== undefined) updates.title = args.title;
-    if (args.description !== undefined) updates.description = args.description;
-    if (args.status !== undefined) updates.status = args.status;
-
-    await ctx.db.patch(args.canvasId, updates);
-
-    await ctx.db.insert("activity", {
-      canvasId: args.canvasId,
-      userId: user._id,
-      type: "canvas_updated",
-      message: `updated canvas metadata`,
-      createdAt: Date.now(),
-    });
+    const { canvasId, ...changes } = args;
+    await updateCanvasMetaForUser(ctx, user._id, canvasId, changes);
   },
 });
+
+/**
+ * Shared implementation for updating a canvas's title, description, status or launch date
+ * (caller must have verified editor access).
+ */
+export async function updateCanvasMetaForUser(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  canvasId: Id<"canvases">,
+  args: {
+    title?: string;
+    description?: string;
+    status?: Doc<"canvases">["status"];
+    launchDate?: string | null;
+  }
+) {
+  const canvas = await ctx.db.get(canvasId);
+  if (!canvas) throw new Error("Canvas not found");
+
+  const updates: Partial<typeof canvas> = {
+    updatedAt: Date.now(),
+  };
+  if (args.title !== undefined) updates.title = args.title;
+  if (args.description !== undefined) updates.description = args.description;
+  if (args.status !== undefined) updates.status = args.status;
+  if (args.launchDate !== undefined) {
+    updates.launchDate = args.launchDate?.trim() ? checkDate(args.launchDate.trim(), "launchDate") : undefined;
+    if (updates.launchDate && updates.launchDate !== canvas.launchDate) await requireLivePlan(ctx, canvas);
+  }
+
+  await ctx.db.patch(canvasId, updates);
+
+  await ctx.db.insert("activity", {
+    canvasId,
+    userId,
+    type: "canvas_updated",
+    message:
+      args.launchDate !== undefined
+        ? updates.launchDate
+          ? `set the launch date to ${updates.launchDate}`
+          : "cleared the launch date"
+        : `updated canvas metadata`,
+    createdAt: Date.now(),
+  });
+}
 
 /**
  * Toggles public view or regenerates public token (Owner only).
@@ -590,6 +693,32 @@ export const deleteCanvas = mutation({
       .collect();
     for (const inv of invites) {
       await ctx.db.delete(inv._id);
+    }
+
+    // Delete note history and snapshots
+    const historyRows = await ctx.db
+      .query("noteHistory")
+      .withIndex("by_canvas", (q) => q.eq("canvasId", args.canvasId))
+      .collect();
+    for (const row of historyRows) {
+      await ctx.db.delete(row._id);
+    }
+    const snapshots = await ctx.db
+      .query("canvasSnapshots")
+      .withIndex("by_canvas", (q) => q.eq("canvasId", args.canvasId))
+      .collect();
+    for (const snapshot of snapshots) {
+      await deleteSnapshotRows(ctx, snapshot._id);
+    }
+
+    await deletePeople(ctx, args.canvasId);
+
+    const checkIns = await ctx.db
+      .query("checkInItems")
+      .withIndex("by_canvas", (q) => q.eq("canvasId", args.canvasId))
+      .collect();
+    for (const item of checkIns) {
+      await ctx.db.delete(item._id);
     }
 
     // Delete stress tests

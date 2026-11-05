@@ -1,8 +1,36 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Trash2Icon, XIcon, CheckCircle2Icon } from "lucide-react";
+import { Trash2Icon, XIcon, ChevronDownIcon, FlaskConicalIcon, Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { NoteItem, EvidenceState } from "../types/canvas";
-import { EvidenceBadge, EVIDENCE_CONFIG } from "./EvidenceBadge";
+import { EvidenceBadge, EVIDENCE_CONFIG, EVIDENCE_STATES } from "./EvidenceBadge";
+import { NoteStageField } from "./StageControls";
+import { NoteHistory } from "./NoteHistory";
+import { EditableField } from "./EditableField";
+import { NoteTestFields, TestFieldsPatch } from "./NoteTestFields";
+import { NoteDriverField } from "./DriverControls";
+import { NoteDecisionSection } from "./NoteDecision";
+import { NoteResultLink } from "./NoteResultLink";
+import { NoteMarketsField } from "./MarketControls";
+import { hasTest } from "../utils/testFields";
+
+/** Claim box tint per state. Full class names so Tailwind finds them; ! beats EditableField's base colours. */
+const CLAIM_TINT: Record<EvidenceState, string> = {
+  unknown: "!bg-surface !border-dashed !border-stone-300",
+  assumption: "!bg-amber-50/70 !border-amber-300",
+  observed: "!bg-blue-50/60 !border-blue-300",
+  supported: "!bg-emerald-50/60 !border-emerald-300",
+  contradicted: "!bg-rose-50 !border-rose-400",
+  decision: "!bg-purple-50/60 !border-purple-300",
+};
+
+const NEXT_STEP: Record<EvidenceState, { title: string; body: string }> = {
+  unknown: { title: "Start with your best guess", body: "If you believe this but have not checked it, mark it as an assumption." },
+  assumption: { title: "Decide how you would find out", body: "A test says what to watch and what result would prove this wrong." },
+  observed: { title: "Turn what you saw into a test", body: "You have seen this once. Say what to watch to be sure it holds." },
+  supported: { title: "The evidence backs this", body: "Ready to commit? Ask the team to make it a decision." },
+  contradicted: { title: "The evidence goes against this", body: "Rewrite the claim, or ask the team whether to drop it." },
+  decision: { title: "The team has committed to this", body: "Nothing more to do here." },
+};
 
 interface NoteDetailPanelProps {
   note: NoteItem;
@@ -10,18 +38,23 @@ interface NoteDetailPanelProps {
   canEdit: boolean;
   onClose: () => void;
   onUpdate: (content: string) => void;
-  onUpdateEvidence: (state: EvidenceState) => void;
+  /** May return the save, so a result can attach its reason once the state has changed */
+  onUpdateEvidence: (state: EvidenceState) => void | Promise<unknown>;
+  onUpdateTest?: (patch: TestFieldsPatch) => void;
+  onUpdateDriver?: (driverId: string | null) => void;
+  onUpdateMarkets?: (markets: string[] | null) => void;
+  /** Market tags already used on the canvas, offered as suggestions */
+  allMarkets?: string[];
+  /** Adds a reason to the current user's latest change to this note */
+  onAddReason?: (reason: string) => Promise<void>;
   onDelete: () => void;
+  /** Set to show the note's change history (canvas members only, not the public link) */
+  blockTitleOf?: (blockId: string) => string;
+  /** "inline" opens the note in its place on the board, "modal" in a dialog over it, "panel" in the side panel */
+  variant?: "panel" | "inline" | "modal";
+  /** Moves the note into the dialog, or (from the dialog) back where it was */
+  onToggleModal?: () => void;
 }
-
-const EVIDENCE_STATES: EvidenceState[] = [
-  "unknown",
-  "assumption",
-  "observed",
-  "supported",
-  "contradicted",
-  "decision",
-];
 
 export function NoteDetailPanel({
   note,
@@ -30,27 +63,141 @@ export function NoteDetailPanel({
   onClose,
   onUpdate,
   onUpdateEvidence,
+  onUpdateTest,
+  onUpdateDriver,
+  onUpdateMarkets,
+  allMarkets = [],
+  onAddReason,
   onDelete,
+  blockTitleOf,
+  variant = "panel",
+  onToggleModal,
 }: NoteDetailPanelProps) {
-  const [content, setContent] = useState(note.content);
+  const inline = variant === "inline";
+  const modal = variant === "modal";
+  // Inline, the header says what you can do with the note rather than repeating its block
+  const mode = canEdit ? "Editing" : "Viewing";
+  const rootRef = useRef<HTMLElement>(null);
+  // After a state change here, offer a line on why. Cleared when another note is opened.
+  const [changedTo, setChangedTo] = useState<EvidenceState | null>(null);
+  const [reason, setReason] = useState("");
+  const [reasonStatus, setReasonStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
-  const handleBlur = () => {
-    if (content.trim() && content !== note.content && canEdit) {
-      onUpdate(content.trim());
+  const [showTest, setShowTest] = useState(false);
+  // Inline, the six states fold into the current one until asked for
+  const [picking, setPicking] = useState(false);
+  const [showMore, setShowMore] = useState<boolean | null>(null);
+  const step = NEXT_STEP[note.evidenceState];
+  const testPrompt = note.evidenceState === "assumption" || note.evidenceState === "observed";
+  const decisionPrompt = note.evidenceState === "supported" || note.evidenceState === "contradicted";
+  const testVisible = hasTest(note) || (testPrompt && showTest);
+  const moreOpen = showMore ?? (!inline && !!(note.ownerId || note.markets?.length));
+  const moreTopic = inline && blockTitleOf ? "driver, markets and history" : "driver and markets";
+  const moreLabel = moreOpen ? `Hide ${moreTopic}` : moreTopic.charAt(0).toUpperCase() + moreTopic.slice(1);
+
+  // Inline, keep the open note fully in view within its block (and the page)
+  useEffect(() => {
+    if (inline) rootRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [inline, note._id]);
+
+  useEffect(() => {
+    setShowTest(false);
+    setPicking(false);
+    setShowMore(null);
+    setChangedTo(null);
+    setReason("");
+    setReasonStatus("idle");
+  }, [note._id]);
+
+  const changeState = (state: EvidenceState) => {
+    if (state === note.evidenceState) return;
+    void onUpdateEvidence(state);
+    setPicking(false);
+    setChangedTo(state);
+    setReason("");
+    setReasonStatus("idle");
+  };
+
+  // Power-user shortcuts, off while typing in a field or holding a modifier
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      if (e.key === "Escape") {
+        // In the dialog, Esc steps back to the board with the note still open
+        (modal && onToggleModal ? onToggleModal : onClose)();
+        return;
+      }
+      if (!canEdit) return;
+      const index = Number(e.key) - 1;
+      if (Number.isInteger(index) && index >= 0 && index < EVIDENCE_STATES.length) {
+        changeState(EVIDENCE_STATES[index]);
+      } else if (e.key === "t" && testPrompt) {
+        setShowTest(true);
+      } else if (e.key === "d") {
+        setShowMore(!moreOpen);
+      } else {
+        return;
+      }
+      e.preventDefault();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  });
+
+  const saveReason = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onAddReason || !reason.trim()) return;
+    setReasonStatus("saving");
+    try {
+      await onAddReason(reason.trim());
+      setReasonStatus("saved");
+      setChangedTo(null);
+    } catch {
+      setReasonStatus("error");
     }
   };
 
+  const Root = inline ? motion.article : motion.div;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 8 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 8 }}
+    <Root
+      ref={rootRef as React.Ref<HTMLDivElement>}
+      id={inline ? `note-${note._id}` : undefined}
+      aria-label={inline ? `${mode} note in ${blockTitle}` : undefined}
+      initial={inline || modal ? { opacity: 0, scale: 0.98 } : { opacity: 0, x: 8 }}
+      animate={inline || modal ? { opacity: 1, scale: 1 } : { opacity: 1, x: 0 }}
+      exit={inline || modal ? { opacity: 0, scale: 0.98 } : { opacity: 0, x: 8 }}
       transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-      className="flex h-full flex-col bg-surface overflow-y-auto"
+      className={
+        inline
+          ? "scroll-my-3 rounded-xl border-2 border-ink bg-surface shadow-lg"
+          : modal
+            ? "flex max-h-full flex-col bg-surface"
+            : "flex h-full flex-col bg-surface overflow-y-auto"
+      }
     >
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-line px-4">
-        <p className="text-xs font-semibold text-muted uppercase tracking-wider">{blockTitle}</p>
+      <header
+        className={
+          inline
+            ? "flex items-center justify-between px-3 pt-2"
+            : "flex h-12 shrink-0 items-center justify-between border-b border-line px-4"
+        }
+      >
+        <p className="text-xs font-semibold text-muted uppercase tracking-wider">{inline ? mode : blockTitle}</p>
         <div className="flex items-center gap-1">
+          {onToggleModal && (
+            <button
+              type="button"
+              onClick={onToggleModal}
+              title={modal ? "Collapse back to the board (Esc)" : "Expand into a larger view"}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted hover:bg-stone-100 hover:text-ink transition-colors"
+            >
+              {modal ? <Minimize2Icon size={14} aria-hidden="true" /> : <Maximize2Icon size={14} aria-hidden="true" />}
+              {modal ? "Collapse" : "Expand"}
+            </button>
+          )}
           {canEdit && (
             <button
               type="button"
@@ -64,6 +211,8 @@ export function NoteDetailPanel({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close note"
+            title="Close (Esc)"
             className="grid h-7 w-7 place-items-center rounded-md text-muted hover:bg-stone-100 hover:text-ink transition-colors"
           >
             <XIcon size={16} />
@@ -71,72 +220,253 @@ export function NoteDetailPanel({
         </div>
       </header>
 
-      <div className="p-4 space-y-5 flex-1">
-        {/* Note Content */}
+      <div className={inline ? "space-y-4 p-3 pt-2" : modal ? "min-h-0 flex-1 space-y-6 overflow-y-auto p-5 sm:p-6" : "p-4 space-y-6 flex-1"}>
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-muted">Claim / Item Content</label>
-          <textarea
-            rows={4}
+          <label className="text-xs font-semibold text-muted">What do we believe?</label>
+          <EditableField
+            multiline
+            rows={3}
+            required
             disabled={!canEdit}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            onBlur={handleBlur}
-            className="w-full resize-none rounded-lg border border-amber-200/80 bg-amber-50/50 p-3 text-sm leading-snug text-ink focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-85"
+            value={note.content}
+            onCommit={onUpdate}
+            className={`!p-3 !text-base ${CLAIM_TINT[note.evidenceState]}`}
           />
         </div>
 
-        {/* Evidence State Selector */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-muted">Evidence State</label>
-            <EvidenceBadge state={note.evidenceState} />
-          </div>
-
-          {canEdit ? (
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              {EVIDENCE_STATES.map((state) => {
-                const conf = EVIDENCE_CONFIG[state];
-                const active = note.evidenceState === state;
-                return (
-                  <button
-                    key={state}
-                    type="button"
-                    onClick={() => onUpdateEvidence(state)}
-                    className={`flex flex-col items-start p-2 rounded-lg border text-left text-xs transition-all ${
-                      active
-                        ? `${conf.bg} ${conf.border} ring-1 ring-accent font-semibold`
-                        : "bg-surface border-line hover:bg-surface-2"
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-current opacity-75" />
+          <p className="text-xs font-semibold text-muted">How sure are we?</p>
+          {canEdit && inline && !picking ? (
+            <StateToggle state={note.evidenceState} onClick={() => setPicking(true)} />
+          ) : canEdit ? (
+            <>
+              <div className={`grid gap-2 ${inline ? "grid-cols-2" : "grid-cols-3"}`}>
+                {EVIDENCE_STATES.map((state, i) => {
+                  const conf = EVIDENCE_CONFIG[state];
+                  const Icon = conf.icon;
+                  const active = note.evidenceState === state;
+                  return (
+                    <button
+                      key={state}
+                      type="button"
+                      aria-pressed={active}
+                      aria-keyshortcuts={String(i + 1)}
+                      onClick={() => changeState(state)}
+                      className={`flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2 text-xs transition-colors ${
+                        active
+                          ? `${conf.bg} ${conf.text} ${conf.border} ring-1 ring-accent font-semibold`
+                          : "bg-surface border-line text-ink hover:bg-surface-2"
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                       {conf.label}
-                    </span>
-                    <span className="text-[10px] text-muted font-normal mt-0.5 line-clamp-1">
-                      {conf.desc}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                      <kbd aria-hidden="true" className={`${inline ? "hidden" : "hidden md:inline"} rounded border border-line bg-surface px-1 text-[10px] font-normal text-muted`}>
+                        {i + 1}
+                      </kbd>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted" aria-live="polite">
+                {EVIDENCE_CONFIG[note.evidenceState].desc}.
+              </p>
+              <p className="hidden text-[11px] text-muted md:block">
+                Keys: 1–6 set the state{testPrompt && !testVisible ? ", T adds a test" : ""}, D driver and markets, Esc closes.
+              </p>
+
+              {inline && (
+                <button type="button" onClick={() => setPicking(false)} className="text-xs font-medium text-muted hover:text-ink">
+                  Keep {EVIDENCE_CONFIG[note.evidenceState].label.toLowerCase()}
+                </button>
+              )}
+            </>
           ) : (
-            <p className="text-xs text-muted">
-              Viewing in read-only mode. Sign in with editor permissions to change evidence status.
-            </p>
+            <>
+              <EvidenceBadge state={note.evidenceState} />
+              <p className="text-xs text-muted">Viewing in read-only mode. Sign in with editor permissions to make changes.</p>
+            </>
+          )}
+          {canEdit && (
+            <>
+              {onAddReason && changedTo && (
+                <form onSubmit={saveReason} className="space-y-1.5 rounded-lg border border-line bg-surface-2 p-2">
+                  <label htmlFor="state-reason" className="block text-[11px] font-medium text-muted">
+                    Why is it {EVIDENCE_CONFIG[changedTo].label.toLowerCase()} now? (optional)
+                  </label>
+                  <div className="flex gap-1.5">
+                    <input
+                      id="state-reason"
+                      value={reason}
+                      maxLength={280}
+                      onChange={(e) => setReason(e.target.value)}
+                      placeholder="e.g. Day 30: $3.10 per start, above the pass mark"
+                      className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!reason.trim() || reasonStatus === "saving"}
+                      className="shrink-0 rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-surface disabled:opacity-50"
+                    >
+                      Save
+                    </button>
+                  </div>
+                  {reasonStatus === "error" && (
+                    <p className="text-[11px] text-rose-700">Couldn't save the reason. The note may have changed since.</p>
+                  )}
+                </form>
+              )}
+              {reasonStatus === "saved" && <p className="text-[11px] text-muted">Reason saved to history.</p>}
+            </>
           )}
         </div>
 
-        {/* Validation hint */}
-        <div className="rounded-xl bg-surface-2 border border-line p-3 text-xs text-muted space-y-1">
-          <div className="font-semibold text-ink flex items-center gap-1">
-            <CheckCircle2Icon className="w-3.5 h-3.5 text-accent" />
-            Ash Maurya Validation Framework
+        <NoteStageField note={note} canEdit={canEdit} />
+
+        {canEdit && (
+          <section aria-label="Next step" className="space-y-3 border-t border-line pt-4">
+            {/* Once a test is in play it says what to do next itself */}
+            {!testVisible && (
+              <div className="space-y-0.5">
+                <p className="text-sm text-ink">
+                  <span className="font-semibold">Next step:</span> {step.title}
+                </p>
+                <p className="text-xs text-muted">{step.body}</p>
+              </div>
+            )}
+            {note.evidenceState === "unknown" && (
+              <button
+                type="button"
+                onClick={() => changeState("assumption")}
+                className="min-h-11 rounded-lg bg-ink px-4 text-sm font-semibold text-surface hover:opacity-90"
+              >
+                Mark as assumption
+              </button>
+            )}
+            {testPrompt && !testVisible && (
+              <button
+                type="button"
+                onClick={() => setShowTest(true)}
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-surface hover:opacity-90"
+              >
+                <FlaskConicalIcon className="h-4 w-4" aria-hidden="true" />
+                Add a test
+              </button>
+            )}
+            {testVisible && (
+              <NoteTestFields
+                note={note}
+                canEdit={canEdit}
+                onUpdate={onUpdateTest}
+                onCancelNew={() => setShowTest(false)}
+                onApplyResult={async (state, reasonText) => {
+                  await onUpdateEvidence(state);
+                  await onAddReason?.(reasonText);
+                }}
+              />
+            )}
+            {hasTest(note) && <NoteResultLink note={note} />}
+            {(decisionPrompt || note.decision) && <NoteDecisionSection note={note} canEdit={canEdit} />}
+          </section>
+        )}
+
+        {!canEdit && (
+          <>
+            <NoteDecisionSection note={note} canEdit={canEdit} />
+            <NoteDriverField note={note} canEdit={canEdit} onChange={onUpdateDriver} />
+            <NoteMarketsField note={note} canEdit={canEdit} allMarkets={allMarkets} onChange={onUpdateMarkets} />
+            <NoteTestFields note={note} canEdit={canEdit} onUpdate={onUpdateTest} />
+          </>
+        )}
+
+        {canEdit && (
+          <div className="space-y-3">
+            <button
+              type="button"
+              aria-expanded={moreOpen}
+              onClick={() => setShowMore(!moreOpen)}
+              className="flex min-h-11 items-center gap-1.5 text-sm font-semibold text-accent"
+            >
+              <ChevronDownIcon className={`h-4 w-4 transition-transform ${moreOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+              {moreLabel}
+            </button>
+            {moreOpen && (
+              <div className="space-y-5">
+                <NoteDriverField note={note} canEdit={canEdit} onChange={onUpdateDriver} />
+                <NoteMarketsField note={note} canEdit={canEdit} allMarkets={allMarkets} onChange={onUpdateMarkets} />
+                {/* Inline, history lives behind the toggle to keep the open note short */}
+                {inline && blockTitleOf && <NoteHistory noteId={note._id} blockTitleOf={blockTitleOf} />}
+              </div>
+            )}
           </div>
-          <p className="text-[11px] leading-relaxed">
-            Move items systematically from <strong>Assumption</strong> to <strong>Observed</strong> or <strong>Supported</strong> through customer interviews, concierge tests, and observable sales traction.
-          </p>
-        </div>
+        )}
+
+        {blockTitleOf && !(inline && canEdit) && <NoteHistory noteId={note._id} blockTitleOf={blockTitleOf} />}
       </div>
-    </motion.div>
+    </Root>
+  );
+}
+
+/** The current state as one control; opens the six choices */
+function StateToggle({ state, onClick }: { state: EvidenceState; onClick: () => void }) {
+  const conf = EVIDENCE_CONFIG[state];
+  const Icon = conf.icon;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`How sure are we: ${conf.label}. Change`}
+      className={`-ml-1.5 inline-flex min-h-9 items-center gap-1.5 rounded-md px-1.5 text-sm font-semibold hover:bg-surface-2 ${conf.text}`}
+    >
+      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+      {conf.label}
+      <ChevronDownIcon className="h-4 w-4 text-muted" aria-hidden="true" />
+    </button>
+  );
+}
+
+/**
+ * A dialog over the board for working on one note with room to spare. Esc and a click outside
+ * step back to the board; the note stays open there.
+ */
+export function NoteModal({
+  label,
+  onDismiss,
+  children,
+}: {
+  label: string;
+  onDismiss: () => void;
+  children: React.ReactNode;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = overflow;
+      previous?.focus?.();
+    };
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-6"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onDismiss();
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        tabIndex={-1}
+        className="flex h-full w-full flex-col overflow-hidden bg-surface shadow-xl outline-none sm:h-auto sm:max-h-[88vh] sm:max-w-[680px] sm:rounded-2xl sm:border sm:border-line"
+      >
+        {children}
+      </div>
+    </div>
   );
 }

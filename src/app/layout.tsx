@@ -23,9 +23,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://lean.incrementic.com"),
-  title: "LeanCanvas Live — Realtime Collaborative Lean Canvas by Incrementic",
+  title: "CriticalDash — One record of every decision, for businesses between providers and customers, by Incrementic",
   description:
-    "Realtime multiplayer Lean Canvas tool with AI stress-testing and evidence-based assumption tracking. The shortest distance to your next validated business.",
+    "Campaigns change direction, policies change, new regulations land. CriticalDash is the record of every decision: what's decided, what's open and who's deciding, so everyone is aligned and you move forward with confidence.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -40,10 +40,10 @@ export const metadata: Metadata = {
     canonical: "https://lean.incrementic.com",
   },
   openGraph: {
-    title: "LeanCanvas Live — by Incrementic",
-    description: "The shortest distance to your next validated business. Realtime multiplayer Lean Canvas with automated AI stress testing.",
+    title: "CriticalDash — by Incrementic",
+    description: "You built the business. Would it run without you? One record of every decision, so the whole team is aligned on what's decided, what's open and who's deciding.",
     url: "https://lean.incrementic.com",
-    siteName: "LeanCanvas Live",
+    siteName: "CriticalDash",
     locale: "en_US",
     type: "website",
     images: [
@@ -51,15 +51,15 @@ export const metadata: Metadata = {
         url: "/og.svg",
         width: 1200,
         height: 630,
-        alt: "LeanCanvas Live by Incrementic",
+        alt: "CriticalDash by Incrementic",
         type: "image/svg+xml",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "LeanCanvas Live — by Incrementic",
-    description: "The shortest distance to your next validated business. Realtime multiplayer Lean Canvas with automated AI stress testing.",
+    title: "CriticalDash — by Incrementic",
+    description: "You built the business. Would it run without you? One record of every decision, so the whole team is aligned on what's decided, what's open and who's deciding.",
     images: ["/og.svg"],
   },
 };

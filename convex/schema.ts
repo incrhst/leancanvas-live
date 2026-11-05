@@ -2,6 +2,20 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 import { blockValidator, canvasTemplateValidator } from "./lib/canvasTemplates";
+import { testFieldsSchema, verdictValidator } from "./lib/testFields";
+import { decisionRequestValidator, decisionStatusValidator } from "./lib/decisions";
+import { canvasPlanValidator } from "./lib/billing";
+import { decisionBasisValidator, itemStateValidator, lookBackValidator } from "./lib/goalModel";
+import { runbookStatusValidator, runOutcomeValidator, stageValidator } from "./lib/runbookModel";
+
+const evidenceStateValidator = v.union(
+  v.literal("unknown"),
+  v.literal("assumption"),
+  v.literal("observed"),
+  v.literal("supported"),
+  v.literal("contradicted"),
+  v.literal("decision")
+);
 
 export default defineSchema({
   ...authTables,
@@ -67,6 +81,26 @@ export default defineSchema({
     .index("by_access_hash", ["accessTokenHash"])
     .index("by_refresh_hash", ["refreshTokenHash"]),
 
+  // What a canvas creator is allowed beyond the defaults (trial length, how many trials, free
+  // plans for founding members), and how many trials they've used. One row per user, made when
+  // first needed. Admins change it through the admin MCP tools.
+  billingAccounts: defineTable({
+    userId: v.id("users"),
+    trialsUsed: v.number(),
+    founding: v.optional(v.boolean()),
+    // Overrides of the defaults in lib/billing.ts; unset = default
+    trialDays: v.optional(v.number()),
+    trialsAllowed: v.optional(v.number()),
+    // Live plans that run free with no end date (founding members), and how many are in use
+    freeLivePlans: v.optional(v.number()),
+    discountPercent: v.optional(v.number()),
+    note: v.optional(v.string()),
+    updatedBy: v.optional(v.id("users")),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_founding", ["founding"]),
+
   workspaces: defineTable({
     name: v.string(),
     ownerId: v.id("users"),
@@ -78,6 +112,8 @@ export default defineSchema({
     description: v.optional(v.string()),
     // Which block set this canvas uses. Unset on canvases created before templates (= lean). Fixed at creation.
     template: v.optional(canvasTemplateValidator),
+    // Day 0 of the plan ("YYYY-MM-DD"), so review dates can read as "day 30"
+    launchDate: v.optional(v.string()),
     status: v.union(v.literal("draft"), v.literal("active"), v.literal("archived")),
     // Public read-only link token (null = private)
     publicViewToken: v.optional(v.string()),
@@ -86,12 +122,32 @@ export default defineSchema({
     // Optional password on the public link (PBKDF2 hash) and when it was last set/cleared
     publicViewPasswordHash: v.optional(v.string()),
     publicViewPasswordSetAt: v.optional(v.number()),
+    // Set once the canvas becomes a live plan (a launch date, a test, a decision or a snapshot).
+    // Unset = a free canvas. See lib/billing.ts
+    plan: v.optional(canvasPlanValidator),
     createdBy: v.id("users"),
     updatedAt: v.number(),
   })
     .index("by_workspace", ["workspaceId"])
+    .index("by_plan_status", ["plan.status"])
     .index("by_public_token", ["publicViewToken"])
     .index("by_creator", ["createdBy"]),
+
+  // Someone a canvas can ask to decide without giving them an account: a name and an email,
+  // added inline by an editor. They answer only from links; they never see the canvas.
+  people: defineTable({
+    canvasId: v.id("canvases"),
+    name: v.string(),
+    // Lowercased
+    email: v.string(),
+    // They asked not to be emailed from this canvas again (from the link in an email)
+    stoppedAt: v.optional(v.number()),
+    // Fixed-window throttle on emails sent to them
+    windowStart: v.optional(v.number()),
+    windowCount: v.optional(v.number()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_canvas_and_email", ["canvasId", "email"]),
 
   // Membership at canvas level
   canvasMembers: defineTable({
@@ -110,17 +166,276 @@ export default defineSchema({
     block: blockValidator,
     content: v.string(),
     order: v.number(),
-    evidenceState: v.union(
-      v.literal("unknown"),
-      v.literal("assumption"),
-      v.literal("observed"),
-      v.literal("supported"),
-      v.literal("contradicted"),
-      v.literal("decision")
-    ),
+    evidenceState: evidenceStateValidator,
+    // Optional test: measure, passMark, reviewDate, latestResult
+    ...testFieldsSchema,
+    // The note's driver: the one person doing the work on it; any canvas member, viewers included.
+    // Shown as "driver" everywhere; the field keeps its original name so no migration is needed
+    ownerId: v.optional(v.id("users")),
+    // Where the note holds (e.g. "Jamaica"); none means every market. See lib/markets.ts
+    markets: v.optional(v.array(v.string())),
+    // A decision someone has been asked to make about this note
+    decision: v.optional(decisionRequestValidator),
+    // How runnable this part of the business is (unset = guess). "codified" is only ever set by a
+    // live runbook linking the note; see lib/runbooks.ts
+    stage: v.optional(stageValidator),
     createdBy: v.id("users"),
     updatedAt: v.number(),
-  }).index("by_canvas_block", ["canvasId", "block"]),
+  })
+    .index("by_canvas_block", ["canvasId", "block"])
+    .index("by_decider_and_status", ["decision.deciderId", "decision.status"])
+    .index("by_decision_link", ["decision.linkTokenHash"]),
+
+  // One row per change to a note. Rows outlive the note, so a deleted note's history stays readable.
+  noteHistory: defineTable({
+    canvasId: v.id("canvases"),
+    noteId: v.id("notes"),
+    // Who made the change: a user, or (for a decision answered from its link) a person without an account
+    userId: v.optional(v.id("users")),
+    personId: v.optional(v.id("people")),
+    // Where the change came from; an MCP token acts as its user, so this tells agent edits apart.
+    // "link" = a decision answered from its emailed link, without signing in (userId is the decider),
+    // or a result sent from a result link (userId is whoever the link stands for; see resultLinks).
+    via: v.union(v.literal("ui"), v.literal("mcp"), v.literal("link")),
+    clientName: v.optional(v.string()),
+    kind: v.union(
+      v.literal("created"),
+      v.literal("updated"),
+      v.literal("deleted"),
+      v.literal("decision_requested"),
+      v.literal("decision_answered"),
+      v.literal("decision_withdrawn"),
+      v.literal("check_in"),
+      // A test result sent from a result link, waiting for an editor; then accepted or rejected
+      v.literal("result_submitted"),
+      v.literal("result_accepted"),
+      v.literal("result_rejected")
+    ),
+    changes: v.array(
+      v.object({
+        field: v.string(),
+        from: v.optional(v.string()),
+        to: v.optional(v.string()),
+      })
+    ),
+    reason: v.optional(v.string()),
+    link: v.optional(v.string()),
+    // Time of the latest change folded into this row (see recordNoteHistory)
+    at: v.number(),
+  })
+    .index("by_note", ["noteId"])
+    .index("by_canvas", ["canvasId"]),
+
+  // A big outcome the team is working toward (e.g. "Launch Afforrd"). Lives inside a canvas, which
+  // keeps the members, sharing and links. Reached when every item under it is decided and done.
+  goals: defineTable({
+    canvasId: v.id("canvases"),
+    title: v.string(),
+    order: v.number(),
+    createdBy: v.id("users"),
+    updatedAt: v.number(),
+  }).index("by_canvas", ["canvasId"]),
+
+  // Something tied to a goal that needs a decision before the goal can be reached.
+  // State: open -> (testing) -> decided -> done. See lib/goals.ts for the moves between states.
+  items: defineTable({
+    canvasId: v.id("canvases"),
+    goalId: v.id("goals"),
+    title: v.string(),
+    detail: v.optional(v.string()),
+    state: itemStateValidator,
+    // When the call should be made by (YYYY-MM-DD), if there's a date to aim for
+    decideBy: v.optional(v.string()),
+    order: v.number(),
+    // The one person doing the work on it; any canvas member
+    ownerId: v.optional(v.id("users")),
+    // The item's test, if it has one: same fields as a note's test
+    ...testFieldsSchema,
+    // Canvas notes kept as context or evidence for the item (at most MAX_CONTEXT_NOTES)
+    contextNoteIds: v.optional(v.array(v.id("notes"))),
+    // The note this item was made from, if it was converted from one
+    fromNoteId: v.optional(v.id("notes")),
+    createdBy: v.id("users"),
+    updatedAt: v.number(),
+  })
+    .index("by_goal", ["goalId"])
+    .index("by_canvas", ["canvasId"])
+    .index("by_from_note", ["fromNoteId"]),
+
+  // The record that resolves an item. An item has at most one current record; reopening the item
+  // keeps the old one, marked superseded, so the trail stays readable.
+  decisionRecords: defineTable({
+    canvasId: v.id("canvases"),
+    goalId: v.id("goals"),
+    itemId: v.id("items"),
+    // What was decided, in a line or two
+    text: v.string(),
+    basis: decisionBasisValidator,
+    // Optional line on the basis, e.g. which expert or which data
+    basisNote: v.optional(v.string()),
+    // Canvas notes that informed it (the item's test is linked through the item itself)
+    linkedNoteIds: v.optional(v.array(v.id("notes"))),
+    // The item's test as it stood when the call was made, if it had one
+    testSnapshot: v.optional(
+      v.object({
+        measure: v.optional(v.string()),
+        passMark: v.optional(v.string()),
+        resultText: v.optional(v.string()),
+        verdict: v.optional(v.string()),
+      })
+    ),
+    // Who decided: a canvas member, or a name typed for someone without an account
+    decidedBy: v.optional(v.id("users")),
+    decidedByName: v.optional(v.string()),
+    decidedAt: v.number(),
+    // Who wrote the record and through which surface
+    recordedBy: v.id("users"),
+    via: v.union(v.literal("ui"), v.literal("mcp"), v.literal("link")),
+    clientName: v.optional(v.string()),
+    // When to look back and ask "did it pan out?" (YYYY-MM-DD)
+    reviewDate: v.string(),
+    // The look back, once answered
+    outcome: v.optional(lookBackValidator),
+    outcomeNote: v.optional(v.string()),
+    outcomeAt: v.optional(v.number()),
+    outcomeBy: v.optional(v.id("users")),
+    // Set when the item was reopened after this call
+    supersededAt: v.optional(v.number()),
+    // The note whose answered decision request became this record, if any
+    fromNoteId: v.optional(v.id("notes")),
+  })
+    .index("by_item", ["itemId"])
+    .index("by_canvas", ["canvasId"]),
+
+  // A standard operating procedure: a named group of runbooks that several people follow
+  sops: defineTable({
+    canvasId: v.id("canvases"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    order: v.number(),
+    createdBy: v.id("users"),
+    updatedAt: v.number(),
+  }).index("by_canvas", ["canvasId"]),
+
+  // A play written so someone else, or an agent, can run it and get roughly the same result
+  runbooks: defineTable({
+    canvasId: v.id("canvases"),
+    sopId: v.optional(v.id("sops")),
+    title: v.string(),
+    // When to use it
+    trigger: v.optional(v.string()),
+    ownerId: v.optional(v.id("users")),
+    // In order, at most MAX_STEPS
+    steps: v.array(v.string()),
+    // Canvas notes it codifies (at most MAX_RUNBOOK_LINKS); going live marks them codified
+    noteIds: v.array(v.id("notes")),
+    // Goal items whose decisions it rests on (at most MAX_RUNBOOK_LINKS)
+    itemIds: v.array(v.id("items")),
+    status: runbookStatusValidator,
+    reviewDate: v.optional(v.string()),
+    order: v.number(),
+    createdBy: v.id("users"),
+    updatedAt: v.number(),
+  })
+    .index("by_canvas", ["canvasId"])
+    .index("by_sop", ["sopId"]),
+
+  // One use of a runbook: did it work, and where did it break
+  runbookRuns: defineTable({
+    canvasId: v.id("canvases"),
+    runbookId: v.id("runbooks"),
+    outcome: runOutcomeValidator,
+    // 1-based step where it went wrong, when it didn't fully work
+    failedStep: v.optional(v.number()),
+    // What the run produced, e.g. "12 leads, 3 booked"
+    numbers: v.optional(v.string()),
+    note: v.optional(v.string()),
+    ranBy: v.optional(v.id("users")),
+    via: v.union(v.literal("ui"), v.literal("mcp"), v.literal("link")),
+    clientName: v.optional(v.string()),
+    at: v.number(),
+  })
+    .index("by_runbook", ["runbookId"])
+    .index("by_canvas", ["canvasId"]),
+
+  // A frozen copy of a canvas at a moment (e.g. "Day 30"), for comparing later
+  canvasSnapshots: defineTable({
+    canvasId: v.id("canvases"),
+    label: v.string(),
+    takenBy: v.id("users"),
+    takenAt: v.number(),
+    noteCount: v.number(),
+  }).index("by_canvas", ["canvasId"]),
+
+  // The notes in a snapshot, one row each (a canvas's notes could outgrow one document)
+  snapshotNotes: defineTable({
+    snapshotId: v.id("canvasSnapshots"),
+    noteId: v.id("notes"),
+    block: blockValidator,
+    content: v.string(),
+    order: v.number(),
+    evidenceState: evidenceStateValidator,
+    ...testFieldsSchema,
+    ownerId: v.optional(v.id("users")),
+    markets: v.optional(v.array(v.string())),
+    decisionStatus: v.optional(decisionStatusValidator),
+  }).index("by_snapshot", ["snapshotId"]),
+
+  // One weekly check-in question: "any new evidence on this note?", for the note's driver
+  checkInItems: defineTable({
+    userId: v.id("users"),
+    canvasId: v.id("canvases"),
+    noteId: v.id("notes"),
+    // Monday of the check-in week, YYYY-MM-DD (UTC)
+    weekOf: v.string(),
+    status: v.union(v.literal("pending"), v.literal("answered"), v.literal("expired")),
+    hasEvidence: v.optional(v.boolean()),
+    answer: v.optional(v.string()),
+    answeredAt: v.optional(v.number()),
+  })
+    .index("by_user_and_status", ["userId", "status"])
+    .index("by_note_and_status", ["noteId", "status"])
+    .index("by_canvas", ["canvasId"]),
+
+  // A link that sends a test result to a note without an account (/r/[token]). Either an editor's
+  // shareable link for the note, or one driver's link for one weekly check-in question.
+  resultLinks: defineTable({
+    canvasId: v.id("canvases"),
+    noteId: v.id("notes"),
+    // SHA-256 of the token in the URL
+    tokenHash: v.string(),
+    // The token itself, kept only on shareable note links so editors can copy them again
+    // (check-in links live only in the driver's email, like decision links)
+    token: v.optional(v.string()),
+    checkInItemId: v.optional(v.id("checkInItems")),
+    // Who the link stands for: the editor who made it, or the driver it was emailed to
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    revokedAt: v.optional(v.number()),
+    // Fixed-window throttle on results sent through this link
+    windowStart: v.optional(v.number()),
+    windowCount: v.optional(v.number()),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_note", ["noteId"]),
+
+  // A result sent from a result link. Never changes the note by itself: an editor accepts it
+  // (it becomes the note's latest result) or rejects it.
+  resultSubmissions: defineTable({
+    canvasId: v.id("canvases"),
+    noteId: v.id("notes"),
+    linkId: v.id("resultLinks"),
+    text: v.string(),
+    // What the sender thought, if they said; the editor can change it on accept
+    verdict: v.optional(verdictValidator),
+    // Who sent it, as they typed it
+    name: v.optional(v.string()),
+    // YYYY-MM-DD on the sender's calendar
+    date: v.string(),
+    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("rejected")),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+  }).index("by_note_and_status", ["noteId", "status"]),
 
   evidence: defineTable({
     noteId: v.id("notes"),

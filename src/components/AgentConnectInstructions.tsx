@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
-import { BotIcon, CheckIcon, ChevronDownIcon, CopyIcon } from "lucide-react";
+import React, { useEffect, useId, useRef, useState } from "react";
+import { BotIcon, CheckIcon, ChevronDownIcon, CopyIcon, XIcon } from "lucide-react";
 
 const MCP_URL = "https://lean.incrementic.com/api/mcp";
 
 const ANTIGRAVITY_CONFIG = `{
   "mcpServers": {
-    "leancanvas": {
+    "criticaldash": {
       "serverUrl": "${MCP_URL}"
     }
   }
@@ -32,7 +32,7 @@ const AGENTS: { id: AgentId; label: string; note?: React.ReactNode; steps: React
       <>
         Add an <strong>HTTP</strong> MCP and paste the URL above.
       </>,
-      <>Sign in with your LeanCanvas account when ChatGPT asks you to authorize access.</>,
+      <>Sign in with your CriticalDash account when ChatGPT asks you to authorize access.</>,
     ],
   },
   {
@@ -47,10 +47,10 @@ const AGENTS: { id: AgentId; label: string; note?: React.ReactNode; steps: React
         choose <strong>Register automatically</strong> for the OAuth client.
       </>,
       <>
-        Click <strong>Add</strong>, then sign in with your LeanCanvas account.
+        Click <strong>Add</strong>, then sign in with your CriticalDash account.
       </>,
       <>
-        In a chat, click <strong>+</strong> and select <strong>Connectors</strong> to turn LeanCanvas on.
+        In a chat, click <strong>+</strong> and select <strong>Connectors</strong> to turn CriticalDash on.
       </>,
     ],
   },
@@ -66,7 +66,7 @@ const AGENTS: { id: AgentId; label: string; note?: React.ReactNode; steps: React
         Scroll down and add a custom app with the URL above.
       </>,
       <>
-        Sign in with your LeanCanvas account if asked, then approve access. If Gemini shows{" "}
+        Sign in with your CriticalDash account if asked, then approve access. If Gemini shows{" "}
         <em>&quot;Account linking is required to use this custom app. Please try again.&quot;</em>, try again. It
         connected on the second attempt when we tested it.
       </>,
@@ -88,7 +88,7 @@ const AGENTS: { id: AgentId; label: string; note?: React.ReactNode; steps: React
       </>,
       <>
         Open <strong>Agent Settings</strong>, go to the <strong>Customizations</strong> tab, and click{" "}
-        <strong>Authenticate</strong> next to LeanCanvas. Finish signing in, then paste the authorization code
+        <strong>Authenticate</strong> next to CriticalDash. Finish signing in, then paste the authorization code
         back in and click <strong>Submit</strong>.
       </>,
     ],
@@ -123,25 +123,228 @@ const AGENT_TOOLS: AgentTool[] = [
       { name: "description", required: false },
       { name: "template", required: false },
       { name: "seedNotes", required: false },
+      { name: "launchDate", required: false },
+    ],
+  },
+  {
+    name: "update_canvas",
+    summary: "Change a canvas's title, description or launch date.",
+    detail:
+      "The launch date (YYYY-MM-DD) is day 0 of the plan, so review dates read as days, like day 30. Pass null to clear it.",
+    changesCanvas: true,
+    inputs: [
+      { name: "canvasId", required: true },
+      { name: "title", required: false },
+      { name: "description", required: false },
+      { name: "launchDate", required: false },
     ],
   },
   {
     name: "get_canvas",
     summary: "Read a canvas with its blocks and sticky notes.",
-    detail: "Returns the canvas's template, each block's notes, and every note's evidence state.",
+    detail:
+      "Returns the canvas's template, each block's notes, and every note's evidence state, driver, market tags and test. Pass driverUserId to see the notes one person is driving, or market to see what holds in one market.",
+    changesCanvas: false,
+    inputs: [
+      { name: "canvasId", required: true },
+      { name: "driverUserId", required: false },
+      { name: "market", required: false },
+    ],
+  },
+  {
+    name: "list_canvas_members",
+    summary: "See who has access to a canvas.",
+    detail: "Returns each person's userId, name, email and role. Use the userId to make someone a note's driver or a decision's decider.",
     changesCanvas: false,
     inputs: [{ name: "canvasId", required: true }],
   },
   {
     name: "add_note",
     summary: "Add a sticky note to a block on a canvas.",
-    detail: "The block must belong to the canvas's template. Notes start as assumptions unless evidenceState is set.",
+    detail:
+      "The block must belong to the canvas's template. Notes start as assumptions unless evidenceState is set. A test (measure, pass mark, review date, latest result) can be set at the same time.",
     changesCanvas: true,
     inputs: [
       { name: "canvasId", required: true },
       { name: "block", required: true },
       { name: "content", required: true },
       { name: "evidenceState", required: false },
+      { name: "driverUserId", required: false },
+      { name: "markets", required: false },
+      { name: "measure", required: false },
+      { name: "passMark", required: false },
+      { name: "reviewDate", required: false },
+      { name: "reviewDay", required: false },
+      { name: "latestResult", required: false },
+      { name: "reason", required: false },
+    ],
+  },
+  {
+    name: "update_note",
+    summary: "Reword a note, move it, change its state or driver, or set its test.",
+    detail:
+      "Pass only what changes; null clears a test field. A test is a measure, a pass mark, a review date (YYYY-MM-DD, or reviewDay counted from the launch date) and the latest result with a pass, fail or inconclusive verdict. Every change, and the reason if given, is kept in the note's history.",
+    changesCanvas: true,
+    inputs: [
+      { name: "noteId", required: true },
+      { name: "content", required: false },
+      { name: "block", required: false },
+      { name: "evidenceState", required: false },
+      { name: "driverUserId", required: false },
+      { name: "markets", required: false },
+      { name: "measure", required: false },
+      { name: "passMark", required: false },
+      { name: "reviewDate", required: false },
+      { name: "reviewDay", required: false },
+      { name: "latestResult", required: false },
+      { name: "reason", required: false },
+      { name: "link", required: false },
+    ],
+  },
+  {
+    name: "delete_note",
+    summary: "Remove a note from a canvas.",
+    detail: "The note's history, including its last text, stays readable.",
+    changesCanvas: true,
+    inputs: [
+      { name: "noteId", required: true },
+      { name: "reason", required: false },
+    ],
+  },
+  {
+    name: "get_note_history",
+    summary: "See every change to a note, newest first.",
+    detail: "Shows who changed what and when, whether it was done in the app or by an agent, and why. Works for deleted notes too.",
+    changesCanvas: false,
+    inputs: [{ name: "noteId", required: true }],
+  },
+  {
+    name: "request_decision",
+    summary: "Ask someone to decide on a note, on the canvas or without an account.",
+    detail:
+      "Name a canvas member by deciderUserId, or anyone else by deciderName and deciderEmail: they need no account and see only this question. They get an email with a link that answers it from their phone, no sign-in needed, even with view-only access. Give a due date (YYYY-MM-DD) or dueDay from the launch date, a default for if nobody decides by then, and up to 4 options instead of approve / reject. Mark any option that only puts the decision off in deferOptions, so choosing it doesn't mark the note as decided.",
+    changesCanvas: true,
+    inputs: [
+      { name: "noteId", required: true },
+      { name: "question", required: true },
+      { name: "deciderUserId", required: false },
+      { name: "deciderName", required: false },
+      { name: "deciderEmail", required: false },
+      { name: "dueDate", required: false },
+      { name: "dueDay", required: false },
+      { name: "defaultOutcome", required: false },
+      { name: "options", required: false },
+      { name: "deferOptions", required: false },
+    ],
+  },
+  {
+    name: "answer_decision",
+    summary: "Approve, reject, pick an option or ask for a change on a decision request addressed to you.",
+    detail:
+      "Approve, reject or choose (with one of the request's options) makes the note a decision, unless the option only puts it off. Asking for a change needs a comment and sends it back to whoever asked. Works with view-only access.",
+    changesCanvas: true,
+    inputs: [
+      { name: "noteId", required: true },
+      { name: "answer", required: true },
+      { name: "choice", required: false },
+      { name: "comment", required: false },
+    ],
+  },
+  {
+    name: "withdraw_decision",
+    summary: "Cancel an open decision request.",
+    detail: "The request and its withdrawal stay in the note's history.",
+    changesCanvas: true,
+    inputs: [
+      { name: "noteId", required: true },
+      { name: "reason", required: false },
+    ],
+  },
+  {
+    name: "list_decisions",
+    summary: "See decision requests: on one canvas, or the ones waiting on you.",
+    detail: "With a canvasId, lists every decision request on that canvas, open or answered. Without one, lists what's waiting on you.",
+    changesCanvas: false,
+    inputs: [{ name: "canvasId", required: false }],
+  },
+  {
+    name: "create_snapshot",
+    summary: "Freeze a canvas under a label, like Day 30.",
+    detail: "Take one at day 0 and before each review, so you can compare what changed.",
+    changesCanvas: true,
+    inputs: [
+      { name: "canvasId", required: true },
+      { name: "label", required: true },
+    ],
+  },
+  {
+    name: "list_snapshots",
+    summary: "See a canvas's snapshots.",
+    detail: "Newest first, with each snapshot's ID, label, date and day of the plan.",
+    changesCanvas: false,
+    inputs: [{ name: "canvasId", required: true }],
+  },
+  {
+    name: "compare_snapshots",
+    summary: "See what changed between two snapshots, or since one.",
+    detail:
+      "Lists notes added, removed, or changed (text, block, state, test, driver, decision), field by field. Leave out 'to' to compare with the canvas now.",
+    changesCanvas: false,
+    inputs: [
+      { name: "canvasId", required: true },
+      { name: "from", required: true },
+      { name: "to", required: false },
+    ],
+  },
+  {
+    name: "get_review",
+    summary: "Get the review-meeting view of a canvas.",
+    detail:
+      "Only what a review needs: each test and how its latest result compares with the pass mark, overdue reviews, open decisions, and what changed since the last snapshot.",
+    changesCanvas: false,
+    inputs: [
+      { name: "canvasId", required: true },
+      { name: "sinceSnapshotId", required: false },
+    ],
+  },
+  {
+    name: "list_check_ins",
+    summary: "See this week's check-in questions waiting on you.",
+    detail: "One per note you're driving: has there been new evidence this week?",
+    changesCanvas: false,
+    inputs: [],
+  },
+  {
+    name: "answer_check_in",
+    summary: "Answer a weekly check-in on a note you're driving.",
+    detail:
+      "No records 'no new evidence'. Yes needs one line, which becomes the note's latest result. Both go into history. Works with view-only access.",
+    changesCanvas: true,
+    inputs: [
+      { name: "noteId", required: true },
+      { name: "hasEvidence", required: true },
+      { name: "text", required: false },
+      { name: "verdict", required: false },
+      { name: "date", required: false },
+    ],
+  },
+  {
+    name: "send_check_in",
+    summary: "Send this week's check-in for a canvas now.",
+    detail: "Each driver gets one email about the notes they're driving. Otherwise it goes out every Monday morning.",
+    changesCanvas: true,
+    inputs: [{ name: "canvasId", required: true }],
+  },
+  {
+    name: "list_tests",
+    summary: "See every test on a canvas and where it is.",
+    detail:
+      "Each test is running, due, overdue or has a result. Where a result points to a different evidence state, it says which, ready to apply with update_note.",
+    changesCanvas: false,
+    inputs: [
+      { name: "canvasId", required: true },
+      { name: "stage", required: false },
+      { name: "driverUserId", required: false },
     ],
   },
   {
@@ -152,6 +355,7 @@ const AGENT_TOOLS: AgentTool[] = [
     inputs: [
       { name: "noteId", required: true },
       { name: "evidenceState", required: true },
+      { name: "reason", required: false },
     ],
   },
   {
@@ -162,22 +366,237 @@ const AGENT_TOOLS: AgentTool[] = [
     changesCanvas: true,
     inputs: [{ name: "canvasId", required: true }],
   },
+  {
+    name: "export_canvas",
+    summary: "Get a plain-language summary, or a PDF or PNG of a canvas or its riskiest assumptions.",
+    detail:
+      "format summary returns one short paragraph per block, written for someone who hasn't seen the canvas. PDF and PNG return a link: open it signed in and the file downloads once the canvas loads. Riskiest assumptions need a stress test first.",
+    changesCanvas: false,
+    inputs: [
+      { name: "canvasId", required: true },
+      { name: "view", required: false },
+      { name: "format", required: false },
+    ],
+  },
 ];
 
-export function AgentConnectInstructions() {
-  const [guideOpen, setGuideOpen] = useState(false);
-  const [activeId, setActiveId] = useState<AgentId>("chatgpt");
+/** The connector address with a copy button. */
+function McpUrlCopy() {
   const [copied, setCopied] = useState(false);
-  const [toolsOpen, setToolsOpen] = useState(false);
-  const [openToolName, setOpenToolName] = useState<string | null>(null);
-
-  const active = AGENTS.find((agent) => agent.id === activeId) ?? AGENTS[0];
 
   const copyMcpUrl = () => {
     navigator.clipboard?.writeText(MCP_URL);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  return (
+    <div className="flex items-center gap-2 bg-surface-2 border border-line rounded-lg p-1.5 max-w-md w-full sm:w-auto">
+      <span className="font-mono text-[11px] text-incrementic-charcoal select-all truncate px-2">{MCP_URL}</span>
+      <button
+        type="button"
+        onClick={copyMcpUrl}
+        className="inline-flex items-center gap-1.5 px-3 py-1 bg-incrementic-ink text-white rounded-md text-xs font-semibold hover:bg-black transition-colors shrink-0"
+      >
+        {copied ? (
+          <>
+            <CheckIcon className="w-3.5 h-3.5 text-emerald-400" />
+            Copied
+          </>
+        ) : (
+          <>
+            <CopyIcon className="w-3.5 h-3.5" />
+            Copy URL
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
+/** Setup steps for each agent and the tools it gets. */
+function AgentSetupGuide() {
+  // The dashboard can show the card and the dialog together, so ids can't be fixed.
+  const uid = useId();
+  const [activeId, setActiveId] = useState<AgentId>("chatgpt");
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [openToolName, setOpenToolName] = useState<string | null>(null);
+
+  const active = AGENTS.find((agent) => agent.id === activeId) ?? AGENTS[0];
+
+  return (
+    <>
+      {/* Agent tabs */}
+      <div role="tablist" aria-label="Choose your agent" className="flex flex-wrap gap-1.5">
+        {AGENTS.map((agent) => {
+          const selected = agent.id === active.id;
+          return (
+            <button
+              key={agent.id}
+              type="button"
+              role="tab"
+              id={`${uid}-tab-${agent.id}`}
+              aria-selected={selected}
+              aria-controls={`${uid}-panel-${agent.id}`}
+              onClick={() => setActiveId(agent.id)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                selected
+                  ? "bg-incrementic-ink text-white"
+                  : "bg-surface-2 text-muted hover:text-ink border border-line"
+              }`}
+            >
+              {agent.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Steps for the selected agent */}
+      <div role="tabpanel" id={`${uid}-panel-${active.id}`} aria-labelledby={`${uid}-tab-${active.id}`}>
+        {active.note && (
+          <p className="mb-3 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-muted">{active.note}</p>
+        )}
+        <ol className="space-y-2.5 text-xs text-muted">
+          {active.steps.map((step, index) => (
+            <li key={index} className="flex items-start gap-2">
+              <span className="w-5 h-5 rounded-full bg-incrementic-hair text-ink font-mono font-semibold flex items-center justify-center text-[10px] shrink-0 mt-0.5">
+                {index + 1}
+              </span>
+              <div className="min-w-0 flex-1">{step}</div>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      {/* Tools the agent gets. Level 1: names only. Level 2: a tool's details, opened on demand. */}
+      <div className="rounded-xl border border-line bg-surface-2 overflow-hidden">
+        <button
+          type="button"
+          aria-expanded={toolsOpen}
+          aria-controls={`${uid}-tools`}
+          onClick={() => setToolsOpen((open) => !open)}
+          className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left"
+        >
+          <span className="text-xs font-semibold text-ink">What your agent can do</span>
+          <span className="flex items-center gap-2 text-[11px] text-muted">
+            {AGENT_TOOLS.length} tools
+            <ChevronDownIcon
+              aria-hidden="true"
+              className={`w-4 h-4 motion-safe:transition-transform ${toolsOpen ? "rotate-180" : ""}`}
+            />
+          </span>
+        </button>
+
+        {!toolsOpen && (
+          <div className="flex flex-wrap gap-1.5 px-3.5 pb-3">
+            {AGENT_TOOLS.map((tool) => (
+              <code
+                key={tool.name}
+                className="rounded-md bg-surface border border-line px-1.5 py-0.5 font-mono text-[10px] text-incrementic-charcoal"
+              >
+                {tool.name}
+              </code>
+            ))}
+          </div>
+        )}
+
+        <ul id={`${uid}-tools`} hidden={!toolsOpen} className="divide-y divide-line/70 border-t border-line bg-surface">
+          {AGENT_TOOLS.map((tool) => {
+            const open = openToolName === tool.name;
+            return (
+              <li key={tool.name}>
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  aria-controls={`${uid}-tool-${tool.name}`}
+                  onClick={() => setOpenToolName(open ? null : tool.name)}
+                  className="w-full flex items-start justify-between gap-3 px-3.5 py-2.5 text-left"
+                >
+                  <span className="min-w-0 flex-1">
+                    <code className="block font-mono text-[11px] font-semibold text-ink">{tool.name}</code>
+                    <span className="block mt-0.5 text-xs text-muted">{tool.summary}</span>
+                  </span>
+                  <ChevronDownIcon
+                    aria-hidden="true"
+                    className={`w-4 h-4 mt-0.5 shrink-0 text-muted motion-safe:transition-transform ${open ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                <div id={`${uid}-tool-${tool.name}`} hidden={!open} className="space-y-2 px-3.5 pb-3 text-xs text-muted">
+                  <p>{tool.detail}</p>
+                  <p>
+                    <span className="font-semibold text-ink">Access:</span>{" "}
+                    {tool.changesCanvas ? "makes changes to the canvas" : "read only"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-ink">Inputs:</span>{" "}
+                    {tool.inputs.length === 0
+                      ? "none"
+                      : tool.inputs.map((input, index) => (
+                          <React.Fragment key={input.name}>
+                            {index > 0 && ", "}
+                            <code className="font-mono text-[11px] text-ink">{input.name}</code>
+                            {input.required ? " (required)" : " (optional)"}
+                          </React.Fragment>
+                        ))}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <p className="text-xs text-muted pt-3 border-t border-line/60">
+        Then ask your agent: <em>&quot;Review my Lean Canvas and find the 3 riskiest assumptions.&quot;</em>
+      </p>
+    </>
+  );
+}
+
+/** The setup steps in a dialog, for the Connect AI buttons. */
+export function ConnectAiDialog({ onClose }: { onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+
+  // A native modal dialog keeps focus inside, closes on Escape and hands focus back to the button.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      className="m-auto max-h-[85vh] w-[min(640px,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-line bg-surface p-0 text-ink shadow-xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
+      onClose={onClose}
+      onClick={(e) => {
+        // A click on the dialog element itself is a click on the backdrop; its content sits in the padded div below.
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="space-y-4 p-5">
+        <header className="flex items-start justify-between gap-3">
+          <div>
+            <h2 id={titleId} className="font-display text-base font-semibold text-ink">
+              Connect AI
+            </h2>
+            <p className="mt-0.5 text-xs text-muted">Let Claude, ChatGPT or Gemini read and update your canvases.</p>
+          </div>
+          <button type="button" aria-label="Close" className="rounded-md p-1 text-muted hover:bg-surface-2 hover:text-ink" onClick={onClose}>
+            <XIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </header>
+        <McpUrlCopy />
+        <AgentSetupGuide />
+      </div>
+    </dialog>
+  );
+}
+
+export function AgentConnectInstructions() {
+  const [guideOpen, setGuideOpen] = useState(false);
 
   return (
     <div className="rounded-2xl bg-surface border border-line p-5 shadow-sm space-y-4">
@@ -191,33 +610,13 @@ export function AgentConnectInstructions() {
             <BotIcon className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="font-display font-semibold text-sm text-ink">Instructions for your agent</h3>
-            <p className="text-xs text-muted">Connect your agent to interact with your canvases.</p>
+            <h3 className="font-display font-semibold text-sm text-ink">Connect Claude, ChatGPT or Gemini</h3>
+            <p className="text-xs text-muted">Let your AI assistant read and update your canvases.</p>
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-          {/* MCP URL copy */}
-          <div className="flex items-center gap-2 bg-surface-2 border border-line rounded-lg p-1.5 max-w-md w-full sm:w-auto">
-            <span className="font-mono text-[11px] text-incrementic-charcoal select-all truncate px-2">{MCP_URL}</span>
-            <button
-              type="button"
-              onClick={copyMcpUrl}
-              className="inline-flex items-center gap-1.5 px-3 py-1 bg-incrementic-ink text-white rounded-md text-xs font-semibold hover:bg-black transition-colors shrink-0"
-            >
-              {copied ? (
-                <>
-                  <CheckIcon className="w-3.5 h-3.5 text-emerald-400" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <CopyIcon className="w-3.5 h-3.5" />
-                  Copy URL
-                </>
-              )}
-            </button>
-          </div>
+          <McpUrlCopy />
 
           <button
             type="button"
@@ -237,130 +636,7 @@ export function AgentConnectInstructions() {
 
       {guideOpen && (
         <div id="agent-connect-guide" className="space-y-4">
-          {/* Agent tabs */}
-          <div role="tablist" aria-label="Choose your agent" className="flex flex-wrap gap-1.5">
-            {AGENTS.map((agent) => {
-              const selected = agent.id === active.id;
-              return (
-                <button
-                  key={agent.id}
-                  type="button"
-                  role="tab"
-                  id={`agent-tab-${agent.id}`}
-                  aria-selected={selected}
-                  aria-controls={`agent-panel-${agent.id}`}
-                  onClick={() => setActiveId(agent.id)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                    selected
-                      ? "bg-incrementic-ink text-white"
-                      : "bg-surface-2 text-muted hover:text-ink border border-line"
-                  }`}
-                >
-                  {agent.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Steps for the selected agent */}
-          <div role="tabpanel" id={`agent-panel-${active.id}`} aria-labelledby={`agent-tab-${active.id}`}>
-            {active.note && (
-              <p className="mb-3 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-muted">{active.note}</p>
-            )}
-            <ol className="space-y-2.5 text-xs text-muted">
-              {active.steps.map((step, index) => (
-                <li key={index} className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-incrementic-hair text-ink font-mono font-semibold flex items-center justify-center text-[10px] shrink-0 mt-0.5">
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">{step}</div>
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          {/* Tools the agent gets. Level 1: names only. Level 2: a tool's details, opened on demand. */}
-          <div className="rounded-xl border border-line bg-surface-2 overflow-hidden">
-            <button
-              type="button"
-              aria-expanded={toolsOpen}
-              aria-controls="agent-tools-list"
-              onClick={() => setToolsOpen((open) => !open)}
-              className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left"
-            >
-              <span className="text-xs font-semibold text-ink">What your agent can do</span>
-              <span className="flex items-center gap-2 text-[11px] text-muted">
-                {AGENT_TOOLS.length} tools
-                <ChevronDownIcon
-                  aria-hidden="true"
-                  className={`w-4 h-4 motion-safe:transition-transform ${toolsOpen ? "rotate-180" : ""}`}
-                />
-              </span>
-            </button>
-
-            {!toolsOpen && (
-              <div className="flex flex-wrap gap-1.5 px-3.5 pb-3">
-                {AGENT_TOOLS.map((tool) => (
-                  <code
-                    key={tool.name}
-                    className="rounded-md bg-surface border border-line px-1.5 py-0.5 font-mono text-[10px] text-incrementic-charcoal"
-                  >
-                    {tool.name}
-                  </code>
-                ))}
-              </div>
-            )}
-
-            <ul id="agent-tools-list" hidden={!toolsOpen} className="divide-y divide-line/70 border-t border-line bg-surface">
-              {AGENT_TOOLS.map((tool) => {
-                const open = openToolName === tool.name;
-                return (
-                  <li key={tool.name}>
-                    <button
-                      type="button"
-                      aria-expanded={open}
-                      aria-controls={`agent-tool-${tool.name}`}
-                      onClick={() => setOpenToolName(open ? null : tool.name)}
-                      className="w-full flex items-start justify-between gap-3 px-3.5 py-2.5 text-left"
-                    >
-                      <span className="min-w-0 flex-1">
-                        <code className="block font-mono text-[11px] font-semibold text-ink">{tool.name}</code>
-                        <span className="block mt-0.5 text-xs text-muted">{tool.summary}</span>
-                      </span>
-                      <ChevronDownIcon
-                        aria-hidden="true"
-                        className={`w-4 h-4 mt-0.5 shrink-0 text-muted motion-safe:transition-transform ${open ? "rotate-180" : ""}`}
-                      />
-                    </button>
-
-                    <div id={`agent-tool-${tool.name}`} hidden={!open} className="space-y-2 px-3.5 pb-3 text-xs text-muted">
-                      <p>{tool.detail}</p>
-                      <p>
-                        <span className="font-semibold text-ink">Access:</span>{" "}
-                        {tool.changesCanvas ? "makes changes to the canvas" : "read only"}
-                      </p>
-                      <p>
-                        <span className="font-semibold text-ink">Inputs:</span>{" "}
-                        {tool.inputs.length === 0
-                          ? "none"
-                          : tool.inputs.map((input, index) => (
-                              <React.Fragment key={input.name}>
-                                {index > 0 && ", "}
-                                <code className="font-mono text-[11px] text-ink">{input.name}</code>
-                                {input.required ? " (required)" : " (optional)"}
-                              </React.Fragment>
-                            ))}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-
-          <p className="text-xs text-muted pt-3 border-t border-line/60">
-            Then ask your agent: <em>&quot;Review my Lean Canvas and find the 3 riskiest assumptions.&quot;</em>
-          </p>
+          <AgentSetupGuide />
         </div>
       )}
     </div>
