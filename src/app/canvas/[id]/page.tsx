@@ -9,6 +9,7 @@ import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { TopBar } from "../../../components/TopBar";
 import { CanvasBoard } from "../../../components/CanvasBoard";
 import { CanvasOverview } from "../../../components/CanvasOverview";
+import { CanvasPresence } from "../../../components/CanvasPresence";
 import { NoteDetailPanel, NoteModal } from "../../../components/NoteDetailPanel";
 import { LaunchDayChip } from "../../../components/LaunchDayChip";
 import { PlanChip, PlanRequiredDialog } from "../../../components/PlanChip";
@@ -238,6 +239,7 @@ export default function CanvasEditorPage() {
         isPublicViewEnabled={canvas.isPublicViewEnabled}
         status={
           <>
+            {user && <CanvasPresence key={canvasId} canvasId={canvasId} currentUserId={user.id} />}
             <LaunchDayChip
               launchDate={canvas.launchDate}
               onChange={canEdit ? (launchDate) => void updateCanvasMeta({ canvasId, launchDate }) : undefined}

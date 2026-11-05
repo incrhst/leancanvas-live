@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowUpRightIcon, XIcon } from "lucide-react";
+import { ArrowUpRightIcon, ChevronDownIcon, ChevronUpIcon, RotateCcwIcon, RotateCwIcon, XIcon } from "lucide-react";
 import { EVIDENCE_CONFIG, EvidenceBadge } from "./EvidenceBadge";
 import { blockRects, type Rect } from "../utils/blockLayout";
 import { noteMatchesEvidence, type EvidenceFilter } from "../utils/evidenceFilter";
@@ -21,24 +21,62 @@ interface CanvasOverviewProps {
 const PLANE_W = 1000;
 const PLANE_H = 600;
 const GAP = 14;
-// Camera angle: tilt back, then turn. Both views (and the maths below) use these.
-const TILT = 56;
-const TURN = -40;
-const COS = Math.cos((TURN * Math.PI) / 180);
-const SIN = Math.sin((TURN * Math.PI) / 180);
-const TILT_COS = Math.cos((TILT * Math.PI) / 180);
-const TILT_SIN = Math.sin((TILT * Math.PI) / 180);
+// Camera angle: tilt back, then turn. The view starts here and can be dragged anywhere in the tilt range.
+const START_TILT = 56;
+const START_TURN = -40;
+const MIN_TILT = 0; // looking straight down
+const MAX_TILT = 82; // just above the board's edge; never underneath it
 const STAGE_H = 620;
 const DIVE_ZOOM = 1.55;
+// Dragging: how far the pointer moves before a press stops being a click, and how fast the view follows it.
+const DRAG_SLOP = 4;
+const DEG_PER_PX = 0.35;
+const TURN_STEP = 15;
+const TILT_STEP = 10;
+// Walls stop short of the corners, so they sit inside the tile's rounded top.
+const WALL_INSET = 3;
 
 const SETTLED: EvidenceState[] = ["supported", "decision"];
 const spring = { type: "spring", stiffness: 170, damping: 22 } as const;
 
+type View = { turn: number; tilt: number };
+
+const radians = (deg: number) => (deg * Math.PI) / 180;
+const clampTilt = (tilt: number) => Math.min(MAX_TILT, Math.max(MIN_TILT, tilt));
+
 /** Where a point on the plane (relative to its centre, lifted by z) lands on screen, before the stage scale. */
-function project(dx: number, dy: number, z: number) {
-  const x = COS * dx - SIN * dy;
-  const y = (SIN * dx + COS * dy) * TILT_COS - z * TILT_SIN;
+function project(dx: number, dy: number, z: number, { turn, tilt }: View) {
+  const cos = Math.cos(radians(turn));
+  const sin = Math.sin(radians(turn));
+  const x = cos * dx - sin * dy;
+  const y = (sin * dx + cos * dy) * Math.cos(radians(tilt)) - z * Math.sin(radians(tilt));
   return { x, y };
+}
+
+/** The four sides of a raised tile, so it stays a solid block from any angle. */
+function TileWalls({ w, h, z, colour }: { w: number; h: number; z: number; colour: string }) {
+  const along = [
+    { top: 0, brightness: 1 },
+    { top: h, brightness: 0.82 },
+  ];
+  const across = [
+    { left: 0, brightness: 0.92 },
+    { left: w, brightness: 0.92 },
+  ];
+  return (
+    <>
+      {along.map(({ top, brightness }) => (
+        <div key={top} className="absolute" style={{ left: WALL_INSET, top, width: w - WALL_INSET * 2, transformOrigin: "0 0", transform: "rotateX(90deg)" }}>
+          <motion.div className={colour} style={{ filter: `brightness(${brightness})` }} initial={{ height: 0 }} animate={{ height: z }} transition={spring} />
+        </div>
+      ))}
+      {across.map(({ left, brightness }) => (
+        <div key={left} className="absolute" style={{ left, top: WALL_INSET, height: h - WALL_INSET * 2, transformOrigin: "0 0", transform: "rotateY(-90deg)" }}>
+          <motion.div className={`h-full ${colour}`} style={{ filter: `brightness(${brightness})` }} initial={{ width: 0 }} animate={{ width: z }} transition={spring} />
+        </div>
+      ))}
+    </>
+  );
 }
 
 function stateCounts(notes: NoteItem[]) {
@@ -53,13 +91,44 @@ function stateCounts(notes: NoteItem[]) {
 /**
  * The canvas as a 2.5D map: each block is a raised tile, taller when more of its notes are supported or decided.
  * Picking evidence states in the legend lifts the blocks that hold them, in that state's colour.
- * Clicking a block flies the camera to it and lists its notes.
+ * Clicking a block flies the camera to it and lists its notes. Dragging anywhere on the stage rotates the board.
  */
 export function CanvasOverview({ blocks, notes, evidenceFilter, onOpenNote }: CanvasOverviewProps) {
   const reduce = useReducedMotion();
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageW, setStageW] = useState(1000);
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [view, setView] = useState<View>({ turn: START_TURN, tilt: START_TILT });
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<(View & { x: number; y: number }) | null>(null);
+  // A press that became a drag must not also count as a click on whatever is under it.
+  const didDrag = useRef(false);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    didDrag.current = false;
+    if (reduce || e.button !== 0 || (e.target as HTMLElement).closest("[data-no-orbit]")) return;
+    dragStart.current = { x: e.clientX, y: e.clientY, ...view };
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const start = dragStart.current;
+    if (!start || !e.buttons) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (!didDrag.current) {
+      if (Math.hypot(dx, dy) < DRAG_SLOP) return;
+      didDrag.current = true;
+      setDragging(true);
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+    // The near edge of the board follows the pointer.
+    setView({ turn: start.turn - dx * DEG_PER_PX, tilt: clampTilt(start.tilt - dy * DEG_PER_PX) });
+  };
+
+  const endDrag = () => {
+    dragStart.current = null;
+    setDragging(false);
+  };
 
   useLayoutEffect(() => {
     const el = stageRef.current;
@@ -80,9 +149,11 @@ export function CanvasOverview({ blocks, notes, evidenceFilter, onOpenNote }: Ca
   const active = evidenceFilter?.active ?? [];
   const filtering = active.length > 0;
 
-  // Fit the tilted plane to the stage.
-  const projW = Math.abs(COS) * PLANE_W + Math.abs(SIN) * PLANE_H;
-  const projH = (Math.abs(SIN) * PLANE_W + Math.abs(COS) * PLANE_H) * TILT_COS + 120;
+  // Fit the tilted plane to the stage, at whatever angle it is turned to.
+  const cos = Math.abs(Math.cos(radians(view.turn)));
+  const sin = Math.abs(Math.sin(radians(view.turn)));
+  const projW = cos * PLANE_W + sin * PLANE_H;
+  const projH = (sin * PLANE_W + cos * PLANE_H) * Math.cos(radians(view.tilt)) + 120;
   const scale = reduce ? Math.min((stageW * 0.92) / PLANE_W, (STAGE_H * 0.85) / PLANE_H) : Math.min((stageW * 0.92) / projW, (STAGE_H * 0.92) / projH);
 
   const tiles = blocks.map((block) => {
@@ -103,18 +174,25 @@ export function CanvasOverview({ blocks, notes, evidenceFilter, onOpenNote }: Ca
   const focus = tiles.find((t) => t.block.id === focusId);
   let camera = { x: 0, y: 0, scale: 1 };
   if (focus && !reduce) {
-    const p = project(focus.rect.x + focus.rect.w / 2 - PLANE_W / 2, focus.rect.y + focus.rect.h / 2 - PLANE_H / 2, focus.z);
-    camera = { x: -p.x * scale * DIVE_ZOOM - stageW * 0.2, y: -p.y * scale * DIVE_ZOOM, scale: DIVE_ZOOM };
+    const p = project(focus.rect.x + focus.rect.w / 2 - PLANE_W / 2, focus.rect.y + focus.rect.h / 2 - PLANE_H / 2, focus.z, view);
+    // Zoom in only as far as the block still fits beside the panel, which depends on the angle it's seen from.
+    const tileW = (cos * focus.rect.w + sin * focus.rect.h) * scale;
+    const zoom = Math.max(1, Math.min(DIVE_ZOOM, (stageW * 0.55) / tileW));
+    camera = { x: -p.x * scale * zoom - stageW * 0.2, y: -p.y * scale * zoom, scale: zoom };
   } else if (focus) {
     camera = { x: -stageW * 0.2, y: 0, scale: 1 };
   }
 
-  const planeTransform = reduce ? `scale(${scale})` : `scale(${scale}) rotateX(${TILT}deg) rotateZ(${TURN}deg)`;
+  const planeTransform = reduce ? `scale(${scale})` : `scale(${scale}) rotateX(${view.tilt}deg) rotateZ(${view.turn}deg)`;
+  const moved = view.tilt !== START_TILT || (view.turn - START_TURN) % 360 !== 0;
+  // Back to the starting angle the short way, rather than unwinding every turn the drag added.
+  const resetView = () => setView({ turn: START_TURN + 360 * Math.round((view.turn - START_TURN) / 360), tilt: START_TILT });
+  const orbitButton = "rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
   return (
     <div
       ref={stageRef}
-      className="relative overflow-hidden rounded-xl border border-line bg-surface-2"
+      className={`relative select-none overflow-hidden rounded-xl border border-line bg-surface-2 ${reduce ? "" : `touch-pan-y ${dragging ? "cursor-grabbing" : "cursor-grab"}`}`}
       style={{
         height: STAGE_H,
         backgroundImage: "radial-gradient(rgba(43,44,49,.14) 1px, transparent 1.4px)",
@@ -122,12 +200,65 @@ export function CanvasOverview({ blocks, notes, evidenceFilter, onOpenNote }: Ca
         perspective: reduce ? undefined : 2200,
         perspectiveOrigin: "50% 40%",
       }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={() => {
+        endDrag();
+        didDrag.current = false;
+      }}
+      onClickCapture={(e) => {
+        if (!didDrag.current) return;
+        didDrag.current = false;
+        e.stopPropagation();
+      }}
       onClick={() => setFocusId(null)}
     >
       <p className="pointer-events-none absolute left-3 top-3 z-10 max-w-sm text-[11px] leading-snug text-muted">
         Taller blocks are more settled: more of their notes are supported or decided.
         {filtering ? " Lifted blocks hold the evidence states you picked." : " Pick evidence states above to lift the blocks that hold them."}
+        {!reduce && " Drag to rotate."}
       </p>
+
+      {!reduce && (
+        <div
+          data-no-orbit
+          role="group"
+          aria-label="Rotate the board"
+          className="absolute bottom-3 left-3 z-10 flex cursor-default items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5 shadow-sm"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button type="button" aria-label="Turn left" title="Turn left" className={orbitButton} onClick={() => setView({ ...view, turn: view.turn - TURN_STEP })}>
+            <RotateCcwIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button type="button" aria-label="Turn right" title="Turn right" className={orbitButton} onClick={() => setView({ ...view, turn: view.turn + TURN_STEP })}>
+            <RotateCwIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            aria-label="View from higher"
+            title="View from higher"
+            className={orbitButton}
+            onClick={() => setView({ ...view, tilt: clampTilt(view.tilt - TILT_STEP) })}
+          >
+            <ChevronUpIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            aria-label="View from lower"
+            title="View from lower"
+            className={orbitButton}
+            onClick={() => setView({ ...view, tilt: clampTilt(view.tilt + TILT_STEP) })}
+          >
+            <ChevronDownIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
+          {moved && (
+            <button type="button" className={`${orbitButton} text-xs font-medium`} onClick={resetView}>
+              Reset
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Camera and plane let clicks through; only the block tiles take them. */}
       <motion.div
@@ -145,6 +276,8 @@ export function CanvasOverview({ blocks, notes, evidenceFilter, onOpenNote }: Ca
             marginTop: -PLANE_H / 2 - (reduce ? 0 : 40),
             transform: planeTransform,
             transformStyle: "preserve-3d",
+            // Follows the pointer exactly while dragging; the buttons and Reset glide.
+            transition: reduce || dragging ? "none" : "transform 450ms cubic-bezier(.2,.8,.2,1)",
           }}
         >
           <div className="pointer-events-none absolute -inset-4 rounded-[28px] border border-line bg-surface shadow-[16px_16px_0_rgba(43,44,49,.08)]" />
@@ -156,15 +289,13 @@ export function CanvasOverview({ blocks, notes, evidenceFilter, onOpenNote }: Ca
             const zz = reduce ? 0 : z;
             return (
               <div key={block.id} className="absolute" style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h, transformStyle: "preserve-3d" }}>
-                {!reduce && <div className="pointer-events-none absolute inset-0 rounded-xl bg-black/10" style={{ transform: "translate(8px, 8px)" }} />}
-                {!reduce && (
-                  <motion.div className={`pointer-events-none absolute inset-0 rounded-xl ${side} opacity-70`} animate={{ z: Math.max(0, zz - 8) }} transition={spring} />
-                )}
+                {!reduce && <div className="pointer-events-none absolute inset-0 rounded-lg bg-black/10" style={{ transform: "translate(8px, 8px)" }} />}
+                {!reduce && <TileWalls w={rect.w} h={rect.h} z={zz} colour={side} />}
                 <motion.button
                   type="button"
                   aria-label={`${block.title}: ${total} note${total === 1 ? "" : "s"}${filtering ? `, ${matchCount} matching` : ""}. Open its notes.`}
                   aria-pressed={focusId === block.id}
-                  className={`pointer-events-auto absolute inset-0 flex flex-col items-start gap-2 overflow-hidden rounded-xl border-2 p-3 text-left transition-[opacity,background-color] ${top} ${
+                  className={`pointer-events-auto absolute inset-0 flex flex-col items-start gap-2 overflow-hidden rounded-lg border-2 p-3 text-left transition-[opacity,background-color] ${top} ${
                     faded ? "opacity-50" : ""
                   } ${focusId === block.id ? "ring-2 ring-accent" : "hover:ring-2 hover:ring-accent/40"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent`}
                   animate={{ z: zz }}
@@ -204,8 +335,9 @@ export function CanvasOverview({ blocks, notes, evidenceFilter, onOpenNote }: Ca
         {focus && (
           <motion.aside
             key={focus.block.id}
+            data-no-orbit
             aria-label={`${focus.block.title} notes`}
-            className="absolute bottom-3 right-3 top-3 z-20 flex w-[min(380px,42%)] flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-lg"
+            className="absolute bottom-3 right-3 top-3 z-20 flex w-[min(380px,42%)] cursor-default select-text flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-lg"
             initial={reduce ? false : { opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, x: 24 }}
