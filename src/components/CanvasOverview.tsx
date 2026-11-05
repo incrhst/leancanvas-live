@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowUpRightIcon, ChevronDownIcon, ChevronUpIcon, RotateCcwIcon, RotateCwIcon, XIcon } from "lucide-react";
+import { ArrowUpRightIcon, ChevronDownIcon, ChevronUpIcon, MinusIcon, PlusIcon, RotateCcwIcon, RotateCwIcon, XIcon } from "lucide-react";
 import { EVIDENCE_CONFIG, EvidenceBadge } from "./EvidenceBadge";
 import { blockRects, type Rect } from "../utils/blockLayout";
 import { noteMatchesEvidence, type EvidenceFilter } from "../utils/evidenceFilter";
@@ -33,13 +33,44 @@ const DRAG_SLOP = 4;
 const DEG_PER_PX = 0.35;
 const TURN_STEP = 15;
 const TILT_STEP = 10;
+// Zooming: the range, how fast Cmd + scroll and pinching change it, and how far each button goes.
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 3;
+const SCROLL_ZOOM_RATE = 0.002;
+const PINCH_ZOOM_RATE = 0.01;
+const LINE_PX = 16; // a mouse wheel can report lines rather than pixels
+const MAX_CTRL_DELTA = 20; // Ctrl + mouse wheel jumps 100 at a time; a pinch moves a few pixels
+const ZOOM_STEP = 1.25;
+const ZOOM_SETTLE_MS = 150;
 // Walls stop short of the corners, so they sit inside the tile's rounded top.
 const WALL_INSET = 3;
+// The board rests a little above the stage's centre.
+const BOARD_LIFT = 40;
 
 const SETTLED: EvidenceState[] = ["supported", "decision"];
 const spring = { type: "spring", stiffness: 170, damping: 22 } as const;
 
 type View = { turn: number; tilt: number };
+/** The viewer's own zoom on top of the fit to the stage, and how far it has moved the board, in stage pixels. */
+type Lens = { zoom: number; x: number; y: number };
+
+const START_LENS: Lens = { zoom: 1, x: 0, y: 0 };
+
+/**
+ * Zoom by `factor`, keeping the point at (cx, cy) from the board's resting centre where it is on screen.
+ * The board can only move as far as zooming has made it overflow, so zooming back out always recentres it.
+ */
+function zoomLens(lens: Lens, factor: number, cx: number, cy: number, stageW: number): Lens {
+  const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, lens.zoom * factor));
+  const applied = zoom / lens.zoom;
+  const overflow = Math.max(0, zoom - 1) / 2;
+  const limit = (value: number, size: number) => Math.min(size * overflow, Math.max(-size * overflow, value));
+  return {
+    zoom,
+    x: limit(cx - (cx - lens.x) * applied, stageW),
+    y: limit(cy - (cy - lens.y) * applied, STAGE_H),
+  };
+}
 
 const radians = (deg: number) => (deg * Math.PI) / 180;
 const clampTilt = (tilt: number) => Math.min(MAX_TILT, Math.max(MIN_TILT, tilt));
@@ -91,7 +122,7 @@ function stateCounts(notes: NoteItem[]) {
 /**
  * The canvas as a 2.5D map: each block is a raised tile, taller when more of its notes are supported or decided.
  * Picking evidence states in the legend lifts the blocks that hold them, in that state's colour.
- * Clicking a block flies the camera to it and lists its notes. Dragging anywhere on the stage rotates the board.
+ * Clicking a block flies the camera to it and lists its notes. Dragging anywhere on the stage rotates the board; Cmd or Ctrl + scroll, or a pinch, zooms it.
  */
 export function CanvasOverview({ blocks, notes, evidenceFilter, onOpenNote }: CanvasOverviewProps) {
   const reduce = useReducedMotion();
@@ -100,6 +131,8 @@ export function CanvasOverview({ blocks, notes, evidenceFilter, onOpenNote }: Ca
   const [focusId, setFocusId] = useState<string | null>(null);
   const [view, setView] = useState<View>({ turn: START_TURN, tilt: START_TILT });
   const [dragging, setDragging] = useState(false);
+  const [lens, setLens] = useState<Lens>(START_LENS);
+  const [wheeling, setWheeling] = useState(false);
   const dragStart = useRef<(View & { x: number; y: number }) | null>(null);
   // A press that became a drag must not also count as a click on whatever is under it.
   const didDrag = useRef(false);
@@ -138,6 +171,36 @@ export function CanvasOverview({ blocks, notes, evidenceFilter, onOpenNote }: Ca
     return () => ro.disconnect();
   }, []);
 
+  // React's onWheel can't stop the browser zooming the page, so this listens directly.
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || reduce) return;
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    const onWheel = (e: WheelEvent) => {
+      // A plain scroll moves the page, and the notes panel scrolls as usual. Trackpad pinches arrive with ctrlKey set.
+      if (!(e.metaKey || e.ctrlKey) || (e.target as HTMLElement).closest("[data-no-orbit]")) return;
+      e.preventDefault();
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      const pixels = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY * LINE_PX : e.deltaY;
+      const factor = e.ctrlKey
+        ? Math.exp(-Math.max(-MAX_CTRL_DELTA, Math.min(MAX_CTRL_DELTA, pixels)) * PINCH_ZOOM_RATE)
+        : Math.exp(-pixels * SCROLL_ZOOM_RATE);
+      const box = el.getBoundingClientRect();
+      const cx = e.clientX - box.left - box.width / 2;
+      const cy = e.clientY - box.top - box.height / 2 + BOARD_LIFT;
+      setLens((current) => (focusId ? zoomLens(current, factor, current.x, current.y, box.width) : zoomLens(current, factor, cx, cy, box.width)));
+      // Follow the fingers exactly; the glide is for the buttons.
+      setWheeling(true);
+      clearTimeout(settle);
+      settle = setTimeout(() => setWheeling(false), ZOOM_SETTLE_MS);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      clearTimeout(settle);
+    };
+  }, [reduce, focusId]);
+
   useEffect(() => {
     if (!focusId) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setFocusId(null);
@@ -175,18 +238,24 @@ export function CanvasOverview({ blocks, notes, evidenceFilter, onOpenNote }: Ca
   let camera = { x: 0, y: 0, scale: 1 };
   if (focus && !reduce) {
     const p = project(focus.rect.x + focus.rect.w / 2 - PLANE_W / 2, focus.rect.y + focus.rect.h / 2 - PLANE_H / 2, focus.z, view);
-    // Zoom in only as far as the block still fits beside the panel, which depends on the angle it's seen from.
-    const tileW = (cos * focus.rect.w + sin * focus.rect.h) * scale;
-    const zoom = Math.max(1, Math.min(DIVE_ZOOM, (stageW * 0.55) / tileW));
-    camera = { x: -p.x * scale * zoom - stageW * 0.2, y: -p.y * scale * zoom, scale: zoom };
+    // Frame the block so it fits beside the panel, which depends on its angle and how far the viewer has zoomed.
+    // The margin allows for perspective, which draws the board's near edge larger than this flat width.
+    const shown = scale * lens.zoom;
+    const tileW = (cos * focus.rect.w + sin * focus.rect.h) * shown;
+    const zoom = Math.min(DIVE_ZOOM, (stageW * 0.42) / tileW);
+    camera = { x: -(p.x * shown + lens.x) * zoom - stageW * 0.2, y: -(p.y * shown + lens.y) * zoom, scale: zoom };
   } else if (focus) {
     camera = { x: -stageW * 0.2, y: 0, scale: 1 };
   }
 
-  const planeTransform = reduce ? `scale(${scale})` : `scale(${scale}) rotateX(${view.tilt}deg) rotateZ(${view.turn}deg)`;
-  const moved = view.tilt !== START_TILT || (view.turn - START_TURN) % 360 !== 0;
+  const planeTransform = reduce ? `scale(${scale})` : `translate(${lens.x}px, ${lens.y}px) scale(${scale * lens.zoom}) rotateX(${view.tilt}deg) rotateZ(${view.turn}deg)`;
+  const moved = view.tilt !== START_TILT || (view.turn - START_TURN) % 360 !== 0 || lens.zoom !== 1;
   // Back to the starting angle the short way, rather than unwinding every turn the drag added.
-  const resetView = () => setView({ turn: START_TURN + 360 * Math.round((view.turn - START_TURN) / 360), tilt: START_TILT });
+  const resetView = () => {
+    setView({ turn: START_TURN + 360 * Math.round((view.turn - START_TURN) / 360), tilt: START_TILT });
+    setLens(START_LENS);
+  };
+  const zoomBy = (factor: number) => setLens((current) => zoomLens(current, factor, 0, 0, stageW));
   const orbitButton = "rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
   return (
@@ -217,14 +286,14 @@ export function CanvasOverview({ blocks, notes, evidenceFilter, onOpenNote }: Ca
       <p className="pointer-events-none absolute left-3 top-3 z-10 max-w-sm text-[11px] leading-snug text-muted">
         Taller blocks are more settled: more of their notes are supported or decided.
         {filtering ? " Lifted blocks hold the evidence states you picked." : " Pick evidence states above to lift the blocks that hold them."}
-        {!reduce && " Drag to rotate."}
+        {!reduce && " Drag to rotate, ⌘ or Ctrl + scroll to zoom."}
       </p>
 
       {!reduce && (
         <div
           data-no-orbit
           role="group"
-          aria-label="Rotate the board"
+          aria-label="Rotate and zoom the board"
           className="absolute bottom-3 left-3 z-10 flex cursor-default items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5 shadow-sm"
           onClick={(e) => e.stopPropagation()}
         >
@@ -252,6 +321,12 @@ export function CanvasOverview({ blocks, notes, evidenceFilter, onOpenNote }: Ca
           >
             <ChevronDownIcon className="h-4 w-4" aria-hidden="true" />
           </button>
+          <button type="button" aria-label="Zoom out" title="Zoom out" className={orbitButton} onClick={() => zoomBy(1 / ZOOM_STEP)}>
+            <MinusIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button type="button" aria-label="Zoom in" title="Zoom in" className={orbitButton} onClick={() => zoomBy(ZOOM_STEP)}>
+            <PlusIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
           {moved && (
             <button type="button" className={`${orbitButton} text-xs font-medium`} onClick={resetView}>
               Reset
@@ -273,11 +348,11 @@ export function CanvasOverview({ blocks, notes, evidenceFilter, onOpenNote }: Ca
             width: PLANE_W,
             height: PLANE_H,
             marginLeft: -PLANE_W / 2,
-            marginTop: -PLANE_H / 2 - (reduce ? 0 : 40),
+            marginTop: -PLANE_H / 2 - (reduce ? 0 : BOARD_LIFT),
             transform: planeTransform,
             transformStyle: "preserve-3d",
-            // Follows the pointer exactly while dragging; the buttons and Reset glide.
-            transition: reduce || dragging ? "none" : "transform 450ms cubic-bezier(.2,.8,.2,1)",
+            // Follows the pointer and fingers exactly; the buttons and Reset glide.
+            transition: reduce || dragging || wheeling ? "none" : "transform 450ms cubic-bezier(.2,.8,.2,1)",
           }}
         >
           <div className="pointer-events-none absolute -inset-4 rounded-[28px] border border-line bg-surface shadow-[16px_16px_0_rgba(43,44,49,.08)]" />
