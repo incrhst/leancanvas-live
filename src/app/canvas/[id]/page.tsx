@@ -37,6 +37,7 @@ import {
 import { DecidedCountChip, PlanStatusBoard } from "../../../components/PlanStatusBoard";
 import { GoalsBoard } from "../../../components/GoalsBoard";
 import { RunbooksBoard } from "../../../components/RunbooksBoard";
+import { ConnectAiDialog } from "../../../components/AgentConnectInstructions";
 import { useAuth } from "../../../components/ConvexClientProvider";
 import { NoteItem, BlockId, EvidenceState, StressTestResult } from "../../../types/canvas";
 import { NoteSearch, NoteSearchButton, useNoteSearchShortcut } from "../../../components/NoteSearch";
@@ -83,6 +84,7 @@ export default function CanvasEditorPage() {
 
   const [activePanel, setActivePanel] = useState<"detail" | "stressTest" | "snapshots" | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isConnectAiOpen, setIsConnectAiOpen] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [driverFilter, setDriverFilter] = useState<DriverFilterValue>("all");
   const [marketFilter, setMarketFilter] = useState("all");
@@ -253,6 +255,7 @@ export default function CanvasEditorPage() {
         onOpenStressTest={() => setActivePanel((curr) => (curr === "stressTest" ? null : "stressTest"))}
         reviewHref={user ? `/canvas/${canvasId}/review` : undefined}
         onOpenSnapshots={user ? () => setActivePanel((curr) => (curr === "snapshots" ? null : "snapshots")) : undefined}
+        onOpenConnectAi={user ? () => setIsConnectAiOpen(true) : undefined}
         exportMenu={
           <ExportMenu
             title={canvas.title}
@@ -454,6 +457,8 @@ export default function CanvasEditorPage() {
       )}
 
       {/* Share Modal */}
+      {isConnectAiOpen && <ConnectAiDialog onClose={() => setIsConnectAiOpen(false)} />}
+
       {isShareModalOpen && (
         <ShareModal
           canvasId={canvasId}

@@ -7,12 +7,13 @@ import { api } from "../../../convex/_generated/api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../components/ConvexClientProvider";
-import { AgentConnectInstructions } from "../../components/AgentConnectInstructions";
+import { AgentConnectInstructions, ConnectAiDialog } from "../../components/AgentConnectInstructions";
 import { DecisionsWaitingChip } from "../../components/NoteDecision";
 import { CheckInsWaitingChip } from "../../components/CheckIn";
 import { CANVAS_TEMPLATE_LIST, getCanvasTemplate } from "../../utils/canvasTemplates";
 import type { CanvasTemplate } from "../../types/canvas";
 import {
+  BotIcon,
   PlusIcon,
   LayoutGridIcon,
   LogOutIcon,
@@ -43,6 +44,7 @@ export default function DashboardPage() {
   const canvases = useQuery(api.canvases.listMyCanvases, user ? {} : "skip");
   const createCanvas = useMutation(api.canvases.createCanvas);
   const [isCreating, setIsCreating] = useState(false);
+  const [isConnectAiOpen, setIsConnectAiOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
@@ -177,18 +179,31 @@ export default function DashboardPage() {
 
       {/* Main content */}
       <main className="max-w-5xl w-full mx-auto px-6 py-10 space-y-8 flex-1">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-ink">Your canvases</h1>
           </div>
 
-          <button
-            onClick={() => setIsCreating(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-incrementic-red text-white rounded-lg text-sm font-semibold hover:bg-incrementic-red/90 shadow-sm transition-colors"
-          >
-            <PlusIcon className="w-4 h-4" />
-            New Canvas
-          </button>
+          <div className="flex items-center gap-2">
+            {user && (
+              <button
+                type="button"
+                onClick={() => setIsConnectAiOpen(true)}
+                title="Connect Claude, ChatGPT or Gemini"
+                className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-surface-2"
+              >
+                <BotIcon className="w-4 h-4" aria-hidden="true" />
+                Connect AI
+              </button>
+            )}
+            <button
+              onClick={() => setIsCreating(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-incrementic-red text-white rounded-lg text-sm font-semibold hover:bg-incrementic-red/90 shadow-sm transition-colors"
+            >
+              <PlusIcon className="w-4 h-4" />
+              New Canvas
+            </button>
+          </div>
         </div>
 
         {/* Modal for creating canvas */}
@@ -406,6 +421,8 @@ export default function DashboardPage() {
         {/* Setup, not day-to-day: below the canvases */}
         <AgentConnectInstructions />
       </main>
+
+      {isConnectAiOpen && <ConnectAiDialog onClose={() => setIsConnectAiOpen(false)} />}
 
       {/* Discreet footer */}
       <footer className="border-t border-line bg-surface/60 py-4 px-6 text-center text-[11px] text-muted flex items-center justify-center gap-1">
