@@ -805,8 +805,13 @@ export default function HomePage() {
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {EXPOSURE.map((c) => (
-            <div key={c.figure} className="rounded-2xl bg-surface border border-line p-6 space-y-3 shadow-sm">
-              <p className="font-display font-extrabold text-5xl text-incrementic-red tabular-nums whitespace-nowrap">
+            <div
+              key={c.figure}
+              className="rounded-2xl bg-surface border border-line p-6 space-y-3 shadow-sm [container-type:inline-size]"
+            >
+              {/* Sized off the card's width so the longest figure ("11% → 7%") fits a
+                  four-across card; every card scales together so they stay matched. */}
+              <p className="font-display font-extrabold text-[length:clamp(1.75rem,17cqi,3rem)] leading-none text-incrementic-red tabular-nums whitespace-nowrap">
                 {c.figure}
               </p>
               <p className="text-lg text-ink leading-snug">{c.body}</p>
