@@ -1,8 +1,8 @@
 # CriticalDash
 
-Realtime multiplayer collaborative canvases by **Incrementic** (`lean.incrementic.com`), powered by Next.js 15, Convex, and AI stress-testing. Choose a **Lean Canvas** or a **GTM Canvas** for each new canvas.
+Realtime multiplayer collaborative canvases by **Incrementic** (`www.criticaldash.com`), powered by Next.js 15, Convex, and AI stress-testing. Choose a **Lean Canvas** or a **GTM Canvas** for each new canvas.
 
-- **Canonical Domain**: [https://lean.incrementic.com](https://lean.incrementic.com)
+- **Canonical Domain**: [https://www.criticaldash.com](https://www.criticaldash.com)
 - **Brand System**: Incrementic Design System (Sora, Inter, IBM Plex Mono, `#EA5148`)
 
 ---
@@ -183,4 +183,4 @@ pnpm dev
 pnpm test
 ```
 
-Open [http://localhost:3000](http://localhost:3000) or deploy to [https://lean.incrementic.com](https://lean.incrementic.com).
+Open [http://localhost:3000](http://localhost:3000) or deploy to [https://www.criticaldash.com](https://www.criticaldash.com).

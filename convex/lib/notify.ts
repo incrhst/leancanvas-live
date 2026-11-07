@@ -3,7 +3,7 @@ import { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 
 export function siteUrl() {
-  return process.env.SITE_URL ?? "https://lean.incrementic.com";
+  return process.env.SITE_URL ?? "https://www.criticaldash.com";
 }
 
 /** Queues a plain-text email to a user (skipped if they have no email). */
