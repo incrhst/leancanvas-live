@@ -56,7 +56,7 @@ For non-technical users, connecting CriticalDash to Claude takes just one click:
 2. Click **Add Connector**.
 3. Enter the hosted MCP URL:
    ```text
-   https://lean.incrementic.com/api/mcp
+   https://www.criticaldash.com/api/mcp
    ```
 4. Click **Save / Connect**. That’s it! Claude will automatically discover the tools.
 

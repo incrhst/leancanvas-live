@@ -2,8 +2,7 @@
 
 import React, { useEffect, useId, useRef, useState } from "react";
 import { BotIcon, CheckIcon, ChevronDownIcon, CopyIcon, XIcon } from "lucide-react";
-
-const MCP_URL = "https://lean.incrementic.com/api/mcp";
+import { MCP_URL } from "@/lib/mcpOrigin";
 
 const ANTIGRAVITY_CONFIG = `{
   "mcpServers": {

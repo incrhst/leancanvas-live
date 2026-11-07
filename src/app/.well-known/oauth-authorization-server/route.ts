@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { mcpOriginFor } from "@/lib/mcpOrigin";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -11,7 +12,7 @@ export async function OPTIONS() {
 }
 
 export async function GET(req: NextRequest) {
-  const origin = "https://lean.incrementic.com";
+  const origin = mcpOriginFor(req);
 
   return NextResponse.json(
     {

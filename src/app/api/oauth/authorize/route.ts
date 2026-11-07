@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { api } from "../../../../../convex/_generated/api";
+import { mcpOriginFor } from "@/lib/mcpOrigin";
 
 function escapeHtml(value: string): string {
   return value
@@ -18,9 +19,6 @@ function errorPage(message: string, status = 400) {
     { status, headers: { "Content-Type": "text/html" } }
   );
 }
-
-// Must match `issuer` in /.well-known/oauth-authorization-server exactly (RFC 9207).
-const ISSUER = "https://lean.incrementic.com";
 
 interface AuthorizeParams {
   clientId: string;
@@ -51,12 +49,13 @@ async function validateClient(params: AuthorizeParams) {
   return { client };
 }
 
-function redirectWithParams(redirectUri: string, params: Record<string, string>) {
+function redirectWithParams(req: NextRequest, redirectUri: string, params: Record<string, string>) {
   const target = new URL(redirectUri);
   for (const [key, value] of Object.entries(params)) {
     if (value) target.searchParams.set(key, value);
   }
-  target.searchParams.set("iss", ISSUER);
+  // Must match `issuer` in /.well-known/oauth-authorization-server exactly (RFC 9207).
+  target.searchParams.set("iss", mcpOriginFor(req));
   return NextResponse.redirect(target.toString(), 302);
 }
 
@@ -79,10 +78,10 @@ export async function GET(req: NextRequest) {
   if (!client) return errorPage(error);
 
   if (searchParams.get("response_type") && searchParams.get("response_type") !== "code") {
-    return redirectWithParams(params.redirectUri, { error: "unsupported_response_type", state: params.state });
+    return redirectWithParams(req, params.redirectUri, { error: "unsupported_response_type", state: params.state });
   }
   if (!params.codeChallenge || params.codeChallengeMethod !== "S256") {
-    return redirectWithParams(params.redirectUri, {
+    return redirectWithParams(req, params.redirectUri, {
       error: "invalid_request",
       error_description: "PKCE (S256) is required",
       state: params.state,
@@ -100,7 +99,7 @@ export async function GET(req: NextRequest) {
   const cancelUrl = new URL(params.redirectUri);
   cancelUrl.searchParams.set("error", "access_denied");
   if (params.state) cancelUrl.searchParams.set("state", params.state);
-  cancelUrl.searchParams.set("iss", ISSUER);
+  cancelUrl.searchParams.set("iss", mcpOriginFor(req));
 
   const clientName = escapeHtml(client.clientName);
 
@@ -289,9 +288,9 @@ export async function POST(req: NextRequest) {
       },
       { token }
     );
-    return redirectWithParams(params.redirectUri, { code, state: params.state });
+    return redirectWithParams(req, params.redirectUri, { code, state: params.state });
   } catch (err) {
     console.error("Failed to create authorization code", err);
-    return redirectWithParams(params.redirectUri, { error: "server_error", state: params.state });
+    return redirectWithParams(req, params.redirectUri, { error: "server_error", state: params.state });
   }
 }
