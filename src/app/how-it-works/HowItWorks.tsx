@@ -767,7 +767,7 @@ export default function HowItWorks() {
                 If you use Claude, add CriticalDash as a connector and it can do much of the above for you. Every change
                 it makes is labelled.
               </p>
-              <p className="font-mono text-sm text-sky-800 break-all">lean.incrementic.com/api/mcp</p>
+              <p className="font-mono text-sm text-sky-800 break-all">www.criticaldash.com/api/mcp</p>
             </div>
           </div>
         </section>

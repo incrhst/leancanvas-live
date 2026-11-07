@@ -14,6 +14,7 @@ import {
   ITEM_STATES,
   LOOK_BACK_ANSWERS,
 } from "../../../../convex/lib/goalModel";
+import { mcpOriginFor } from "@/lib/mcpOrigin";
 
 const ALL_BLOCK_IDS = [...new Set([...LEAN_BLOCK_IDS, ...GTM_BLOCK_IDS])];
 const EVIDENCE_STATE_PROPERTY = {
@@ -728,17 +729,21 @@ const TOOLS_MANIFEST = [
   },
 ];
 
-const UNAUTHORIZED_HEADERS = {
-  ...CORS_HEADERS,
-  "Content-Type": "application/json",
-  "WWW-Authenticate":
-    'Bearer error="invalid_token", resource_metadata="https://lean.incrementic.com/.well-known/oauth-protected-resource"',
-};
+function authChallenge(req: NextRequest, error: "invalid_token" | "unauthorized") {
+  return `Bearer error="${error}", resource_metadata="${mcpOriginFor(req)}/.well-known/oauth-protected-resource"`;
+}
 
-function unauthorized(id: unknown, message: string) {
+function unauthorized(req: NextRequest, id: unknown, message: string) {
   return new NextResponse(
     JSON.stringify({ jsonrpc: "2.0", id: id ?? null, error: { code: -32001, message } }),
-    { status: 401, headers: UNAUTHORIZED_HEADERS }
+    {
+      status: 401,
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "application/json",
+        "WWW-Authenticate": authChallenge(req, "invalid_token"),
+      },
+    }
   );
 }
 
@@ -1275,14 +1280,14 @@ export async function GET(req: NextRequest) {
         headers: {
           ...CORS_HEADERS,
           "Content-Type": "application/json",
-          "WWW-Authenticate":
-            'Bearer error="unauthorized", resource_metadata="https://lean.incrementic.com/.well-known/oauth-protected-resource"',
+          "WWW-Authenticate": authChallenge(req, "unauthorized"),
         },
       }
     );
   }
 
   // Discovery manifest including OAuth 2.1 authentication info
+  const origin = mcpOriginFor(req);
   return NextResponse.json(
     {
       name: "criticaldash",
@@ -1290,14 +1295,14 @@ export async function GET(req: NextRequest) {
       description: "CriticalDash Model Context Protocol endpoint for Claude Connectors",
       protocol: "mcp/sse",
       endpoints: {
-        http: "https://lean.incrementic.com/api/mcp",
-        sse: "https://lean.incrementic.com/api/mcp/sse",
+        http: `${origin}/api/mcp`,
+        sse: `${origin}/api/mcp/sse`,
       },
       authentication: {
         type: "oauth2",
-        issuer: "https://lean.incrementic.com",
-        authorization_endpoint: "https://lean.incrementic.com/api/oauth/authorize",
-        token_endpoint: "https://lean.incrementic.com/api/oauth/token",
+        issuer: origin,
+        authorization_endpoint: `${origin}/api/oauth/authorize`,
+        token_endpoint: `${origin}/api/oauth/token`,
         scopes: ["canvases:read", "canvases:write"],
       },
       tools: TOOLS_MANIFEST,
@@ -1325,8 +1330,7 @@ export async function POST(req: NextRequest) {
         headers: {
           ...CORS_HEADERS,
           "Content-Type": "application/json",
-          "WWW-Authenticate":
-            'Bearer error="unauthorized", resource_metadata="https://lean.incrementic.com/.well-known/oauth-protected-resource"',
+          "WWW-Authenticate": authChallenge(req, "unauthorized"),
         },
       }
     );
@@ -1337,7 +1341,7 @@ export async function POST(req: NextRequest) {
     const { method, params, id } = body;
 
     if (!accessToken || !(await fetchQuery(api.mcp.verifyToken, { accessToken }))) {
-      return unauthorized(id, "Invalid or expired access token");
+      return unauthorized(req, id, "Invalid or expired access token");
     }
 
     // Handle JSON-RPC / MCP protocol methods
@@ -1412,7 +1416,7 @@ export async function POST(req: NextRequest) {
         resultText = JSON.stringify(result, null, 2);
       } catch (err) {
         if (err instanceof ConvexError && err.data === "INVALID_ACCESS_TOKEN") {
-          return unauthorized(id, "Invalid or expired access token");
+          return unauthorized(req, id, "Invalid or expired access token");
         }
         isError = true;
         resultText =
