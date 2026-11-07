@@ -74,7 +74,7 @@ const evidenceValidator = v.union(
 );
 
 function canvasUrl(canvasId: Id<"canvases">) {
-  return `${process.env.SITE_URL ?? "https://lean.incrementic.com"}/canvas/${canvasId}`;
+  return `${process.env.SITE_URL ?? "https://www.criticaldash.com"}/canvas/${canvasId}`;
 }
 
 type CanvasContext = {

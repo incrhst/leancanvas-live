@@ -22,7 +22,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://lean.incrementic.com"),
+  metadataBase: new URL("https://www.criticaldash.com"),
   title: "CriticalDash — One record of every decision, for businesses between providers and customers, by Incrementic",
   description:
     "Campaigns change direction, policies change, new regulations land. CriticalDash is the record of every decision: what's decided, what's open and who's deciding, so everyone is aligned and you move forward with confidence.",
@@ -37,12 +37,12 @@ export const metadata: Metadata = {
     ],
   },
   alternates: {
-    canonical: "https://lean.incrementic.com",
+    canonical: "https://www.criticaldash.com",
   },
   openGraph: {
     title: "CriticalDash — by Incrementic",
     description: "You built the business. Would it run without you? One record of every decision, so the whole team is aligned on what's decided, what's open and who's deciding.",
-    url: "https://lean.incrementic.com",
+    url: "https://www.criticaldash.com",
     siteName: "CriticalDash",
     locale: "en_US",
     type: "website",
