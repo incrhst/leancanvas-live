@@ -9,10 +9,17 @@ import { Infer, v } from "convex/values";
 
 export const TRIAL_DAYS = 30;
 export const TRIALS_ALLOWED = 1;
-// Placeholder until DIME PAY is wired up; shown on the plan page
+// The price of one live plan for a month, before an account's discount
 export const PLAN_PRICE_USD = 29;
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
+// What one payment buys
+export const PAID_PERIOD_DAYS = 30;
+
+/** The monthly price after an account's discount, in whole dollars. */
+export function planPriceUsd(discountPercent: number) {
+  return Math.round(PLAN_PRICE_USD * (1 - discountPercent / 100));
+}
 
 export const planStatusValidator = v.union(v.literal("trial"), v.literal("active"), v.literal("paused"));
 

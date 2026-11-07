@@ -1,15 +1,17 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
-import { ArrowLeftIcon, CheckIcon, PauseCircleIcon, SparklesIcon, ZapIcon } from "lucide-react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useAction, useQuery } from "convex/react";
+import { AlertCircleIcon, ArrowLeftIcon, CheckCircle2Icon, CheckIcon, PauseCircleIcon, SparklesIcon, ZapIcon } from "lucide-react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useAuth } from "../../../../components/ConvexClientProvider";
 import { formatCalendarDate } from "../../../../utils/testFields";
 import { daysLeft } from "../../../../utils/plan";
+import { convexErrorMessage } from "../../../../utils/convexError";
+import { planPriceUsd } from "../../../../../convex/lib/billing";
 
 const IN_A_LIVE_PLAN = [
   "Tests with a measure, a pass mark and a review date",
@@ -21,6 +23,7 @@ const IN_A_LIVE_PLAN = [
 
 const ALWAYS_FREE = [
   "The canvas, its notes and evidence states",
+  "Goals and runbooks",
   "Stress tests, share links and exports",
   "Inviting anyone, at any role",
   "Answering a decision or a check-in",
@@ -42,6 +45,8 @@ export default function PlanPage() {
   const canvasId = params?.id as Id<"canvases">;
   const { user, isLoading } = useAuth();
   const info = useQuery(api.billing.forCanvas, user ? { canvasId } : "skip");
+  const checkoutAvailable = useQuery(api.payments.checkoutAvailable);
+  const returned = useCheckoutReturn(canvasId);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace(`/login?redirect=/canvas/${canvasId}/plan`);
@@ -59,7 +64,7 @@ export default function PlanPage() {
   }
 
   const { plan, value } = info;
-  const price = Math.round(info.priceUsd * (1 - info.discountPercent / 100));
+  const price = planPriceUsd(info.discountPercent);
   const daysLive = plan ? Math.max(1, Math.floor((Date.now() - plan.liveSince) / (24 * 60 * 60 * 1000))) : 0;
   const freeForGood = plan?.status === "active" && !!plan.grant && !plan.paidUntil;
 
@@ -80,6 +85,7 @@ export default function PlanPage() {
       </header>
 
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+        {returned && <CheckoutResult result={returned} />}
         <section className="space-y-2 rounded-xl border border-line bg-surface p-5">
           {!plan && (
             <>
@@ -171,16 +177,12 @@ export default function PlanPage() {
               You pay per live plan, not per person, so bringing in the decider, drivers and operators costs nothing.
             </p>
             {info.isCreator ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  disabled
-                  className="cursor-not-allowed rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white opacity-60"
-                >
-                  Pay by card
-                </button>
-                <span className="text-sm text-muted">Card payments open soon.</span>
-              </div>
+              <PayButton
+                canvasId={canvasId}
+                price={price}
+                available={checkoutAvailable === true}
+                extends={plan?.status === "active" && !!plan.paidUntil}
+              />
             ) : (
               <p className="text-sm text-muted">The person who created this canvas pays for its plan.</p>
             )}
@@ -213,6 +215,131 @@ function List({ title, items }: { title: string; items: string[] }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+type CheckoutReturn =
+  | { kind: "checking" }
+  | { kind: "paid" }
+  | { kind: "not_paid"; message: string }
+  | { kind: "cancelled" };
+
+/**
+ * When DIME PAY sends the payer back here (?token=…&status=…), asks the backend to check the
+ * order with DIME PAY, then tidies the URL. The status in the URL is only shown, never trusted.
+ */
+function useCheckoutReturn(canvasId: Id<"canvases">) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const confirm = useAction(api.payments.confirmCheckout);
+  const [result, setResult] = useState<CheckoutReturn | null>(null);
+  const started = useRef(false);
+  const token = searchParams.get("token");
+  const status = searchParams.get("status");
+
+  useEffect(() => {
+    if (!token || started.current) return;
+    started.current = true;
+    setResult({ kind: "checking" });
+    confirm({ token })
+      .then((r) =>
+        setResult(
+          r.status === "paid"
+            ? { kind: "paid" }
+            : status && /cancel/i.test(status)
+              ? { kind: "cancelled" }
+              : { kind: "not_paid", message: r.why }
+        )
+      )
+      .catch((err) => setResult({ kind: "not_paid", message: convexErrorMessage(err) }))
+      .finally(() => router.replace(`/canvas/${canvasId}/plan`));
+  }, [token, status, confirm, router, canvasId]);
+
+  return result;
+}
+
+function CheckoutResult({ result }: { result: CheckoutReturn }) {
+  if (result.kind === "checking") {
+    return (
+      <p className="rounded-lg border border-line bg-surface p-3 text-sm text-muted" role="status">
+        Checking your payment…
+      </p>
+    );
+  }
+  if (result.kind === "paid") {
+    return (
+      <p
+        className="flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900"
+        role="status"
+      >
+        <CheckCircle2Icon size={16} aria-hidden="true" />
+        Payment received. The plan is running.
+      </p>
+    );
+  }
+  return (
+    <p
+      className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+      role="alert"
+    >
+      <AlertCircleIcon size={16} aria-hidden="true" />
+      {result.kind === "cancelled" ? "The payment was cancelled. Nothing was charged." : result.message}
+    </p>
+  );
+}
+
+/** Sends the canvas's creator to DIME PAY's checkout for a month of the plan. */
+function PayButton({
+  canvasId,
+  price,
+  available,
+  extends: extendsPlan,
+}: {
+  canvasId: Id<"canvases">;
+  price: number;
+  available: boolean;
+  extends: boolean;
+}) {
+  const startCheckout = useAction(api.payments.startCheckout);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const pay = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      window.location.assign(await startCheckout({ canvasId }));
+    } catch (err) {
+      setError(convexErrorMessage(err));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={pay}
+          disabled={!available || busy}
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {busy ? "Opening checkout…" : `Pay $${price} by card`}
+        </button>
+        <span className="text-sm text-muted">
+          {available
+            ? extendsPlan
+              ? "Adds a month after the current one ends."
+              : "One month. Paid securely through DIME PAY."
+            : "Card payments open soon."}
+        </span>
+      </div>
+      {error && (
+        <p className="text-sm text-rose-700" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

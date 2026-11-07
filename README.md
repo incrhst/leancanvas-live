@@ -106,11 +106,13 @@ When configured, Claude has access to:
 
 Drawing a canvas is free. Running it as a **live plan** is paid, per plan, not per person (`convex/lib/billing.ts`, `convex/lib/plans.ts`).
 
-- **Free, always:** the canvas, notes, evidence states, stress tests, share links, exports, inviting anyone, and answering a decision or a check-in.
+- **Free, always:** the canvas, notes, evidence states, goals and runbooks, stress tests, share links, exports, inviting anyone, and answering a decision or a check-in.
 - **A live plan runs:** tests (measure, pass mark, review date, results), weekly check-ins, decision requests, snapshots, result links and the review page.
 - **Going live:** a canvas becomes a live plan the first time someone sets a launch date, sets a test, asks for a decision or takes a snapshot. That uses one of the creator's founding free plans if they have one, else their free trial (30 days, one per account), else it's refused with a `PLAN_REQUIRED` error that links to `/canvas/[id]/plan`.
 - **When a trial or paid period ends,** a scheduled check pauses the plan. The canvas stays editable and its history readable; tests stop, check-ins stop, the review locks, and open decisions can still be answered.
-- **Payments** aren't wired up yet. `internal.billing.activatePaidPlan` is where the DIME PAY webhook will mark a plan paid.
+- **Payments** go through DIME PAY's hosted checkout (`convex/payments.ts`, `convex/lib/dimepay.ts`): $29 a month per plan, less the account's discount; each payment adds 30 days. The creator is sent to DIME PAY and back to the plan page; the plan is marked paid only after LeanOn fetches the order from DIME PAY and checks its id, amount, currency and status. The webhook (`<CONVEX_SITE_URL>/dimepay/webhook`, set in the DIME PAY dashboard) only says which order to check.
+  - Convex env: `DIMEPAY_CLIENT_KEY`, `DIMEPAY_SECRET_KEY`, `DIMEPAY_ENV` (`sandbox` by default, or `production`), and optionally `DIMEPAY_PAID_STATUSES` (order statuses that mean paid; default `COMPLETE,COMPLETED,PAID,SUCCESS,SUCCEEDED`). Without the keys, the Pay button says card payments open soon.
+  - The order fields follow DIME PAY's docs and the community Laravel SDK. Confirm them on the first sandbox payment: if a paid order isn't recognised, the Convex logs show its status.
 - **Before the paywall ships,** run `npx convex run billing:grandfatherLivePlans` (repeat with the returned `cursor` until `isDone`) so canvases already used as plans keep running free.
 
 ### Admin MCP tools
